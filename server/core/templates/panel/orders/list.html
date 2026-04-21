@@ -1,0 +1,62 @@
+{% extends "panel/base.html" %}
+{% load humanize %}
+{% block title %}Orders{% endblock %}
+{% block content %}
+<div class="panel-topbar">
+  <h1>Orders</h1>
+</div>
+<div class="panel-card">
+  <div class="panel-table-wrap">
+    <table class="panel-table">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Customer</th>
+          <th>Total (NPR)</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Quick status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td><strong>{{ o.order_number }}</strong></td>
+          <td>{{ o.user.name }}</td>
+          <td>{{ o.total_amount|floatformat:2|intcomma }}</td>
+          <td><span class="badge">{{ o.get_status_display }}</span></td>
+          <td>{{ o.created_at|date:"Y-m-d H:i" }}</td>
+          <td>
+            <form method="post" action="{% url 'panel_order_status' o.pk %}" class="inline-form">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.path }}">
+              <select name="status" aria-label="Status for order {{ o.order_number }}">
+                {% for val, label in status_choices %}
+                  <option value="{{ val }}" {% if o.status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-secondary" style="padding:0.35rem 0.6rem;font-size:0.8rem;">Update</button>
+            </form>
+          </td>
+          <td><a class="btn btn-ghost" href="{% url 'panel_order_detail' o.pk %}">Details</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">No orders yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}
+      <a class="btn btn-ghost" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+    {% endif %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+      <a class="btn btn-ghost" href="?page={{ page_obj.next_page_number }}">Next</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

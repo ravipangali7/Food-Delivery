@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CSRF and your SPA</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #18181b; }
+    code { background: #f4f4f5; padding: .15rem .35rem; border-radius: 4px; }
+    h1 { font-size: 1.35rem; }
+  </style>
+</head>
+<body>
+  <h1>Why “CSRF cookie not set” or 403 on <code>POST /api/…</code></h1>
+  <p>Django’s CSRF protection expects a CSRF cookie (and matching token on unsafe requests) when the browser uses <strong>session authentication</strong> across origins. A JavaScript app on <code>http://localhost:8080</code> calling <code>http://127.0.0.1:8000</code> does not automatically get that cookie, so POST requests can fail with <strong>CSRF verification failed</strong> / <strong>CSRF cookie not set</strong>.</p>
+  <p><strong>What we changed:</strong> the REST API defaults to <strong>token authentication only</strong> (no session auth on API views). Use <code>Authorization: Token &lt;key&gt;</code> after login, or call the API from the same site as Django so the browser can store the CSRF cookie.</p>
+  <p><strong>This OTP page</strong> is served by Django on the same origin as the form POST and includes Django’s CSRF token in the form, so the browser sends a valid token — no extra setup.</p>
+  <p><a href="{% url 'otp_verification' %}">← Back to OTP verification</a></p>
+</body>
+</html>

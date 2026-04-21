@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Admin{% endblock %} · Store</title>
+  <link rel="stylesheet" href="{% static 'panel/panel.css' %}">
+</head>
+<body class="panel-body">
+  <div class="panel-shell">
+    <aside class="panel-sidebar">
+      <div class="panel-brand">Store admin</div>
+      <nav class="panel-nav" aria-label="Main">
+        <a href="{% url 'panel_product_list' %}" class="{% if active_nav == 'products' %}active{% endif %}">Products</a>
+        <a href="{% url 'panel_category_list' %}" class="{% if active_nav == 'categories' %}active{% endif %}">Categories</a>
+        <a href="{% url 'panel_order_list' %}" class="{% if active_nav == 'orders' %}active{% endif %}">Orders</a>
+        <a href="{% url 'panel_delivery_boy_list' %}" class="{% if active_nav == 'delivery_boys' %}active{% endif %}">Delivery boys</a>
+        <a href="{% url 'panel_notification_list' %}" class="{% if active_nav == 'notifications' %}active{% endif %}">Notifications</a>
+        <a href="{% url 'panel_store_settings' %}" class="{% if active_nav == 'store_settings' %}active{% endif %}">Store settings</a>
+      </nav>
+      <div class="panel-sidebar-footer">
+        {% if request.user.is_authenticated %}
+          <div>{{ request.user.name }}</div>
+          <a href="{% url 'panel_logout' %}">Sign out</a>
+        {% endif %}
+      </div>
+    </aside>
+    <main class="panel-main">
+      {% include "panel/_messages.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

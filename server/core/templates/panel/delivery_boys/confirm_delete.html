@@ -1,0 +1,17 @@
+{% extends "panel/base.html" %}
+{% block title %}Remove delivery partner{% endblock %}
+{% block content %}
+<div class="panel-topbar">
+  <h1>Remove delivery partner</h1>
+</div>
+<div class="panel-card panel-form">
+  <p>Deactivate <strong>{{ delivery_boy.name }}</strong>? They will be soft-deleted and cannot sign in until restored via database.</p>
+  <form method="post">
+    {% csrf_token %}
+    <div class="panel-actions">
+      <button type="submit" class="btn btn-danger">Delete</button>
+      <a class="btn btn-secondary" href="{% url 'panel_delivery_boy_list' %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

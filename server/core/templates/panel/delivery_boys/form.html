@@ -1,0 +1,26 @@
+{% extends "panel/base.html" %}
+{% block title %}{{ form_title }}{% endblock %}
+{% block content %}
+<div class="panel-topbar">
+  <h1>{{ form_title }}</h1>
+  <a class="btn btn-ghost" href="{% url 'panel_delivery_boy_list' %}">Back</a>
+</div>
+<div class="panel-card panel-form">
+  <p style="color:#8b9cb3;font-size:0.9rem;margin-top:0;">Delivery partners use the <code>is_delivery_boy</code> role. Keep “Staff” unchecked unless this account should access admin tools.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      <p>
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<span class="helptext" style="color:#8b9cb3;">{{ field.help_text }}</span>{% endif %}
+        {{ field.errors }}
+      </p>
+    {% endfor %}
+    <div class="panel-actions" style="margin-top:1rem;">
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+"""OTP send/verify API (phone login and registration)."""
+
+from __future__ import annotations
+
+from django.conf import settings
+from django.db import IntegrityError
+from rest_framework import status
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
+from ... import otp_service
+from ...models import User
+from ...sms_service import send_otp_sms
+from ...serializers import OtpSendSerializer, OtpVerifySerializer, UserSerializer
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def send_otp(request):
+    ser = OtpSendSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    phone = ser.validated_data["phone"]
+    purpose = ser.validated_data["purpose"]
+
+    user_for_row: User | None = None
+    if purpose == "login":
+        user_for_row = User.objects.filter(phone=phone, deleted_at__isnull=True).first()
+        if user_for_row is not None and not user_for_row.is_active:
+            return Response(
+                {"detail": "This account is disabled."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    elif User.objects.filter(phone=phone, deleted_at__isnull=True).exists():
+        return Response(
+            {"detail": "An account with this phone already exists."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    result = otp_service.create_and_store_otp(
+        phone_raw=phone,
+        purpose=purpose,
+        user=user_for_row,
+    )
+    send_otp_sms(phone, result.otp_code, purpose)
+
+    body: dict = {"detail": "Verification code sent."}
+    if purpose == "login" and user_for_row is not None:
+        saved = (user_for_row.name or "").strip()
+        if saved:
+            body["existing_user_name"] = saved
+    if settings.DEBUG:
+        body["otp_code"] = result.otp_code
+        body["expires_in_seconds"] = otp_service.OTP_VALID_MINUTES * 60
+    return Response(body, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    ser = OtpVerifySerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    phone = ser.validated_data["phone"]
+    purpose = ser.validated_data["purpose"]
+    code = ser.validated_data["otp"]
+
+    try:
+        otp_obj = otp_service.verify_otp_code(phone_raw=phone, purpose=purpose, code=code)
+        user = otp_service.complete_auth_after_otp_verified(
+            otp_obj=otp_obj,
+            purpose=purpose,
+            register_name=ser.validated_data.get("name"),
+        )
+    except otp_service.VerifyOtpError as e:
+        msg = str(e)
+        return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+    except IntegrityError:
+        return Response(
+            {"detail": "Could not create account. Try again."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({"token": token.key, "user": UserSerializer(user).data})

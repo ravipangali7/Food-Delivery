@@ -1,0 +1,52 @@
+{% extends "panel/base.html" %}
+{% block title %}Delivery partners{% endblock %}
+{% block content %}
+<div class="panel-topbar">
+  <h1>Delivery partners</h1>
+  <div class="panel-actions">
+    <a class="btn btn-primary" href="{% url 'panel_delivery_boy_create' %}">Add delivery partner</a>
+  </div>
+</div>
+<div class="panel-card">
+  <div class="panel-table-wrap">
+    <table class="panel-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th style="width:180px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in delivery_boys %}
+        <tr>
+          <td>{{ u.name }}</td>
+          <td>{{ u.phone }}</td>
+          <td>{% if u.is_delivery_boy %}Delivery{% else %}—{% endif %}{% if u.is_staff %} · Staff{% endif %}</td>
+          <td>{% if u.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge">Inactive</span>{% endif %}</td>
+          <td>
+            <a class="btn btn-secondary" href="{% url 'panel_delivery_boy_edit' u.pk %}">Edit</a>
+            <a class="btn btn-danger" href="{% url 'panel_delivery_boy_delete' u.pk %}">Delete</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">No delivery partners yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}
+      <a class="btn btn-ghost" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+    {% endif %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+      <a class="btn btn-ghost" href="?page={{ page_obj.next_page_number }}">Next</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

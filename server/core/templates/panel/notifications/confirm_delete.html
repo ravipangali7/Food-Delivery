@@ -1,0 +1,17 @@
+{% extends "panel/base.html" %}
+{% block title %}Delete notification{% endblock %}
+{% block content %}
+<div class="panel-topbar">
+  <h1>Delete notification</h1>
+</div>
+<div class="panel-card panel-form">
+  <p>Delete <strong>{{ notification.title }}</strong>? This cannot be undone.</p>
+  <form method="post">
+    {% csrf_token %}
+    <div class="panel-actions">
+      <button type="submit" class="btn btn-danger">Delete</button>
+      <a class="btn btn-secondary" href="{% url 'panel_notification_list' %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

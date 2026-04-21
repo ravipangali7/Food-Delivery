@@ -1,0 +1,11 @@
+/*/env
+/*/node_modules
+/*/build
+/*/logs
+/*/temp
+/*/cache
+/*/backup
+/*/archive
+/*/backup
+/*/__pycache__
+/*/**/__pycache__

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phone verification</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; background: #f4f4f5; color: #18181b; }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.08); max-width: 420px; width: 100%; padding: 1.75rem; }
+    h1 { font-size: 1.25rem; margin: 0 0 1rem; }
+    label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: .35rem; }
+    input, select, button { width: 100%; box-sizing: border-box; padding: .6rem .75rem; border-radius: 8px; border: 1px solid #d4d4d8; font-size: 1rem; }
+    button { background: #18181b; color: #fff; border: none; cursor: pointer; margin-top: 1rem; font-weight: 600; }
+    button.secondary { background: #e4e4e7; color: #18181b; margin-top: .5rem; }
+    button.link { background: none; color: #2563eb; border: none; width: auto; padding: 0; margin: .75rem 0 0; font-size: .875rem; text-decoration: underline; cursor: pointer; }
+    .help { font-size: .8rem; color: #71717a; margin: .25rem 0 .75rem; }
+    .messages { list-style: none; padding: 0; margin: 0 0 1rem; }
+    .messages li { padding: .5rem .75rem; border-radius: 8px; margin-bottom: .5rem; font-size: .9rem; }
+    .messages .success { background: #ecfdf5; color: #065f46; }
+    .messages .error { background: #fef2f2; color: #991b1b; }
+    .messages .info { background: #eff6ff; color: #1e40af; }
+    .note { font-size: .8rem; color: #71717a; margin-top: 1rem; line-height: 1.4; }
+    a { color: #2563eb; }
+    .row-name { display: none; }
+    .row-name.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Phone verification</h1>
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if step == "send" %}
+      <p class="help">We’ll send a one-time code by SMS (see server logs in development).</p>
+      <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="send">
+        {% if send_form.non_field_errors %}
+          <p class="messages"><span class="error">{{ send_form.non_field_errors }}</span></p>
+        {% endif %}
+        <label for="id_purpose">I want to</label>
+        {{ send_form.purpose }}
+        <label for="id_phone">Phone number</label>
+        {{ send_form.phone }}
+        {% if send_form.phone.errors %}<p class="help" style="color:#b91c1c">{{ send_form.phone.errors.0 }}</p>{% endif %}
+        <div class="row-name" id="row-name">
+          <label for="id_name">{{ send_form.name.label }}</label>
+          {{ send_form.name }}
+          {% if send_form.name.errors %}<p class="help" style="color:#b91c1c">{{ send_form.name.errors.0 }}</p>{% endif %}
+          <p class="help">{{ send_form.name.help_text }}</p>
+        </div>
+        <button type="submit">Send code</button>
+      </form>
+      <p class="note"><a href="{% url 'otp_csrf_help' %}">Why did my SPA get a CSRF error?</a></p>
+    {% else %}
+      <p class="help">Code sent to <strong>{{ masked_phone }}</strong>
+        ({% if purpose == "register" %}new account{% else %}sign in{% endif %}).</p>
+      <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="verify">
+        <label for="id_otp">Verification code</label>
+        {{ verify_form.otp }}
+        {% if verify_form.otp.errors %}<p class="help" style="color:#b91c1c">{{ verify_form.otp.errors.0 }}</p>{% endif %}
+        <p class="help">{{ verify_form.otp.help_text }}</p>
+        <button type="submit">Verify and continue</button>
+      </form>
+      <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="resend">
+        <button type="submit" class="secondary">Resend code</button>
+      </form>
+      <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="restart">
+        <button type="submit" class="link">Start over</button>
+      </form>
+    {% endif %}
+  </div>
+  <script>
+    (function () {
+      var purpose = document.getElementById('id_purpose');
+      var row = document.getElementById('row-name');
+      if (!purpose || !row) return;
+      function sync() {
+        row.classList.toggle('show', purpose.value === 'register');
+      }
+      purpose.addEventListener('change', sync);
+      sync();
+    })();
+  </script>
+</body>
+</html>

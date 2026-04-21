@@ -1,0 +1,17 @@
+{% extends "panel/base.html" %}
+{% block title %}Delete category{% endblock %}
+{% block content %}
+<div class="panel-topbar">
+  <h1>Delete category</h1>
+</div>
+<div class="panel-card panel-form">
+  <p>Permanently delete <strong>{{ category.name }}</strong>? This fails if products still reference it.</p>
+  <form method="post">
+    {% csrf_token %}
+    <div class="panel-actions">
+      <button type="submit" class="btn btn-danger">Delete</button>
+      <a class="btn btn-secondary" href="{% url 'panel_category_list' %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

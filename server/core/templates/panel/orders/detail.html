@@ -1,0 +1,63 @@
+{% extends "panel/base.html" %}
+{% load humanize %}
+{% block title %}Order {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="panel-topbar">
+  <h1>Order {{ order.order_number }}</h1>
+  <a class="btn btn-ghost" href="{% url 'panel_order_list' %}">All orders</a>
+</div>
+
+<div class="panel-card" style="margin-bottom:1rem;">
+  <h2 style="margin:0;padding:1rem 1.5rem;font-size:1rem;border-bottom:1px solid var(--border);">Update status</h2>
+  <form method="post" action="{% url 'panel_order_status' order.pk %}" class="panel-form" style="max-width:480px;">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.path }}">
+    <p>
+      <label for="id_status">Status</label>
+      {{ status_form.status }}
+      {{ status_form.status.errors }}
+    </p>
+    <button type="submit" class="btn btn-primary">Save status</button>
+  </form>
+</div>
+
+<div class="panel-card" style="margin-bottom:1rem;">
+  <h2 style="margin:0;padding:1rem 1.5rem;font-size:1rem;border-bottom:1px solid var(--border);">Summary</h2>
+  <dl class="dl-grid">
+    <dt>Customer</dt><dd>{{ order.user.name }} ({{ order.user.phone }})</dd>
+    <dt>Address</dt><dd>{{ order.address|linebreaksbr }}</dd>
+    <dt>Subtotal</dt><dd>{{ order.subtotal|floatformat:2|intcomma }} NPR</dd>
+    <dt>Delivery fee</dt><dd>{{ order.delivery_fee|floatformat:2|intcomma }} NPR</dd>
+    <dt>Total</dt><dd><strong>{{ order.total_amount|floatformat:2|intcomma }} NPR</strong></dd>
+    <dt>Payment</dt><dd>{{ order.get_payment_method_display }} — <strong>{{ order.get_payment_status_display }}</strong></dd>
+    <dt>Delivery partner</dt><dd>{% if order.delivery_boy %}{{ order.delivery_boy.name }}{% else %}—{% endif %}</dd>
+    <dt>Placed</dt><dd>{{ order.created_at|date:"Y-m-d H:i" }}</dd>
+  </dl>
+</div>
+
+<div class="panel-card">
+  <h2 style="margin:0;padding:1rem 1.5rem;font-size:1rem;border-bottom:1px solid var(--border);">Line items</h2>
+  <div class="panel-table-wrap">
+    <table class="panel-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Qty</th>
+          <th>Unit</th>
+          <th>Line total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in order.items.all %}
+        <tr>
+          <td>{{ line.product.name }}</td>
+          <td>{{ line.quantity }}</td>
+          <td>{{ line.unit_price|floatformat:2|intcomma }}</td>
+          <td>{{ line.total_price|floatformat:2|intcomma }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

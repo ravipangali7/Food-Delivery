@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Signed in</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; background: #f4f4f5; color: #18181b; }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.08); max-width: 480px; width: 100%; padding: 1.75rem; }
+    h1 { font-size: 1.25rem; margin: 0 0 .5rem; }
+    code { word-break: break-all; font-size: .85rem; background: #f4f4f5; padding: .2rem .4rem; border-radius: 4px; }
+    .muted { color: #71717a; font-size: .9rem; margin-top: 1rem; }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>You’re signed in</h1>
+    <p>Hello, <strong>{{ user.name }}</strong> ({{ user.phone }}).</p>
+    <p class="muted">This browser session is authenticated. You can open the <a href="/">admin</a> if your account has access.</p>
+    {% if debug %}
+      <p class="muted">Development only — API token for mobile / SPA (send as <code>Authorization: Token …</code>):</p>
+      <p><code>{{ api_token }}</code></p>
+    {% else %}
+      <p class="muted">Use the REST API with a token obtained from your client app after login.</p>
+    {% endif %}
+    <p class="muted"><a href="{% url 'otp_verification' %}">Back to OTP page</a></p>
+  </div>
+</body>
+</html>
