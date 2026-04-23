@@ -1,6 +1,9 @@
-/// Subset of Django `SuperSetting` JSON used for forced app updates.
+/// Django `SuperSetting` JSON: branding + forced app update fields.
 class StoreSettingsDto {
   const StoreSettingsDto({
+    this.name,
+    this.logo,
+    this.phone,
     this.androidFile,
     this.googlePlaystoreLink,
     this.iosFile,
@@ -9,6 +12,9 @@ class StoreSettingsDto {
     this.iosVersion,
   });
 
+  final String? name;
+  final String? logo;
+  final String? phone;
   final String? androidFile;
   final String? googlePlaystoreLink;
   final String? iosFile;
@@ -18,6 +24,9 @@ class StoreSettingsDto {
 
   factory StoreSettingsDto.fromJson(Map<String, dynamic> json) {
     return StoreSettingsDto(
+      name: json['name'] as String?,
+      logo: json['logo'] as String?,
+      phone: json['phone'] as String?,
       androidFile: json['android_file'] as String?,
       googlePlaystoreLink: json['google_playstore_link'] as String?,
       iosFile: json['ios_file'] as String?,

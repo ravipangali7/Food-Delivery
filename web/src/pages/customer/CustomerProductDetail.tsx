@@ -2,9 +2,11 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCurrency, getEffectivePrice, num, unitLabel } from '@/lib/formatting';
 import { ArrowLeft, Share2, Heart, Minus, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import StoreClosedBanner from '@/components/customer/StoreClosedBanner';
 import { getJson, postJson } from '@/lib/api';
+import { isProductFavorited, toggleFavoriteProductId } from '@/lib/favoriteProducts';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
 import type { Cart, Product } from '@/types';
@@ -17,6 +19,7 @@ export default function CustomerProductDetail() {
   const menusOpen = useStoreMenusOpen();
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState('');
+  const [favorited, setFavorited] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', id],
@@ -31,15 +34,25 @@ export default function CustomerProductDetail() {
   });
 
   const mutateCart = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (mode: 'regular' | 'preorder') => {
       if (!token || !product) throw new Error('Login required');
+      if (mode === 'regular' && product.stock_quantity < 1) {
+        throw new Error('This item is out of stock for immediate cart orders.');
+      }
       const line = cart?.items?.find(i => i.product_id === product.id);
       const quantity = (line?.quantity ?? 0) + qty;
-      await postJson<Cart, { product_id: number; quantity: number; notes?: string }>(
-        '/api/cart/items/',
-        { product_id: product.id, quantity, notes: notes || undefined },
-        token,
-      );
+      const body: {
+        product_id: number;
+        quantity: number;
+        notes?: string;
+        is_preorder?: boolean;
+      } = {
+        product_id: product.id,
+        quantity,
+        notes: notes || undefined,
+      };
+      if (mode === 'preorder') body.is_preorder = true;
+      await postJson<Cart, typeof body>('/api/cart/items/', body, token);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cart'] });
@@ -48,6 +61,52 @@ export default function CustomerProductDetail() {
       navigate('/customer/cart');
     },
   });
+
+  useEffect(() => {
+    if (!id) return;
+    const pid = Number(id);
+    if (!Number.isFinite(pid)) return;
+    setFavorited(isProductFavorited(pid));
+  }, [id]);
+
+  const handleShare = async () => {
+    if (!product) return;
+    const url = window.location.href;
+    const title = product.name;
+    const text = `Check out ${product.name}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title, text, url });
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied to clipboard');
+        return;
+      }
+      toast.error('Sharing is not supported here');
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+          toast.success('Link copied to clipboard');
+        } else {
+          toast.error('Could not share or copy link');
+        }
+      } catch {
+        toast.error('Could not share or copy link');
+      }
+    }
+  };
+
+  const handleToggleFavorite = () => {
+    if (!product) return;
+    const next = toggleFavoriteProductId(product.id);
+    const on = next.includes(product.id);
+    setFavorited(on);
+    toast.success(on ? 'Saved to favorites' : 'Removed from favorites');
+  };
 
   if (isLoading || !product) {
     return (
@@ -86,11 +145,24 @@ export default function CustomerProductDetail() {
           <ArrowLeft size={20} />
         </Link>
         <div className="flex gap-2">
-          <button type="button" className="p-2 hover:bg-muted rounded-lg">
+          <button
+            type="button"
+            aria-label="Share product"
+            onClick={() => void handleShare()}
+            className="p-2 hover:bg-muted rounded-lg"
+          >
             <Share2 size={18} />
           </button>
-          <button type="button" className="p-2 hover:bg-muted rounded-lg">
-            <Heart size={18} />
+          <button
+            type="button"
+            aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={handleToggleFavorite}
+            className="p-2 hover:bg-muted rounded-lg"
+          >
+            <Heart
+              size={18}
+              className={favorited ? 'fill-red-500 text-red-500 stroke-red-500' : undefined}
+            />
           </button>
         </div>
       </div>
@@ -155,33 +227,81 @@ export default function CustomerProductDetail() {
           />
         </div>
       </div>
-      <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-card border-t border-border p-4 flex items-center gap-4">
-        <span className="font-bold text-lg text-amber-600">{formatCurrency(effective * qty)}</span>
-        <div className="flex items-center gap-2 border border-border rounded-full px-1">
-          <button
-            type="button"
-            onClick={() => setQty(Math.max(1, qty - 1))}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted"
-          >
-            <Minus size={16} />
-          </button>
-          <span className="w-6 text-center font-semibold">{qty}</span>
-          <button
-            type="button"
-            onClick={() => setQty(qty + 1)}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-        <button
-          type="button"
-          disabled={product.stock_quantity === 0 || !token || mutateCart.isPending}
-          onClick={() => mutateCart.mutate()}
-          className="flex-1 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {!token ? 'Sign in to add' : 'Add to Cart'}
-        </button>
+      <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-card border-t border-border p-4">
+        {product.is_sweet ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-4 justify-between w-full">
+              <span className="font-bold text-lg text-amber-600">{formatCurrency(effective * qty)}</span>
+              <div className="flex items-center gap-2 border border-border rounded-full px-1">
+                <button
+                  type="button"
+                  onClick={() => setQty(Math.max(1, qty - 1))}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted"
+                >
+                  <Minus size={16} />
+                </button>
+                <span className="w-6 text-center font-semibold">{qty}</span>
+                <button
+                  type="button"
+                  onClick={() => setQty(qty + 1)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground -mt-1">
+              Pre-order skips live stock; choose pickup or delivery time at checkout.
+            </p>
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                disabled={product.stock_quantity === 0 || !token || mutateCart.isPending}
+                onClick={() => mutateCart.mutate('regular')}
+                className="flex-1 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {!token ? 'Sign in' : 'Add to cart'}
+              </button>
+              <button
+                type="button"
+                disabled={!token || mutateCart.isPending}
+                onClick={() => mutateCart.mutate('preorder')}
+                className="flex-1 py-3 border border-violet-400 text-violet-900 font-semibold rounded-full text-sm bg-violet-50 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Pre-order
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-4">
+            <span className="font-bold text-lg text-amber-600">{formatCurrency(effective * qty)}</span>
+            <div className="flex items-center gap-2 border border-border rounded-full px-1">
+              <button
+                type="button"
+                onClick={() => setQty(Math.max(1, qty - 1))}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted"
+              >
+                <Minus size={16} />
+              </button>
+              <span className="w-6 text-center font-semibold">{qty}</span>
+              <button
+                type="button"
+                onClick={() => setQty(qty + 1)}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={product.stock_quantity === 0 || !token || mutateCart.isPending}
+              onClick={() => mutateCart.mutate('regular')}
+              className="flex-1 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {!token ? 'Sign in to add' : 'Add to Cart'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

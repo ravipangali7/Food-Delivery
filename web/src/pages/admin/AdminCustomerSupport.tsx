@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, Headphones, User } from 'lucide-react';
@@ -10,8 +10,6 @@ import { OrderStatusBadge } from '@/components/shared/StatusBadge';
 import type { SupportInboxRow } from '@/types';
 
 const SELECTED_ORDER_KEY = 'fd_support_selected_order';
-
-type FocusSection = 'customer' | 'rider' | null;
 
 function ChatAvatar({
   name,
@@ -62,9 +60,6 @@ function ChatAvatar({
 export default function AdminCustomerSupport() {
   const { token, user } = useAuth();
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [focusSection, setFocusSection] = useState<FocusSection>(null);
-  const customerPaneRef = useRef<HTMLDivElement>(null);
-  const riderPaneRef = useRef<HTMLDivElement>(null);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['admin-support-inbox', token],
@@ -100,12 +95,6 @@ export default function AdminCustomerSupport() {
 
   const selected = useMemo(() => rows.find(r => r.id === selectedId) ?? null, [rows, selectedId]);
 
-  useEffect(() => {
-    if (!selected || !focusSection) return;
-    const ref = focusSection === 'customer' ? customerPaneRef : riderPaneRef;
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [selected?.id, focusSection]);
-
   if (!token) {
     return <div className="p-8 text-muted-foreground">Staff sign-in required.</div>;
   }
@@ -118,9 +107,9 @@ export default function AdminCustomerSupport() {
           Customer support
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Customer support and coordination live in one column; rider ↔ store chat stays in its own column. Open
-          either side in a new browser tab when you need a dedicated window. Toast alerts still fire while you work
-          elsewhere in the admin.
+          Each order shows a single live thread: private customer ↔ delivery partner chat when a partner is assigned,
+          otherwise store support with the customer. Open the thread in a new tab if you need a dedicated window. Toast
+          alerts still fire while you work elsewhere in the admin.
         </p>
       </div>
 
@@ -140,8 +129,6 @@ export default function AdminCustomerSupport() {
             ) : (
               rows.map(row => {
                 const active = row.id === selectedId;
-                const customerFocused = active && focusSection === 'customer';
-                const riderFocused = active && focusSection === 'rider';
                 return (
                   <div
                     key={row.id}
@@ -154,60 +141,17 @@ export default function AdminCustomerSupport() {
                   >
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedId(row.id);
-                        setFocusSection(null);
-                      }}
+                      onClick={() => setSelectedId(row.id)}
                       className="w-full text-left px-3 py-2 hover:bg-muted/30 transition-colors"
                     >
                       <div className="font-semibold text-sm text-foreground">{row.order_number}</div>
-                    </button>
-                    <div className="grid grid-cols-2 gap-1.5 px-2 pb-2">
-                      <div
-                        className={cn(
-                          'rounded-lg border border-transparent px-2 py-2 transition-all',
-                          customerFocused && 'ring-2 ring-amber-500 border-amber-500/40 bg-background/80',
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedId(row.id);
-                            setFocusSection('customer');
-                          }}
-                          className="w-full text-left hover:bg-muted/50 rounded-md transition-colors"
-                        >
-                          <ChatAvatar
-                            name={row.customer_name}
-                            photoUrl={row.customer_profile_photo}
-                            label="Customer"
-                            size="sm"
-                          />
-                        </button>
-                        {row.customer_user_id != null ? (
-                          <Link
-                            to={`/admin/customer-support/chat/${row.id}/customer-rider`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-1 block text-[10px] font-mono text-amber-700 hover:underline"
-                            title="Open private customer ↔ rider chat in a new tab"
-                          >
-                            Customer user #{row.customer_user_id}
-                          </Link>
-                        ) : null}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={row.delivery_boy_id == null}
-                        onClick={() => {
-                          setSelectedId(row.id);
-                          setFocusSection('rider');
-                        }}
-                        className={cn(
-                          'text-left rounded-lg border border-transparent px-2 py-2 transition-all hover:bg-muted/50 disabled:opacity-45 disabled:pointer-events-none',
-                          riderFocused && 'ring-2 ring-amber-500 border-amber-500/40 bg-background/80',
-                        )}
-                      >
+                      <div className="mt-2 space-y-2">
+                        <ChatAvatar
+                          name={row.customer_name}
+                          photoUrl={row.customer_profile_photo}
+                          label="Customer"
+                          size="sm"
+                        />
                         {row.delivery_boy_id != null && row.delivery_boy_name ? (
                           <ChatAvatar
                             name={row.delivery_boy_name}
@@ -228,8 +172,8 @@ export default function AdminCustomerSupport() {
                             </div>
                           </div>
                         )}
-                      </button>
-                    </div>
+                      </div>
+                    </button>
                     {row.last_message_at ? (
                       <div className="text-[10px] text-muted-foreground px-3 pb-2 pt-0 border-t border-border/60">
                         Last activity {new Date(row.last_message_at).toLocaleString()}
@@ -287,48 +231,56 @@ export default function AdminCustomerSupport() {
                     )}
                   </p>
                   {selected.customer_user_id != null ? (
+                    <p className="text-xs font-mono text-muted-foreground mt-1">Customer user #{selected.customer_user_id}</p>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    to={`/admin/orders/${selected.id}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:underline"
+                  >
+                    Order details <ExternalLink size={14} />
+                  </Link>
+                  {user && selected.delivery_boy_id != null ? (
                     <Link
                       to={`/admin/customer-support/chat/${selected.id}/customer-rider`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-mono text-amber-700 hover:underline mt-1 inline-block"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:underline"
                     >
-                      Customer user #{selected.customer_user_id} — private rider chat
+                      Open chat in new tab <ExternalLink size={12} />
                     </Link>
                   ) : null}
                 </div>
-                <Link
-                  to={`/admin/orders/${selected.id}`}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:underline"
-                >
-                  Order details <ExternalLink size={14} />
-                </Link>
               </div>
 
               {user ? (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
-                  <div
-                    ref={customerPaneRef}
-                    className={cn(
-                      'space-y-3 rounded-xl p-1 -m-1 transition-shadow',
-                      focusSection === 'customer' && 'ring-2 ring-amber-500/80 ring-offset-2 ring-offset-card',
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-foreground">Customer conversations</h3>
-                      <Link
-                        to={`/admin/customer-support/chat/${selected.id}/customer`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:underline"
-                      >
-                        Open in new tab <ExternalLink size={12} />
-                      </Link>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Support, store coordination, and customer ↔ rider private chat. Rider ↔ store ops stay in the
-                      right column. All columns use a live socket.
-                    </p>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {selected.delivery_boy_id != null
+                        ? 'Customer ↔ delivery partner'
+                        : 'Store support (customer)'}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {selected.delivery_boy_id != null
+                      ? 'Private thread between the customer and the assigned delivery partner. Store staff can follow and reply here.'
+                      : 'No delivery partner is assigned yet — this is the support thread with the customer. Assign a partner on the order page to switch to private customer ↔ rider chat.'}
+                  </p>
+                  {selected.delivery_boy_id != null ? (
+                    <OrderChatPanel
+                      orderId={selected.id}
+                      token={token}
+                      currentUserId={user.id}
+                      partnerLabel="customer ↔ delivery partner (private)"
+                      chatThread="customer_rider"
+                      wsThread="all"
+                      wsIngestFilter={m => Boolean(m.customer_rider)}
+                      notifyPeerMessages={false}
+                      enabled
+                    />
+                  ) : (
                     <OrderChatPanel
                       orderId={selected.id}
                       token={token}
@@ -340,64 +292,7 @@ export default function AdminCustomerSupport() {
                       notifyPeerMessages={false}
                       enabled
                     />
-                    <OrderChatPanel
-                      orderId={selected.id}
-                      token={token}
-                      currentUserId={user.id}
-                      partnerLabel="customer (delivery coordination)"
-                      chatThread="delivery"
-                      wsThread="all"
-                      wsIngestFilter={m => !m.support && !m.rider_staff && !m.customer_rider}
-                      notifyPeerMessages={false}
-                      enabled
-                    />
-                    <OrderChatPanel
-                      orderId={selected.id}
-                      token={token}
-                      currentUserId={user.id}
-                      partnerLabel="customer ↔ delivery partner (private)"
-                      chatThread="customer_rider"
-                      wsThread="all"
-                      wsIngestFilter={m => Boolean(m.customer_rider)}
-                      notifyPeerMessages={false}
-                      enabled={selected.delivery_boy_id != null}
-                    />
-                  </div>
-
-                  <div
-                    ref={riderPaneRef}
-                    className={cn(
-                      'space-y-3 rounded-xl p-1 -m-1 transition-shadow',
-                      focusSection === 'rider' && 'ring-2 ring-amber-500/80 ring-offset-2 ring-offset-card',
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-foreground">Delivery partner</h3>
-                      {selected.delivery_boy_id != null ? (
-                        <Link
-                          to={`/admin/customer-support/chat/${selected.id}/rider`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:underline"
-                        >
-                          Open in new tab <ExternalLink size={12} />
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Assign a partner to chat</span>
-                      )}
-                    </div>
-                    <OrderChatPanel
-                      orderId={selected.id}
-                      token={token}
-                      currentUserId={user.id}
-                      partnerLabel="assigned delivery partner"
-                      chatThread="rider_ops"
-                      wsThread="all"
-                      wsIngestFilter={m => Boolean(m.rider_staff)}
-                      notifyPeerMessages={false}
-                      enabled={selected.delivery_boy_id != null}
-                    />
-                  </div>
+                  )}
                 </div>
               ) : null}
             </>

@@ -1,42 +1,45 @@
 """
-SMS delivery for OTP codes and admin broadcast notifications.
+SMS delivery via Infelo Group (Bearer account key: ``INFELO_API_KEY`` / ``INFELO_SMS_API_KEY`` in settings).
 
-Set ``SMS_PROVIDER`` to ``console`` (default), ``twilio``, or extend for other gateways.
+Uses public ``POST /api/v1/sms/send/`` per Infelo SMS API documentation.
+
+When the Infelo key is unset and ``DEBUG`` is true, OTP text is logged only so local
+development can proceed without sending real SMS.
 """
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
-import urllib.error
-import urllib.parse
-import urllib.request
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 
+def infelo_sms_configured() -> bool:
+    k = (getattr(settings, "INFELO_API_KEY", None) or getattr(settings, "INFELO_SMS_API_KEY", None) or "").strip()
+    return bool(k)
+
+
 def send_otp_sms(phone: str, code: str, purpose: str) -> None:
-    """
-    Send OTP to ``phone`` via SMS.
+    """Send OTP to ``phone`` via Infelo, or log only in DEBUG when no API key is set."""
+    ok, err, _meta = send_otp_sms_checked(phone=phone, code=code, purpose=purpose)
+    if not ok:
+        logger.error("OTP SMS failed for %s: %s", phone, err)
 
-    In development, the message is logged. Set ``SMS_PROVIDER`` and related
-    settings to integrate a real gateway in production.
-    """
+
+def send_otp_sms_checked(*, phone: str, code: str, purpose: str) -> tuple[bool, str, dict]:
+    """Send OTP and return (ok, error_message, provider_meta)."""
     message = _build_message(code, purpose)
-    provider = getattr(settings, "SMS_PROVIDER", "console").lower()
 
-    if provider == "console" or settings.DEBUG:
-        logger.info("[SMS → %s] %s", phone, message)
-        return
+    if not infelo_sms_configured():
+        if settings.DEBUG:
+            logger.info("[SMS DEBUG — set INFELO_API_KEY in settings to send] → %s: %s", phone, message)
+            return True, "", {"provider": "infelo", "mode": "debug_logged_only", "note": "no INFELO_API_KEY"}
+        return False, "INFELO_API_KEY is not set in settings.", {"provider": "infelo", "error": "missing_api_key"}
 
-    # Example hook for a real provider (implement as needed):
-    # if provider == "twilio":
-    #     from twilio.rest import Client
-    #     ...
-    raise NotImplementedError(f"SMS_PROVIDER={provider!r} is not configured.")
+    ok, err, meta = _infelo_send_sms_with_meta(phone=phone, body=message)
+    return ok, err, meta
 
 
 def _build_message(code: str, purpose: str) -> str:
@@ -46,23 +49,20 @@ def _build_message(code: str, purpose: str) -> str:
 
 def send_chat_reply_sms(*, phone: str, body: str) -> tuple[bool, str]:
     """
-    Send a plain chat reply SMS (same transport as notifications).
+    Send a plain chat reply SMS.
     Returns ``(success, error_message)``.
     """
     text = (body or "").strip()
     if not text:
         return False, "Empty body"
-    provider = getattr(settings, "SMS_PROVIDER", "console").lower()
 
-    if provider == "console":
-        logger.info("[SMS chat reply → %s] %s", phone, text[:500])
-        return True, ""
+    if not infelo_sms_configured():
+        if settings.DEBUG:
+            logger.info("[SMS DEBUG — set INFELO_API_KEY in settings to send] chat reply → %s: %s", phone, text[:500])
+            return True, ""
+        return False, "INFELO_API_KEY is not set in settings."
 
-    if provider == "twilio":
-        return _twilio_send_sms(phone=phone, body=text)
-
-    logger.error("Unknown SMS_PROVIDER=%r for chat reply SMS", provider)
-    return False, f"SMS provider {provider!r} is not implemented."
+    return _infelo_send_sms(phone=phone, body=text)
 
 
 def send_notification_sms(*, phone: str, title: str, body: str) -> tuple[bool, str]:
@@ -72,63 +72,23 @@ def send_notification_sms(*, phone: str, title: str, body: str) -> tuple[bool, s
     Returns ``(success, error_message)`` where ``error_message`` is empty on success.
     """
     text = f"{title}\n{body}".strip()
-    provider = getattr(settings, "SMS_PROVIDER", "console").lower()
 
-    if provider == "console":
-        logger.info("[SMS notification → %s] %s", phone, text[:500])
-        return True, ""
-
-    if provider == "twilio":
-        return _twilio_send_sms(phone=phone, body=text)
-
-    logger.error("Unknown SMS_PROVIDER=%r for notification SMS", provider)
-    return False, f"SMS provider {provider!r} is not implemented."
-
-
-def _twilio_send_sms(*, phone: str, body: str) -> tuple[bool, str]:
-    sid = getattr(settings, "TWILIO_ACCOUNT_SID", "") or ""
-    token = getattr(settings, "TWILIO_AUTH_TOKEN", "") or ""
-    from_num = getattr(settings, "TWILIO_FROM_NUMBER", "") or ""
-    if not sid or not token or not from_num:
-        return False, "Twilio is not configured (set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER)."
-
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
-    data = urllib.parse.urlencode(
-        {
-            "To": phone if phone.startswith("+") else f"+{phone.lstrip('+')}",
-            "From": from_num,
-            "Body": body[:1600],
-        }
-    ).encode("utf-8")
-    auth = base64.b64encode(f"{sid}:{token}".encode("utf-8")).decode("ascii")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Authorization": f"Basic {auth}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw = resp.read().decode("utf-8")
-    except urllib.error.HTTPError as e:
-        try:
-            detail = json.loads(e.read().decode("utf-8"))
-            msg = detail.get("message", str(e))
-        except Exception:
-            msg = str(e)
-        logger.warning("Twilio HTTP %s: %s", e.code, msg)
-        return False, msg[:500]
-    except OSError as e:
-        logger.exception("Twilio network error")
-        return False, str(e)[:500]
-
-    try:
-        parsed = json.loads(raw)
-        if parsed.get("status") in ("queued", "sent", "delivered") or parsed.get("sid"):
+    if not infelo_sms_configured():
+        if settings.DEBUG:
+            logger.info("[SMS DEBUG — set INFELO_API_KEY in settings to send] notification → %s: %s", phone, text[:500])
             return True, ""
-        return False, raw[:500]
-    except json.JSONDecodeError:
-        return True, ""
+        return False, "INFELO_API_KEY is not set in settings."
+
+    return _infelo_send_sms(phone=phone, body=text)
+
+
+def _infelo_send_sms(*, phone: str, body: str) -> tuple[bool, str]:
+    from .infelo_sms import send_infelo_sms
+
+    return send_infelo_sms(phone=phone, message=body)
+
+
+def _infelo_send_sms_with_meta(*, phone: str, body: str) -> tuple[bool, str, dict]:
+    from .infelo_sms import send_infelo_sms_detailed
+
+    return send_infelo_sms_detailed(phone=phone, message=body)

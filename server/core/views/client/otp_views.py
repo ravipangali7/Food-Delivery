@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from django.db import IntegrityError
 from rest_framework import status
@@ -12,8 +14,10 @@ from rest_framework.response import Response
 
 from ... import otp_service
 from ...models import User
-from ...sms_service import send_otp_sms
+from ...sms_service import send_otp_sms_checked
 from ...serializers import OtpSendSerializer, OtpVerifySerializer, UserSerializer
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(["POST"])
@@ -43,9 +47,21 @@ def send_otp(request):
         purpose=purpose,
         user=user_for_row,
     )
-    send_otp_sms(phone, result.otp_code, purpose)
+    sms_ok, sms_err, sms_meta = send_otp_sms_checked(phone=phone, code=result.otp_code, purpose=purpose)
+    if not sms_ok:
+        logger.warning("OTP SMS delivery failed for %s: %s", phone, sms_err)
 
-    body: dict = {"detail": "Verification code sent."}
+    body: dict = {
+        "detail": "Verification code sent." if sms_ok else (
+            "We could not send the verification SMS right now. Try resend or enter the code when it arrives."
+        ),
+        "sms_delivered": sms_ok,
+    }
+    if not sms_ok:
+        body["sms_error"] = sms_err or "SMS send failed"
+        body["sms_provider"] = sms_meta.get("provider")
+        if settings.DEBUG:
+            body["infelo_response"] = sms_meta
     if purpose == "login" and user_for_row is not None:
         saved = (user_for_row.name or "").strip()
         if saved:
@@ -53,6 +69,8 @@ def send_otp(request):
     if settings.DEBUG:
         body["otp_code"] = result.otp_code
         body["expires_in_seconds"] = otp_service.OTP_VALID_MINUTES * 60
+        if sms_ok:
+            body["infelo_response"] = sms_meta
     return Response(body, status=status.HTTP_200_OK)
 
 

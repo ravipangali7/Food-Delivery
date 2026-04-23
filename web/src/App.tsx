@@ -29,13 +29,19 @@ import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminCustomerSupport from "./pages/admin/AdminCustomerSupport";
 import AdminSupportConversationWindow from "./pages/admin/AdminSupportConversationWindow";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminSmsTest from "./pages/admin/AdminSmsTest";
+import AdminInfeloMap from "./pages/admin/AdminInfeloMap";
+import AdminInfeloSms from "./pages/admin/AdminInfeloSms";
+import AdminSmsCredits from "./pages/admin/AdminSmsCredits";
 import AdminUnitsList from "./pages/admin/AdminUnitsList";
 import AdminUnitForm from "./pages/admin/AdminUnitForm";
+import AdminBanners from "./pages/admin/AdminBanners";
 
 // Customer
 import CustomerLayout from "./components/customer/CustomerLayout";
 import CustomerHome from "./pages/customer/CustomerHome";
 import CustomerExplore from "./pages/customer/CustomerExplore";
+import CustomerSweets from "./pages/customer/CustomerSweets";
 import CustomerProductDetail from "./pages/customer/CustomerProductDetail";
 import CustomerCart from "./pages/customer/CustomerCart";
 import CustomerCheckout from "./pages/customer/CustomerCheckout";
@@ -93,6 +99,7 @@ const App = () => (
             <Route path="orders" element={<AdminOrdersList />} />
             <Route path="orders/:id/track" element={<AdminOrderTracking />} />
             <Route path="orders/:id" element={<AdminOrderDetail />} />
+            <Route path="banners" element={<AdminBanners />} />
             <Route path="products" element={<AdminProductsList />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:slug" element={<AdminProductView />} />
@@ -122,6 +129,10 @@ const App = () => (
             <Route path="delivery-boys/:id" element={<AdminUserView />} />
             <Route path="delivery-boys/:id/edit" element={<AdminUserForm />} />
             <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="infelo/map" element={<AdminInfeloMap />} />
+            <Route path="infelo/sms" element={<AdminInfeloSms />} />
+            <Route path="sms/test" element={<AdminSmsTest />} />
+            <Route path="sms/credits" element={<AdminSmsCredits />} />
             <Route path="customer-support" element={<AdminCustomerSupport />} />
             <Route path="customer-support/chat/:orderId/:lane" element={<AdminSupportConversationWindow />} />
             <Route path="store-settings" element={<AdminSettings />} />
@@ -140,6 +151,7 @@ const App = () => (
           >
             <Route index element={<CustomerHome />} />
             <Route path="explore" element={<CustomerExplore />} />
+            <Route path="sweets" element={<CustomerSweets />} />
             <Route path="product/:id" element={<CustomerProductDetail />} />
             <Route path="parent/:id" element={<CustomerParentCategory />} />
             <Route path="category/:id" element={<CustomerCategoryProducts />} />

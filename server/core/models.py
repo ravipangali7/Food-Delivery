@@ -134,6 +134,24 @@ class SuperSetting(models.Model):
     meta_title = models.CharField(_("meta title"), max_length=255, blank=True, null=True)
     meta_description = models.TextField(_("meta description"), blank=True, null=True)
     meta_keywords = models.CharField(_("meta keywords"), max_length=500, blank=True, null=True)
+    about_us = models.TextField(
+        _("about us (customer app)"),
+        blank=True,
+        null=True,
+        help_text=_("Shown on the customer About page. Plain text; line breaks are preserved."),
+    )
+    terms_and_conditions = models.TextField(
+        _("terms and conditions (customer app)"),
+        blank=True,
+        null=True,
+        help_text=_("Full terms text for the customer Terms page. Plain text; line breaks are preserved."),
+    )
+    privacy_policy = models.TextField(
+        _("privacy policy (customer app)"),
+        blank=True,
+        null=True,
+        help_text=_("Full privacy policy for the customer Privacy page. Plain text; line breaks are preserved."),
+    )
     delivery_charge_per_km = models.DecimalField(
         _("delivery charge per km (NPR)"),
         max_digits=10,
@@ -157,6 +175,25 @@ class SuperSetting(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class Banner(models.Model):
+    """Promotional image strip on customer home, explore, and sweets."""
+
+    image = models.ImageField(_("image"), upload_to="banners/")
+    url = models.URLField(_("link URL"), max_length=500, blank=True)
+    is_active = models.BooleanField(_("active"), default=True)
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("updated at"), auto_now=True)
+
+    class Meta:
+        db_table = "banners"
+        verbose_name = _("banner")
+        verbose_name_plural = _("banners")
+        ordering = ["id"]
+
+    def __str__(self) -> str:
+        return f"Banner #{self.pk}"
 
 
 class ParentCategory(models.Model):
@@ -275,6 +312,7 @@ class Product(models.Model):
     is_available = models.BooleanField(_("available"), default=True)
     is_featured = models.BooleanField(_("featured"), default=False)
     is_veg = models.BooleanField(_("vegetarian"), default=True)
+    is_sweet = models.BooleanField(_("sweet"), default=False)
     thumbnail_url = models.URLField(_("thumbnail URL"), max_length=500, blank=True, null=True)
     sort_order = models.PositiveSmallIntegerField(_("sort order"), default=0)
     created_at = models.DateTimeField(_("created at"), auto_now_add=True)
@@ -369,6 +407,7 @@ class CartItem(models.Model):
     unit_price = models.DecimalField(_("unit price"), max_digits=10, decimal_places=2)
     total_price = models.DecimalField(_("total price"), max_digits=10, decimal_places=2)
     notes = models.CharField(_("notes"), max_length=255, blank=True, null=True)
+    is_preorder = models.BooleanField(_("pre-order line"), default=False)
     created_at = models.DateTimeField(_("created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("updated at"), auto_now=True)
 
@@ -430,6 +469,13 @@ class Order(models.Model):
     delivery_fee = models.DecimalField(
         _("delivery fee"), max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
+    platform_fee_amount = models.DecimalField(
+        _("platform fee"),
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Service/platform fee included in totals when applicable."),
+    )
     total_amount = models.DecimalField(_("total amount"), max_digits=10, decimal_places=2)
     address = models.TextField(_("delivery address"))
     delivery_latitude = models.DecimalField(
@@ -480,6 +526,13 @@ class Order(models.Model):
         choices=DeliveryType.choices,
         default=DeliveryType.BIKE,
     )
+    is_preorder = models.BooleanField(_("pre-order"), default=False)
+    pre_order_date_time = models.DateTimeField(
+        _("pre-order for"),
+        blank=True,
+        null=True,
+        help_text=_("When the customer wants this pre-order prepared or ready."),
+    )
     created_at = models.DateTimeField(_("created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("updated at"), auto_now=True)
 
@@ -502,6 +555,65 @@ class Order(models.Model):
         if self.order_number != expected:
             Order.objects.filter(pk=self.pk).update(order_number=expected)
             self.order_number = expected
+
+
+class OrderCancellationRequest(models.Model):
+    """Customer-initiated cancellation: order stays active until a superuser approves."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        APPROVED = "approved", _("Approved")
+        REJECTED = "rejected", _("Rejected")
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="cancellation_requests",
+        verbose_name=_("order"),
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="order_cancellation_requests",
+        verbose_name=_("requested by"),
+    )
+    reason = models.TextField(_("reason"), max_length=2000)
+    status = models.CharField(
+        _("status"),
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_order_cancellations",
+        verbose_name=_("reviewed by"),
+    )
+    reviewed_at = models.DateTimeField(_("reviewed at"), blank=True, null=True)
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+
+    class Meta:
+        db_table = "order_cancellation_requests"
+        verbose_name = _("order cancellation request")
+        verbose_name_plural = _("order cancellation requests")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "-created_at"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order"],
+                condition=models.Q(status="pending"),
+                name="uq_order_one_pending_cancellation",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"Cancel #{self.pk} for {self.order_id} ({self.status})"
 
 
 class OrderItem(models.Model):

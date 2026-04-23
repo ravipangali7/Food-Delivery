@@ -18,6 +18,7 @@ from ...tracking import (
 from django.db.models import Prefetch
 
 from ...models import (
+    Banner,
     CartItem,
     Category,
     CustomerAddress,
@@ -33,10 +34,12 @@ from ...models import (
 )
 from ...chat_utils import can_user_ack_message, record_delivered, record_read
 from ...serializers import (
+    BannerSerializer,
     CartItemWriteSerializer,
     CartSerializer,
     CategorySerializer,
     CustomerAddressSerializer,
+    OrderCancellationRequestCreateSerializer,
     OrderChatMessageSerializer,
     OrderChatMessageWriteSerializer,
     ParentCategorySerializer,
@@ -52,6 +55,7 @@ from ...serializers import (
 )
 from ..helpers import (
     can_access_order_chat_order,
+    can_submit_order_cancellation_request,
     can_use_customer_delivery_chat_thread,
     can_use_customer_rider_chat_thread,
     can_use_rider_staff_chat_thread,
@@ -77,8 +81,18 @@ def _product_queryset(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+def banner_list(request):
+    qs = Banner.objects.filter(is_active=True).order_by("id")
+    return Response(BannerSerializer(qs, many=True, context={"request": request}).data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
 def product_list(request):
     qs = _product_queryset(request)
+    raw = (request.GET.get("is_sweet") or "").strip().lower()
+    if raw in ("1", "true", "yes"):
+        qs = qs.filter(is_sweet=True)
     return Response(ProductSerializer(qs, many=True).data)
 
 
@@ -133,7 +147,10 @@ def settings_list(request):
     s = SuperSetting.objects.order_by("pk").first()
     if not s:
         s = SuperSetting.objects.create(name="My store")
-    return Response(SuperSettingSerializer(s).data)
+    resp = Response(SuperSettingSerializer(s).data)
+    # About / Terms / Privacy read these fields; avoid stale CDN or browser HTTP caches.
+    resp["Cache-Control"] = "no-store"
+    return resp
 
 
 @api_view(["GET"])
@@ -164,6 +181,7 @@ def cart_add_item(request):
             product,
             ser.validated_data["quantity"],
             notes=ser.validated_data.get("notes"),
+            is_preorder=bool(ser.validated_data.get("is_preorder")),
         )
     except ValueError as e:
         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -193,6 +211,7 @@ def checkout(request):
             delivery_latitude=ser.validated_data.get("delivery_latitude"),
             delivery_longitude=ser.validated_data.get("delivery_longitude"),
             special_instructions=ser.validated_data.get("special_instructions"),
+            pre_order_date_time=ser.validated_data.get("pre_order_date_time"),
         )
     except ValueError as e:
         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -259,13 +278,6 @@ def order_transition(request, pk):
             },
             status=status.HTTP_403_FORBIDDEN,
         )
-    if (
-        request.user.id == order.user_id
-        and not request.user.is_staff
-        and not getattr(request.user, "is_delivery_boy", False)
-        and new_status != Order.Status.CANCELLED
-    ):
-        return Response(status=status.HTTP_403_FORBIDDEN)
     try:
         services.apply_order_status_change(
             order,
@@ -277,6 +289,26 @@ def order_transition(request, pk):
         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     order.refresh_from_db()
     return Response(OrderSerializer(order).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def order_cancellation_request(request, pk):
+    """Customer submits a reason; order is not cancelled until a superuser approves."""
+    qs = order_queryset_for_user(request.user)
+    order = get_object_or_404(qs, pk=pk)
+    if not can_submit_order_cancellation_request(request.user, order):
+        return Response(status=status.HTTP_403_FORBIDDEN)
+    ser = OrderCancellationRequestCreateSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    reason = ser.validated_data["reason"]
+    try:
+        services.submit_order_cancellation_request(order=order, user=request.user, reason=reason)
+    except ValueError as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    order.refresh_from_db()
+    order = get_object_or_404(order_queryset_for_user(request.user), pk=pk)
+    return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET"])
@@ -728,3 +760,21 @@ def order_chat_participants_presence(request, pk):
             }
         )
     return Response(out)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def google_maps_js_key(request):
+    """
+    Browser-safe Google Maps API key from Infelo (``GET /api/v1/google-goods/maps-js-api-key/``).
+    Infelo account Bearer key is not exposed to the client.
+    """
+    from ...infelo_maps import get_infelo_google_maps_api_key
+
+    key, err, st = get_infelo_google_maps_api_key()
+    if key:
+        return Response({"mapsApiKey": key})
+    return Response(
+        {"detail": err or "Maps unavailable."},
+        status=st or status.HTTP_503_SERVICE_UNAVAILABLE,
+    )

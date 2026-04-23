@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Plus, Minus } from 'lucide-react';
-import NotificationBellLink from '@/components/NotificationBellLink';
+import { MapPin, Phone, Plus, Minus } from 'lucide-react';
+import CustomerBanners from '@/components/customer/CustomerBanners';
 import StoreClosedBanner from '@/components/customer/StoreClosedBanner';
 import { getJson, postJson, deleteJson } from '@/lib/api';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
@@ -40,9 +40,10 @@ export default function CustomerHome() {
   const topLevelCategories = categories;
 
   const mutateCart = useMutation({
-    mutationFn: async (next: { productId: number; delta: number }) => {
+    mutationFn: async (next: { productId: number; delta: number; asPreorder?: boolean }) => {
       if (!token) throw new Error('Login required');
       const line = cart?.items?.find(i => i.product_id === next.productId);
+      const isPreorder = line ? Boolean(line.is_preorder) : Boolean(next.asPreorder);
       const cur = line?.quantity ?? 0;
       const quantity = cur + next.delta;
       if (quantity < 1 && line) {
@@ -50,22 +51,26 @@ export default function CustomerHome() {
         return;
       }
       if (quantity < 1) return;
-      await postJson<Cart, { product_id: number; quantity: number; notes?: string }>(
-        '/api/cart/items/',
-        { product_id: next.productId, quantity },
-        token,
-      );
+      const body: { product_id: number; quantity: number; is_preorder?: boolean } = {
+        product_id: next.productId,
+        quantity,
+      };
+      if (isPreorder) body.is_preorder = true;
+      await postJson<Cart, typeof body>('/api/cart/items/', body, token);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
   });
 
   const storeName = settings?.name ?? 'Shyam Sweets';
   const addressLine = settings?.address ?? '';
+  const phoneLine = settings?.phone?.trim();
+  const logoUrl = settings?.logo?.trim();
 
   const ProductCard = ({ product }: { product: Product }) => {
     const effective = getEffectivePrice(product);
     const line = cart?.items?.find(i => i.product_id === product.id);
     const qty = line?.quantity ?? 0;
+    const lineIsPreorder = Boolean(line?.is_preorder);
     const thumb = product.thumbnail_url || product.images?.[0]?.image_url;
 
     return (
@@ -100,27 +105,57 @@ export default function CustomerHome() {
             {!token ? (
               <span className="text-[10px] text-muted-foreground">Login to cart</span>
             ) : qty > 0 ? (
-              <div className="flex items-center gap-1.5" onClick={e => e.preventDefault()}>
+              <div className="flex flex-col items-end gap-1" onClick={e => e.preventDefault()}>
+                {product.is_sweet && lineIsPreorder ? (
+                  <span className="text-[9px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded">
+                    Pre-order
+                  </span>
+                ) : null}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.preventDefault();
+                      mutateCart.mutate({ productId: product.id, delta: -1 });
+                    }}
+                    className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="text-sm font-semibold w-4 text-center">{qty}</span>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.preventDefault();
+                      mutateCart.mutate({ productId: product.id, delta: 1 });
+                    }}
+                    className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+            ) : product.is_sweet ? (
+              <div className="flex flex-col gap-1 items-end" onClick={e => e.preventDefault()}>
                 <button
                   type="button"
                   onClick={e => {
                     e.preventDefault();
-                    mutateCart.mutate({ productId: product.id, delta: -1 });
+                    mutateCart.mutate({ productId: product.id, delta: 1, asPreorder: false });
                   }}
-                  className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"
+                  className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-semibold rounded-full hover:bg-amber-600 whitespace-nowrap"
                 >
-                  <Minus size={14} />
+                  Add to cart
                 </button>
-                <span className="text-sm font-semibold w-4 text-center">{qty}</span>
                 <button
                   type="button"
                   onClick={e => {
                     e.preventDefault();
-                    mutateCart.mutate({ productId: product.id, delta: 1 });
+                    mutateCart.mutate({ productId: product.id, delta: 1, asPreorder: true });
                   }}
-                  className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center"
+                  className="px-2.5 py-1 border border-violet-300 text-violet-800 text-[10px] font-semibold rounded-full bg-violet-50 hover:bg-violet-100 whitespace-nowrap"
                 >
-                  <Plus size={14} />
+                  Pre-order
                 </button>
               </div>
             ) : (
@@ -154,12 +189,26 @@ export default function CustomerHome() {
   return (
     <div>
       <div className="sticky top-0 bg-card z-40 px-4 py-3 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{settings?.logo?.startsWith('http') ? '' : '🍬'}</span>
-            <span className="font-display font-bold text-foreground">{storeName}</span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="h-10 w-10 rounded-xl border border-border bg-amber-50 overflow-hidden shrink-0 flex items-center justify-center">
+            {logoUrl ? (
+              <img src={logoUrl} alt={storeName} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-xl">🍬</span>
+            )}
           </div>
-          <NotificationBellLink to="/customer/notifications" />
+          <div className="min-w-0">
+            <span className="font-display font-bold text-foreground block truncate">{storeName}</span>
+            {phoneLine ? (
+              <a
+                href={`tel:${phoneLine}`}
+                className="text-[11px] text-amber-700 inline-flex items-center gap-1 font-medium"
+              >
+                <Phone size={11} />
+                {phoneLine}
+              </a>
+            ) : null}
+          </div>
         </div>
         {addressLine ? (
           <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
@@ -170,21 +219,11 @@ export default function CustomerHome() {
       </div>
 
       <div className="px-4 py-4 space-y-6">
+        <CustomerBanners />
         {!menusOpen ? <StoreClosedBanner /> : null}
 
         {menusOpen ? (
           <>
-            <div className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl p-5 text-white">
-              <h2 className="text-lg font-display font-bold">Fresh Homemade Sweets</h2>
-              <p className="text-sm opacity-90 mt-1">Delivered to your door</p>
-              <Link
-                to="/customer/explore"
-                className="inline-block mt-3 px-4 py-2 bg-white text-amber-600 text-sm font-semibold rounded-full"
-              >
-                Order Now →
-              </Link>
-            </div>
-
             <div>
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-display font-semibold">Shop by Category</h3>

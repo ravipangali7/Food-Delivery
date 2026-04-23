@@ -1,15 +1,22 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Phone, ShieldCheck } from 'lucide-react';
-import { postJson } from '@/lib/api';
+import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import type { User } from '@/types';
+import type { SuperSetting, User } from '@/types';
 import { homeForUser } from '@/pages/auth/authPaths';
 
 type TokenResponse = { token: string; user: User };
-type OtpSendResponse = { detail?: string; existing_user_name?: string; otp_code?: string };
+type OtpSendResponse = {
+  detail?: string;
+  existing_user_name?: string;
+  otp_code?: string;
+  sms_delivered?: boolean;
+  sms_error?: string;
+};
 type Purpose = 'login' | 'register';
 
 type Props = {
@@ -34,6 +41,13 @@ export default function PhoneOtpAuth({
   const { setSession } = useAuth();
   const from = (location.state as { from?: { pathname?: string } })?.from?.pathname;
 
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => getJson<SuperSetting>('/api/settings/', null),
+  });
+  const logoUrl = settings?.logo?.trim();
+  const storeName = settings?.name?.trim() || 'Store';
+
   const [name, setName] = useState('');
   /** Login only: if this phone is new, we send name on verify to create the account. */
   const [nameForNewLogin, setNameForNewLogin] = useState('');
@@ -43,6 +57,7 @@ export default function PhoneOtpAuth({
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [error, setError] = useState<string | null>(null);
+  const [smsWarning, setSmsWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const purpose: Purpose = mode;
@@ -54,6 +69,7 @@ export default function PhoneOtpAuth({
   const handleSendOtp = async () => {
     if (!canSend) return;
     setError(null);
+    setSmsWarning(null);
     setLoading(true);
     try {
       const sendRes = await postJson<OtpSendResponse, { phone: string; purpose: Purpose }>(
@@ -63,6 +79,9 @@ export default function PhoneOtpAuth({
       );
       setStep('otp');
       setOtp('');
+      if (sendRes.sms_delivered === false) {
+        setSmsWarning(sendRes.detail?.trim() || 'SMS was not delivered. Try resend or wait for the code.');
+      }
       if (mode === 'login') {
         const locked = (sendRes.existing_user_name ?? '').trim();
         if (locked) {
@@ -112,6 +131,7 @@ export default function PhoneOtpAuth({
     setStep('phone');
     setOtp('');
     setError(null);
+    setSmsWarning(null);
     setNameForNewLogin('');
     setNameLockedFromBackend(false);
   };
@@ -120,13 +140,31 @@ export default function PhoneOtpAuth({
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-amber-100 px-4">
       <div className="w-full max-w-[400px] bg-card rounded-2xl shadow-lg p-8 space-y-6">
         <div className="text-center">
-          <span className="text-5xl">🍬</span>
+          <div className="mx-auto h-[4.5rem] w-[4.5rem] flex items-center justify-center">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={storeName}
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : (
+              <span className="text-5xl leading-none" aria-hidden>
+                🍬
+              </span>
+            )}
+          </div>
           <h1 className="text-2xl font-display font-bold text-foreground mt-3">{title}</h1>
           <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
         </div>
 
         {error && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>
+        )}
+
+        {smsWarning && (
+          <div className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            {smsWarning}
+          </div>
         )}
 
         {step === 'phone' ? (

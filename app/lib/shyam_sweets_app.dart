@@ -27,11 +27,6 @@ class ShyamSweetsApp extends StatelessWidget {
           seedColor: _brandSeed,
           brightness: Brightness.light,
         ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-          scrolledUnderElevation: 1,
-        ),
         dialogTheme: DialogThemeData(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
@@ -54,9 +49,8 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
   bool _hasBuiltWebView = false;
   final GlobalKey<WebViewScreenState> _webViewKey = GlobalKey<WebViewScreenState>();
 
-  /// `true` until the first successful version check (or failure → allow app).
-  bool _versionChecking = true;
-  StoreSettingsDto? _updateSettings;
+  /// When non-null, user must pass the forced-update gate before browsing.
+  StoreSettingsDto? _forceUpdateSettings;
 
   bool get _online =>
       _results.any((r) => r != ConnectivityResult.none);
@@ -69,7 +63,7 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
       if (!mounted) return;
       setState(() {
         _results = r;
-        if (_online && !_versionChecking && _updateSettings == null) {
+        if (_online && _forceUpdateSettings == null) {
           _hasBuiltWebView = true;
         }
       });
@@ -78,7 +72,7 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
       if (!mounted) return;
       setState(() {
         _results = r;
-        if (_online && !_versionChecking && _updateSettings == null) {
+        if (_online && _forceUpdateSettings == null) {
           _hasBuiltWebView = true;
         }
       });
@@ -87,18 +81,25 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
 
   Future<void> _runVersionGate() async {
     try {
-      final dto = await blockingUpdateSettingsIfNeeded();
+      final outcome = await loadStoreSettingsAtLaunch();
       if (!mounted) return;
       setState(() {
-        _versionChecking = false;
-        _updateSettings = dto;
-        if (_online && dto == null) _hasBuiltWebView = true;
+        if (outcome == null) {
+          _forceUpdateSettings = null;
+          if (_online) _hasBuiltWebView = true;
+          return;
+        }
+        if (outcome.requiresForcedUpdate) {
+          _forceUpdateSettings = outcome.settings;
+          return;
+        }
+        _forceUpdateSettings = null;
+        if (_online) _hasBuiltWebView = true;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _versionChecking = false;
-        _updateSettings = null;
+        _forceUpdateSettings = null;
         if (_online) _hasBuiltWebView = true;
       });
     }
@@ -115,7 +116,7 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
     if (!mounted) return;
     setState(() {
       _results = r;
-      if (_online && !_versionChecking && _updateSettings == null) _hasBuiltWebView = true;
+      if (_online && _forceUpdateSettings == null) _hasBuiltWebView = true;
     });
   }
 
@@ -154,27 +155,8 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
 
   @override
   Widget build(BuildContext context) {
-    if (_versionChecking) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: CircularProgressIndicator(strokeWidth: 3),
-              ),
-              SizedBox(height: 16),
-              Text('Checking for updates…', style: TextStyle(fontSize: 14)),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_updateSettings != null) {
-      return AppUpdateScreen(settings: _updateSettings!);
+    if (_forceUpdateSettings != null) {
+      return AppUpdateScreen(settings: _forceUpdateSettings!);
     }
 
     return PopScope(

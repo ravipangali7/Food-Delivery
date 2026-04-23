@@ -4,7 +4,7 @@
  */
 export function getTrackingWebSocketUrl(orderId: number, token: string): string {
   const base =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE) || 'http://127.0.0.1:8000';
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE) || 'http://api.shyam-sweets.com';
   const trimmed = base.replace(/\/$/, '');
   const u = new URL(trimmed);
   u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';

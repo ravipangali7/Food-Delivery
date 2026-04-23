@@ -20,6 +20,17 @@ Future<StoreSettingsDto?> fetchStoreSettings() async {
   return StoreSettingsDto.fromJson(map);
 }
 
+/// Result of loading store settings at cold start: always includes branding when [settings] is non-null.
+class StoreLaunchSettings {
+  const StoreLaunchSettings({
+    required this.settings,
+    required this.requiresForcedUpdate,
+  });
+
+  final StoreSettingsDto settings;
+  final bool requiresForcedUpdate;
+}
+
 bool needsUpdateVersusRequired(String appVersion, String? requiredRaw) {
   final required = requiredRaw?.trim();
   if (required == null || required.isEmpty) return false;
@@ -33,8 +44,8 @@ bool needsUpdateVersusRequired(String appVersion, String? requiredRaw) {
   }
 }
 
-/// When non-null, show the app update screen before the WebView.
-Future<StoreSettingsDto?> blockingUpdateSettingsIfNeeded() async {
+/// Loads public store settings once; [requiresForcedUpdate] drives the blocking update screen.
+Future<StoreLaunchSettings?> loadStoreSettingsAtLaunch() async {
   final settings = await fetchStoreSettings();
   if (settings == null) return null;
 
@@ -42,12 +53,12 @@ Future<StoreSettingsDto?> blockingUpdateSettingsIfNeeded() async {
   final appVer = pkg.version.trim();
 
   if (Platform.isAndroid) {
-    if (!needsUpdateVersusRequired(appVer, settings.androidVersion)) return null;
-    return settings;
+    final needs = needsUpdateVersusRequired(appVer, settings.androidVersion);
+    return StoreLaunchSettings(settings: settings, requiresForcedUpdate: needs);
   }
   if (Platform.isIOS) {
-    if (!needsUpdateVersusRequired(appVer, settings.iosVersion)) return null;
-    return settings;
+    final needs = needsUpdateVersusRequired(appVer, settings.iosVersion);
+    return StoreLaunchSettings(settings: settings, requiresForcedUpdate: needs);
   }
-  return null;
+  return StoreLaunchSettings(settings: settings, requiresForcedUpdate: false);
 }

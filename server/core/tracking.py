@@ -90,6 +90,11 @@ def _directions_via_google(
 ) -> tuple[str | None, int | None, int | None]:
     key = (getattr(settings, "GOOGLE_MAPS_API_KEY", None) or "").strip()
     if not key:
+        from .infelo_maps import get_infelo_google_maps_api_key
+
+        gk, _, _ = get_infelo_google_maps_api_key()
+        key = (gk or "").strip()
+    if not key:
         return None, None, None
     params = urllib.parse.urlencode(
         {

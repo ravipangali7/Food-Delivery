@@ -67,8 +67,15 @@ export default function CustomerOrderHistory() {
             className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow"
           >
             <Link to={`/customer/order/${order.id}`} className="block p-4">
-              <div className="flex justify-between items-start">
-                <span className="font-bold text-sm">{order.order_number}</span>
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                  <span className="font-bold text-sm">{order.order_number}</span>
+                  {order.is_preorder ? (
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded shrink-0">
+                      Pre-order
+                    </span>
+                  ) : null}
+                </div>
                 <OrderStatusBadge status={order.status} />
               </div>
               <p className="text-xs text-muted-foreground mt-1">

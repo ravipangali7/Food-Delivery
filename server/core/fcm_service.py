@@ -2,7 +2,7 @@
 Firebase Cloud Messaging (FCM) for admin broadcast and transactional pushes.
 
 Uses the legacy HTTP API (Authorization: key=...) when ``FCM_SERVER_KEY`` is set.
-When unset or ``SMS_PROVIDER``-style dev mode, logs and reports success without sending.
+When unset, logs and reports success without sending.
 
 See: https://firebase.google.com/docs/cloud-messaging/http-server-ref
 """

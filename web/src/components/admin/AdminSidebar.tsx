@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
   Package,
+  Image,
   FolderTree,
   ChevronDown,
   LayoutList,
@@ -17,6 +18,9 @@ import {
   Bell,
   Headphones,
   Settings,
+  MessageSquare,
+  Map,
+  Send,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -220,7 +224,10 @@ function buildSidebarSections(pending: number): { label?: string; items: NavItem
     },
     {
       label: 'CATALOG',
-      items: [{ label: 'Products', icon: Package, path: '/admin/products' }],
+      items: [
+        { label: 'Products', icon: Package, path: '/admin/products' },
+        { label: 'Banners', icon: Image, path: '/admin/banners' },
+      ],
     },
     {
       label: 'ORDERS',
@@ -238,6 +245,14 @@ function buildSidebarSections(pending: number): { label?: string; items: NavItem
       items: [
         { label: 'Customers', icon: Users, path: '/admin/customers' },
         { label: 'Delivery Boys', icon: Truck, path: '/admin/delivery-boys' },
+      ],
+    },
+    {
+      label: 'MAP & SMS',
+      items: [
+        { label: 'Map', icon: Map, path: '/admin/infelo/map' },
+        { label: 'SMS', icon: MessageSquare, path: '/admin/infelo/sms' },
+        { label: 'Test SMS', icon: Send, path: '/admin/sms/test' },
       ],
     },
     {

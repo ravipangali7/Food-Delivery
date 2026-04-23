@@ -1,7 +1,18 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
+import { getJson } from '@/lib/api';
+import type { SuperSetting } from '@/types';
 
 export default function CustomerPrivacy() {
+  const { data: s, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => getJson<SuperSetting>('/api/settings/', null),
+    refetchOnMount: 'always',
+  });
+
+  const customPrivacy = s?.privacy_policy?.trim();
+
   return (
     <div className="pb-8">
       <div className="sticky top-0 bg-card z-40 px-4 py-3 border-b border-border flex items-center gap-3">
@@ -12,52 +23,51 @@ export default function CustomerPrivacy() {
       </div>
 
       <div className="px-4 py-6 space-y-5 text-sm text-muted-foreground leading-relaxed max-w-prose mx-auto">
-        <p>
-          We collect and use personal data only as needed to run this service. This matches the fields stored on your
-          user profile and orders in our application.
-        </p>
+        {isLoading && <p>Loading…</p>}
 
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Account data</h2>
-          <p>
-            Your account includes your phone number (used to sign in), name, optional email, optional profile photo
-            URL, and optional default address with coordinates if you save them. We also store an optional device
-            notification token for push messages.
-          </p>
-        </section>
+        {isError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {error instanceof Error ? error.message : 'Could not load store settings.'}{' '}
+            <button
+              type="button"
+              className="underline font-medium"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Orders</h2>
-          <p>
-            Each order stores delivery address text, optional latitude and longitude for routing, special instructions,
-            payment method (cash on delivery), delivery type, amounts, and status history. This data is used to fulfil
-            your order and coordinate with delivery partners.
+        {customPrivacy ? (
+          <>
+            <div className="whitespace-pre-wrap">{customPrivacy}</div>
+            {s?.phone?.trim() ? (
+              <p className="text-xs pt-4 border-t border-border">
+                Questions? Call{' '}
+                <a href={`tel:${s.phone}`} className="text-amber-700">
+                  {s.phone}
+                </a>
+                .
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground border border-border rounded-lg px-3 py-3 bg-muted/30">
+            Privacy policy text has not been published yet. It is managed in the admin panel under Store settings → About
+            &amp; legal → Privacy policy.
+            {s?.phone?.trim() ? (
+              <>
+                {' '}
+                For help, call{' '}
+                <a href={`tel:${s.phone}`} className="text-amber-700 font-medium">
+                  {s.phone}
+                </a>
+                .
+              </>
+            ) : null}
           </p>
-        </section>
-
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Notifications</h2>
-          <p>
-            We may send order-related notifications (for example when status changes) using the channels configured in the
-            system, such as SMS or push, in line with notification records tied to your user account.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Retention</h2>
-          <p>
-            We retain order and account data as required for operations, support, and legal compliance. Soft-deleted
-            accounts may be marked inactive rather than erased immediately, consistent with our user model.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Your choices</h2>
-          <p>
-            You can update profile details in the app where editing is available. For questions about your data, contact
-            support through the store contact options shown in the app.
-          </p>
-        </section>
+        )}
       </div>
     </div>
   );

@@ -14,14 +14,30 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from ...models import Category, Notification, NotificationUser, Order, ParentCategory, Product, SuperSetting, Unit, User
+from ...models import (
+    Banner,
+    Category,
+    Notification,
+    NotificationUser,
+    Order,
+    OrderCancellationRequest,
+    ParentCategory,
+    Product,
+    SuperSetting,
+    Unit,
+    User,
+)
+from ... import services
 from ...notification_delivery import create_recipient_rows, deliver_broadcast
 from ...serializers import (
+    BannerAdminSerializer,
     CategoryAdminSerializer,
     NotificationAdminListSerializer,
     NotificationAdminUpdateSerializer,
     NotificationBroadcastSerializer,
     NotificationRecipientSerializer,
+    OrderCancellationRequestAdminSerializer,
+    OrderCancellationReviewSerializer,
     ParentCategoryAdminSerializer,
     ProductAdminSerializer,
     SuperSettingSerializer,
@@ -30,7 +46,7 @@ from ...serializers import (
     UserAdminListSerializer,
     UserAdminWriteSerializer,
 )
-from ..helpers import IsStaffUser
+from ..helpers import IsStaffUser, IsSuperuser
 
 logger = logging.getLogger(__name__)
 
@@ -558,6 +574,36 @@ def admin_unit_detail(request, pk):
     return Response(UnitAdminSerializer(ser.instance).data)
 
 
+@api_view(["GET", "POST"])
+@permission_classes([IsStaffUser])
+def admin_banner_list_create(request):
+    if request.method == "GET":
+        qs = Banner.objects.order_by("id")
+        return Response(BannerAdminSerializer(qs, many=True, context={"request": request}).data)
+    ser = BannerAdminSerializer(data=request.data, context={"request": request})
+    ser.is_valid(raise_exception=True)
+    ser.save()
+    return Response(
+        BannerAdminSerializer(ser.instance, context={"request": request}).data,
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["GET", "PATCH", "DELETE"])
+@permission_classes([IsStaffUser])
+def admin_banner_detail(request, pk):
+    obj = get_object_or_404(Banner.objects.all(), pk=pk)
+    if request.method == "GET":
+        return Response(BannerAdminSerializer(obj, context={"request": request}).data)
+    if request.method == "DELETE":
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    ser = BannerAdminSerializer(obj, data=request.data, partial=True, context={"request": request})
+    ser.is_valid(raise_exception=True)
+    ser.save()
+    return Response(BannerAdminSerializer(ser.instance, context={"request": request}).data)
+
+
 @api_view(["GET"])
 @permission_classes([IsStaffUser])
 def support_inbox(request):
@@ -596,3 +642,98 @@ def support_inbox(request):
             }
         )
     return Response(rows)
+
+
+@api_view(["GET"])
+@permission_classes([IsSuperuser])
+def admin_order_cancellation_request_list(request):
+    status_param = (request.query_params.get("status") or "pending").strip().lower()
+    qs = OrderCancellationRequest.objects.select_related("order", "order__user", "requested_by").order_by(
+        "-created_at"
+    )
+    allowed_status = {s.value for s in OrderCancellationRequest.Status}
+    if status_param == "all":
+        pass
+    elif status_param in allowed_status:
+        qs = qs.filter(status=status_param)
+    else:
+        qs = qs.filter(status=OrderCancellationRequest.Status.PENDING)
+    try:
+        limit = int(request.query_params.get("limit", 100))
+    except ValueError:
+        limit = 100
+    limit = max(1, min(limit, 500))
+    return Response(OrderCancellationRequestAdminSerializer(qs[:limit], many=True).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsSuperuser])
+def admin_order_cancellation_request_review(request, pk):
+    req = get_object_or_404(
+        OrderCancellationRequest.objects.select_related("order", "order__user"), pk=pk
+    )
+    ser = OrderCancellationReviewSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    approve = ser.validated_data["decision"] == "approve"
+    try:
+        services.review_order_cancellation_request(req=req, reviewer=request.user, approve=approve)
+    except ValueError as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    req.refresh_from_db()
+    if req.order_id:
+        req.order.refresh_from_db()
+    return Response(OrderCancellationRequestAdminSerializer(req).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsStaffUser])
+def admin_sms_overview(request):
+    """Infelo credits (embed summary) + config for the portal embed script (staff-only)."""
+    from ...infelo_sms import fetch_infelo_embed_summary, infelo_admin_ui_config
+
+    cfg = infelo_admin_ui_config()
+    credits_ok, credits_err, credits_data = fetch_infelo_embed_summary()
+    return Response(
+        {
+            "credits": credits_data if credits_ok else None,
+            "credits_error": "" if credits_ok else credits_err,
+            "embed": {
+                "portal_origin": cfg["portal_origin"],
+                "api_base": cfg["api_base"],
+                "infelo_api_key": cfg.get("infelo_api_key") or None,
+                "sms_api_key": cfg.get("sms_api_key") or None,
+                "script_path": "/infelo-api-embed.js",
+            },
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsStaffUser])
+def admin_sms_test_send(request):
+    """Send a single test SMS via Infelo (Bearer ``POST /api/v1/sms/send/``)."""
+    from ...infelo_sms import send_infelo_sms_detailed
+
+    to_raw = (request.data.get("to") or request.data.get("phone") or "").strip()
+    message = (request.data.get("message") or "").strip()
+    if not to_raw:
+        return Response({"detail": "Field `to` (phone) is required."}, status=status.HTTP_400_BAD_REQUEST)
+    if not message:
+        return Response({"detail": "Field `message` is required."}, status=status.HTTP_400_BAD_REQUEST)
+    if len(message) > 160:
+        return Response({"detail": "Message must be at most 160 characters."}, status=status.HTTP_400_BAD_REQUEST)
+
+    ok, err, meta = send_infelo_sms_detailed(phone=to_raw, message=message)
+    if ok:
+        return Response({"ok": True, "detail": "", "meta": meta})
+    http_status = status.HTTP_400_BAD_REQUEST
+    if err and not (
+        err.startswith("Set INFELO")
+        or "INFELO_API_KEY" in err
+        or "INFELO_SMS_API_KEY" in err
+        or "Invalid phone" in err
+        or "Empty SMS" in err
+        or "at most 160" in err
+    ):
+        http_status = status.HTTP_502_BAD_GATEWAY
+    return Response({"ok": False, "detail": err, "meta": meta}, status=http_status)

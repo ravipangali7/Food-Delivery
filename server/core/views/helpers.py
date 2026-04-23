@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Cart, Order, OrderChatMessage
+from ..models import Cart, Order, OrderCancellationRequest, OrderChatMessage
 from ..chat_utils import maybe_stub_offline_notification
 
 User = get_user_model()
@@ -30,10 +30,19 @@ def can_manage_order_status(user, order) -> bool:
         return True
     if getattr(user, "is_delivery_boy", False) and order.delivery_boy_id == user.id:
         return True
-    # Customer may cancel their own order while still pending
-    if user.id == order.user_id and order.status == Order.Status.PENDING:
-        return True
     return False
+
+
+def can_submit_order_cancellation_request(user, order) -> bool:
+    """Customer-owned order still pending; actual cancel goes through superuser approval."""
+    return user.id == order.user_id and order.status == Order.Status.PENDING
+
+
+class IsSuperuser(IsAuthenticated):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and bool(
+            request.user and getattr(request.user, "is_superuser", False)
+        )
 
 
 class IsStaffUser(IsAuthenticated):
@@ -177,10 +186,22 @@ def persist_order_chat_message(
 
 
 def order_queryset_for_user(user):
+    from django.db.models import Prefetch
+
+    pending_cancel = OrderCancellationRequest.objects.filter(
+        status=OrderCancellationRequest.Status.PENDING
+    )
     qs = (
         Order.objects.all()
         .select_related("user", "delivery_boy")
-        .prefetch_related("items__product__images")
+        .prefetch_related(
+            "items__product__images",
+            Prefetch(
+                "cancellation_requests",
+                queryset=pending_cancel,
+                to_attr="_prefetched_pending_cancellations",
+            ),
+        )
         .order_by("-created_at")
     )
     if user.is_staff:

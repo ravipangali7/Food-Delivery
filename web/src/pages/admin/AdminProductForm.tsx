@@ -22,6 +22,7 @@ function buildProductFormData(form: {
   stock_quantity: string;
   sort_order: string;
   is_veg: boolean;
+  is_sweet: boolean;
   is_featured: boolean;
   is_available: boolean;
 }): FormData {
@@ -41,6 +42,7 @@ function buildProductFormData(form: {
   fd.append('stock_quantity', form.stock_quantity);
   fd.append('sort_order', form.sort_order);
   fd.append('is_veg', form.is_veg ? '1' : '0');
+  fd.append('is_sweet', form.is_sweet ? '1' : '0');
   fd.append('is_featured', form.is_featured ? '1' : '0');
   fd.append('is_available', form.is_available ? '1' : '0');
   return fd;
@@ -85,6 +87,7 @@ export default function AdminProductForm() {
     stock_quantity: '0',
     sort_order: '0',
     is_veg: true,
+    is_sweet: false,
     is_featured: false,
     is_available: true,
   });
@@ -107,6 +110,7 @@ export default function AdminProductForm() {
       stock_quantity: String(existing.stock_quantity),
       sort_order: String(existing.sort_order),
       is_veg: existing.is_veg,
+      is_sweet: Boolean(existing.is_sweet),
       is_featured: existing.is_featured,
       is_available: existing.is_available,
     });
@@ -164,6 +168,7 @@ export default function AdminProductForm() {
         stock_quantity: Number(form.stock_quantity),
         sort_order: Number(form.sort_order),
         is_veg: form.is_veg,
+        is_sweet: form.is_sweet,
         is_featured: form.is_featured,
         is_available: form.is_available,
       };
@@ -381,6 +386,14 @@ export default function AdminProductForm() {
                 {label}
               </label>
             ))}
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_sweet}
+                onChange={e => handleChange('is_sweet', e.target.checked)}
+              />
+              Sweet (Sweets tab)
+            </label>
           </div>
         </div>
         <div>

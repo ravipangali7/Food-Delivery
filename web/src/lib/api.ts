@@ -1,8 +1,22 @@
 /**
- * API client for Django REST (`/api/`). Set `VITE_API_BASE` to the server origin (e.g. http://127.0.0.1:8000).
+ * API client for Django REST (`/api/`). Set `VITE_API_BASE` to the server origin (e.g. http://api.shyam-sweets.com).
  */
+
+/** Thrown for non-2xx HTTP responses so callers can distinguish 401 from network errors. */
+export class ApiHttpError extends Error {
+  readonly status: number;
+  readonly data: unknown;
+
+  constructor(message: string, { status, data }: { status: number; data: unknown }) {
+    super(message);
+    this.name = 'ApiHttpError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
 const base =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE) || 'http://127.0.0.1:8000';
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE) || 'http://api.shyam-sweets.com';
 
 export function apiUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;
@@ -44,6 +58,10 @@ export type ApiOptions = RequestInit & {
 export async function apiFetch<T = unknown>(path: string, options: ApiOptions = {}): Promise<T> {
   const { token, headers, ...rest } = options;
   const h = new Headers(headers);
+  // Production (OpenResty) returns 415 unless the client asks for JSON; browser fetch defaults to Accept: */*.
+  if (!h.has('Accept')) {
+    h.set('Accept', 'application/json');
+  }
   if (!h.has('Content-Type') && rest.body && !(rest.body instanceof FormData)) {
     h.set('Content-Type', 'application/json');
   }
@@ -78,13 +96,18 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
     } else if (typeof data === 'string' && data) {
       detail = data;
     }
-    throw new Error(detail || `HTTP ${res.status}`);
+    throw new ApiHttpError(detail || `HTTP ${res.status}`, { status: res.status, data });
   }
   return data as T;
 }
 
 export async function getJson<T>(path: string, token: string | null): Promise<T> {
   return apiFetch<T>(path, { method: 'GET', token });
+}
+
+/** GET without auth (e.g. public config endpoints). */
+export async function getPublicJson<T>(path: string): Promise<T> {
+  return apiFetch<T>(path, { method: 'GET' });
 }
 
 export async function postJson<T, B = unknown>(path: string, body: B, token: string | null): Promise<T> {
@@ -125,6 +148,7 @@ export function patchFormDataWithProgress<T>(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PATCH', apiUrl(path));
+    xhr.setRequestHeader('Accept', 'application/json');
     if (token) {
       xhr.setRequestHeader('Authorization', `Token ${token}`);
     }

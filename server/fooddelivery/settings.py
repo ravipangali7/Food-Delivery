@@ -28,12 +28,26 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+# Public origin for absolute media / file URLs (no trailing slash), e.g. https://api.shyam-sweets.com
+# Set in production when Django runs behind a reverse proxy so uploads and API responses do not use 127.0.0.1.
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "https://api.shyam-sweets.com").strip().rstrip("/")
+
+# Prefer X-Forwarded-Host from nginx/Caddy so request.get_host() matches the public hostname when
+# PUBLIC_BASE_URL is not set.
+USE_X_FORWARDED_HOST = os.environ.get("USE_X_FORWARDED_HOST", "1").lower() not in ("0", "false", "no")
+
 # Required for cross-origin POSTs (e.g. SPA on :8080 → API on :8000) when CSRF checks Origin.
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://api.shyam-sweets.com",
+    "https://api.shyam-sweets.com",
+    "http://shyam-sweets.com",
+    "https://shyam-sweets.com",
+    "http://www.shyam-sweets.com",
+    "https://www.shyam-sweets.com",
 ]
 
 
@@ -83,15 +97,43 @@ REST_FRAMEWORK = {
     # otherwise makes DRF filter renderers by format="flat" and raise Http404.
     'URL_FORMAT_OVERRIDE': 'api_format',
 }
-CORS_ALLOW_ALL_ORIGINS = True
+# Cross-origin SPA → API (different subdomains). Browsers send OPTIONS preflight for
+# Authorization / JSON; the response must include Access-Control-Allow-Origin.
+# cPanel/Apache sometimes answers OPTIONS before Django — see deploy/cpanel-api-subdomain.htaccess.example.
+_default_cors_origins = [
+    "https://shyam-sweets.com",
+    "https://www.shyam-sweets.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+_extra_cors = [
+    o.strip()
+    for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+]
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys([*_default_cors_origins, *_extra_cors]))
+# Set CORS_ALLOW_ALL_ORIGINS=1 in env for quick local testing; production should rely on CORS_ALLOWED_ORIGINS.
+CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "").lower() in ("1", "true", "yes")
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
-# "console" logs OTP SMS; switch to your provider key in production.
-SMS_PROVIDER = os.environ.get("SMS_PROVIDER", "console")
-
-# Twilio (set SMS_PROVIDER=twilio and these env vars for real SMS).
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
-TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER", "")
+# Infelo Group — one account API key: SMS, embed, maps-js-key (Bearer on Infelo API; see infelo-api-general.md).
+INFELO_API_KEY = "inf_5QY67HLrP900FQV7uTv_MsInUnoQbStT"
+INFELO_SMS_API_KEY = INFELO_API_KEY
+INFELO_SMS_API_HOST = "api.infelogroup.com"
+INFELO_SMS_API_BASE = "https://api.infelogroup.com/api"
+INFELO_PORTAL_ORIGIN = "https://infelogroup.com"
 
 # Firebase Cloud Messaging — legacy HTTP API server key (Project settings → Cloud Messaging).
 FCM_SERVER_KEY = os.environ.get("FCM_SERVER_KEY", "")
@@ -135,7 +177,7 @@ else:
 
 # Optional: log-only hook for SMS/email when recipients are offline (`core.chat_utils`).
 CHAT_OFFLINE_NOTIFY = os.environ.get("CHAT_OFFLINE_NOTIFY", "").lower() in ("1", "true", "yes")
-# Mirror staff chat replies to SMS when Twilio is configured (set to 0/false to disable).
+# Mirror staff chat replies to SMS via Infelo when ``INFELO_SMS_API_KEY`` is set (set to 0/false to disable).
 CHAT_REPLY_SMS = os.environ.get("CHAT_REPLY_SMS", "1").lower() not in ("0", "false", "no")
 
 # Server-side Directions API (optional; falls back to straight-line polyline if unset or failed).

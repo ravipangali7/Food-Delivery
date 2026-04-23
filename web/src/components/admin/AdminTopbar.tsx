@@ -50,9 +50,19 @@ export default function AdminTopbar({ onToggleSidebar }: { onToggleSidebar: () =
         <Menu size={20} />
       </button>
 
-      <div className="flex items-center gap-2">
-        <span className="text-lg">🍬</span>
-        <span className="font-display font-bold text-foreground hidden sm:block">
+      <div className="flex items-center gap-2 min-w-0">
+        {settings?.logo ? (
+          <img
+            src={settings.logo}
+            alt=""
+            className="h-8 w-8 shrink-0 rounded-lg object-cover border border-border bg-muted"
+          />
+        ) : (
+          <span className="text-lg shrink-0" aria-hidden>
+            🍬
+          </span>
+        )}
+        <span className="font-display font-bold text-foreground hidden sm:block truncate">
           {settings?.name ?? 'Admin'}
         </span>
       </div>

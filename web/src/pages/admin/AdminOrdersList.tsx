@@ -1,13 +1,82 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCurrency, timeAgo, num } from '@/lib/formatting';
 import { OrderStatusBadge } from '@/components/shared/StatusBadge';
+import { orderStatusLabels, validStatusTransitions } from '@/lib/colors';
+import { PreorderScheduleSummary } from '@/components/admin/PreorderScheduleSummary';
 import { Search, Download, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { deleteJson, getJson } from '@/lib/api';
+import { deleteJson, getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Order } from '@/types';
+import type { Order, OrderStatus } from '@/types';
+
+function OrderListStatusEditor({ order }: { order: Order }) {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  const [nextChoice, setNextChoice] = useState<OrderStatus | ''>('');
+  const allowed = (validStatusTransitions[order.status] || []) as OrderStatus[];
+
+  useEffect(() => {
+    setNextChoice('');
+  }, [order.id, order.status]);
+
+  const transitionMut = useMutation({
+    mutationFn: async () => {
+      if (!token || !nextChoice) throw new Error('Select a new status');
+      const body: { status: OrderStatus; cancellation_reason?: string } = { status: nextChoice };
+      if (nextChoice === 'cancelled') {
+        const reason = window.prompt('Cancellation reason (optional):') ?? '';
+        if (reason.trim()) body.cancellation_reason = reason.trim();
+      }
+      return postJson<Order>(`/api/orders/${order.id}/transition/`, body, token);
+    },
+    onSuccess: () => {
+      setNextChoice('');
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-summary', token] });
+      queryClient.invalidateQueries({ queryKey: ['order', String(order.id)] });
+      toast.success('Status updated');
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Could not update status';
+      toast.error(msg);
+    },
+  });
+
+  return (
+    <div className="flex flex-col gap-1.5 min-w-[148px]">
+      <OrderStatusBadge status={order.status} />
+      {allowed.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1">
+          <select
+            value={nextChoice}
+            onChange={e => setNextChoice((e.target.value || '') as OrderStatus | '')}
+            className="text-[11px] border border-border rounded-md px-1.5 py-1 bg-card max-w-[132px] outline-none focus:ring-1 focus:ring-primary"
+            aria-label={`Change status for order ${order.order_number}`}
+          >
+            <option value="">Set to…</option>
+            {allowed.map(s => (
+              <option key={s} value={s}>
+                {orderStatusLabels[s] ?? s}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="text-[11px] px-2 py-1 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-40"
+            disabled={!nextChoice || transitionMut.isPending}
+            onClick={() => transitionMut.mutate()}
+          >
+            Apply
+          </button>
+        </div>
+      ) : (
+        <span className="text-[10px] text-muted-foreground">No transitions</span>
+      )}
+    </div>
+  );
+}
 
 const statusTabs: { label: string; value: string }[] = [
   { label: 'All', value: 'all' },
@@ -125,8 +194,9 @@ export default function AdminOrdersList() {
               <th className="text-left px-4 py-3">Order #</th>
               <th className="text-left px-4 py-3">Customer</th>
               <th className="text-left px-4 py-3">Items</th>
+              <th className="text-left px-4 py-3 min-w-[200px]">Pre-order / schedule</th>
               <th className="text-left px-4 py-3">Total</th>
-              <th className="text-left px-4 py-3">Status</th>
+              <th className="text-left px-4 py-3 min-w-[160px]">Status</th>
               <th className="text-left px-4 py-3">Payment</th>
               <th className="text-left px-4 py-3">Delivery</th>
               <th className="text-left px-4 py-3">Date</th>
@@ -148,9 +218,16 @@ export default function AdminOrdersList() {
                 <td className="px-4 py-3">
                   <span className="bg-muted px-2 py-0.5 rounded text-xs">{order.items?.length} items</span>
                 </td>
+                <td className="px-4 py-3 align-top">
+                  {order.is_preorder ? (
+                    <PreorderScheduleSummary order={order} variant="compact" />
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 font-semibold">{formatCurrency(num(order.total_amount))}</td>
-                <td className="px-4 py-3">
-                  <OrderStatusBadge status={order.status} />
+                <td className="px-4 py-3 align-top">
+                  <OrderListStatusEditor order={order} />
                 </td>
                 <td className="px-4 py-3 text-xs">
                   <span

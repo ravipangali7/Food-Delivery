@@ -67,6 +67,24 @@ export function formatDateTime(dateStr: string): string {
   });
 }
 
+/** Whole calendar days from the UTC date of `isoA` to the UTC date of `isoB` (can be negative). */
+export function calendarDaysBetween(isoA: string, isoB: string): number {
+  const a = new Date(isoA);
+  const b = new Date(isoB);
+  const start = Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
+  const end = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
+  return Math.round((end - start) / 86400000);
+}
+
+/** Whole calendar days from today's UTC date to the UTC date of `iso` (negative if `iso` is in the past). */
+export function calendarDaysFromToday(iso: string): number {
+  const b = new Date(iso);
+  const t = new Date();
+  const start = Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
+  const end = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
+  return Math.round((end - start) / 86400000);
+}
+
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);

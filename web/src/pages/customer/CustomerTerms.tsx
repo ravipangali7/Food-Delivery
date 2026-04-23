@@ -5,12 +5,13 @@ import { getJson } from '@/lib/api';
 import type { SuperSetting } from '@/types';
 
 export default function CustomerTerms() {
-  const { data: s } = useQuery({
+  const { data: s, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['settings'],
     queryFn: () => getJson<SuperSetting>('/api/settings/', null),
+    refetchOnMount: 'always',
   });
 
-  const store = s?.name ?? 'the store';
+  const customTerms = s?.terms_and_conditions?.trim();
 
   return (
     <div className="pb-8">
@@ -22,67 +23,51 @@ export default function CustomerTerms() {
       </div>
 
       <div className="px-4 py-6 space-y-5 text-sm text-muted-foreground leading-relaxed max-w-prose mx-auto">
-        <p>
-          These terms describe how orders, payments, and delivery work in this application, consistent with our data
-          model: each order has a status lifecycle, line items, delivery address, and optional coordinates for routing.
-        </p>
+        {isLoading && <p>Loading…</p>}
 
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Orders</h2>
-          <p>
-            When you place an order, we create an order record with a unique order number, your cart lines as order items,
-            and totals for subtotal, delivery fee, and amount due. Orders move through statuses such as pending,
-            confirmed, preparing, ready for delivery, out for delivery, delivered, or cancelled, as reflected in the
-            system.
+        {isError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {error instanceof Error ? error.message : 'Could not load store settings.'}{' '}
+            <button
+              type="button"
+              className="underline font-medium"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {customTerms ? (
+          <>
+            <div className="whitespace-pre-wrap">{customTerms}</div>
+            {s?.phone?.trim() ? (
+              <p className="text-xs pt-4 border-t border-border">
+                Questions? Call{' '}
+                <a href={`tel:${s.phone}`} className="text-amber-700">
+                  {s.phone}
+                </a>
+                .
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground border border-border rounded-lg px-3 py-3 bg-muted/30">
+            Terms have not been published yet. They are managed in the admin panel under Store settings → About &amp;
+            legal → Terms &amp; conditions.
+            {s?.phone?.trim() ? (
+              <>
+                {' '}
+                For help, call{' '}
+                <a href={`tel:${s.phone}`} className="text-amber-700 font-medium">
+                  {s.phone}
+                </a>
+                .
+              </>
+            ) : null}
           </p>
-        </section>
-
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Payment</h2>
-          <p>
-            Payment is <strong className="text-foreground">cash on delivery</strong> only. You agree to pay the rider
-            the order total when your order arrives. This matches the supported payment method on each order.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Delivery fee</h2>
-          <p>
-            Delivery charges may depend on distance from {store}
-            {s?.delivery_charge_per_km != null
-              ? ` (per-km rate is configured in store settings, currently NPR ${String(s.delivery_charge_per_km)} per km where distance applies)`
-              : ''}
-            . Fees are included in your order total at checkout when applicable.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Address &amp; delivery</h2>
-          <p>
-            You are responsible for accurate delivery address and, where used, map pin coordinates. Special instructions
-            you provide are stored on the order for the kitchen and delivery partner.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-semibold text-foreground text-base mb-2">Cancellations</h2>
-          <p>
-            Cancellation rules follow the allowed status transitions in the system. You may cancel while an order is still
-            pending where the app allows; after preparation or dispatch, cancellation may not be available.
-          </p>
-        </section>
-
-        <p className="text-xs pt-4 border-t border-border">
-          Last updated for app version aligned with Order and SuperSetting models. For store-specific policies, contact{' '}
-          {s?.phone?.trim() ? (
-            <a href={`tel:${s.phone}`} className="text-amber-700">
-              {s.phone}
-            </a>
-          ) : (
-            'the store'
-          )}
-          .
-        </p>
+        )}
       </div>
     </div>
   );

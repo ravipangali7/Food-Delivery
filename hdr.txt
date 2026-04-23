@@ -1,0 +1,20 @@
+HTTP/1.1 302 Found
+Date: Tue, 21 Apr 2026 21:05:56 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+Server: cloudflare
+location: /login/?next=/api/csrf/
+expires: Tue, 21 Apr 2026 21:05:56 GMT
+Cache-Control: max-age=0, no-cache, no-store, must-revalidate, private
+x-frame-options: DENY
+vary: origin, Cookie
+x-content-type-options: nosniff
+referrer-policy: same-origin
+cross-origin-opener-policy: same-origin
+cf-cache-status: DYNAMIC
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=w7K00IgwJDzXQ56zV5YXwHezBAdpNjomEyKgckBhMEsWZzrXHvSSxmiVBZWat5TXdl4gzlhYlAXskgn3SI4iH6FFq3CpIHRE1Xxjz0bePULLU%2FtjJJpS3izfbgMu0DxMuu0RqiellzwJ2kN3n9H4si8Z"}]}
+CF-RAY: 9eff59897a0f8e57-KTM
+alt-svc: h3=":443"; ma=86400
+

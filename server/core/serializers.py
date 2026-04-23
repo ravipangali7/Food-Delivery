@@ -1,11 +1,14 @@
 import uuid
 from decimal import Decimal
+from urllib.parse import urlparse, urlunparse
 
+from django.conf import settings
 from django.core.files.storage import default_storage
 from rest_framework import serializers
 
 from . import services
 from .models import (
+    Banner,
     Cart,
     CartItem,
     Category,
@@ -13,6 +16,7 @@ from .models import (
     Notification,
     NotificationUser,
     Order,
+    OrderCancellationRequest,
     OrderChatMessage,
     OrderItem,
     ParentCategory,
@@ -24,13 +28,62 @@ from .models import (
 )
 
 
+def _public_base_url() -> str:
+    raw = (getattr(settings, "PUBLIC_BASE_URL", None) or "").strip().rstrip("/")
+    if not raw:
+        return ""
+    if "://" not in raw:
+        raw = f"https://{raw}"
+    return raw.rstrip("/")
+
+
+def _normalize_media_url(url: str | None) -> str | None:
+    """Rewrite http(s)://127.0.0.1 or localhost URLs when PUBLIC_BASE_URL is set (fixes stale DB values)."""
+    if not url:
+        return url
+    base = _public_base_url()
+    if not base:
+        return url.strip()
+    p = urlparse(url.strip())
+    if p.scheme not in ("http", "https"):
+        return url.strip()
+    host = (p.hostname or "").lower()
+    if host not in ("127.0.0.1", "localhost"):
+        return url.strip()
+    base_p = urlparse(base)
+    scheme = base_p.scheme or "https"
+    netloc = base_p.netloc
+    return urlunparse((scheme, netloc, p.path, p.params, p.query, p.fragment))
+
+
 def _absolute_media_url(request, relative_url: str) -> str:
+    rel = relative_url or ""
+    if rel and not rel.startswith("/"):
+        rel = "/" + rel
+    base = _public_base_url()
+    if base:
+        out = f"{base}{rel}"
+        return _normalize_media_url(out) or out
     if request is not None:
-        return request.build_absolute_uri(relative_url)
-    return relative_url
+        return request.build_absolute_uri(rel)
+    return rel
 
 
-class UserSerializer(serializers.ModelSerializer):
+class NormalizeStoredMediaUrlMixin:
+    """Rewrite localhost / 127.0.0.1 in stored media URLs when PUBLIC_BASE_URL is set."""
+
+    normalize_media_fields: tuple[str, ...] = ()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for name in self.normalize_media_fields:
+            if name in data:
+                data[name] = _normalize_media_url(data[name])
+        return data
+
+
+class UserSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("profile_photo",)
     role = serializers.SerializerMethodField()
 
     class Meta:
@@ -67,7 +120,8 @@ class UserSerializer(serializers.ModelSerializer):
         return "customer"
 
 
-class UserMeUpdateSerializer(serializers.ModelSerializer):
+class UserMeUpdateSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("profile_photo",)
     """PATCH `/api/auth/me/`; send `profile_photo_file` (multipart) to upload and set `profile_photo` URL."""
 
     profile_photo_file = serializers.ImageField(write_only=True, required=False, allow_null=True)
@@ -105,15 +159,13 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
             path = default_storage.save(f"users/profile/{uuid.uuid4().hex}.{ext}", photo_file)
             rel = default_storage.url(path)
             request = self.context.get("request")
-            if request is not None:
-                instance.profile_photo = request.build_absolute_uri(rel)
-            else:
-                instance.profile_photo = rel
+            instance.profile_photo = _absolute_media_url(request, rel)
             instance.save(update_fields=["profile_photo", "updated_at"])
         return instance
 
 
-class UserAdminListSerializer(serializers.ModelSerializer):
+class UserAdminListSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("profile_photo",)
     class Meta:
         model = User
         fields = (
@@ -135,7 +187,8 @@ class UserAdminListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class UserAdminWriteSerializer(serializers.ModelSerializer):
+class UserAdminWriteSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("profile_photo",)
     password = serializers.CharField(write_only=True, min_length=1, required=False, allow_blank=False)
 
     class Meta:
@@ -174,7 +227,8 @@ class UserAdminWriteSerializer(serializers.ModelSerializer):
         return instance
 
 
-class UserPublicSerializer(serializers.ModelSerializer):
+class UserPublicSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("profile_photo",)
     class Meta:
         model = User
         fields = ("id", "name", "phone", "profile_photo", "address")
@@ -203,7 +257,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def get_image_url(self, obj: Category) -> str | None:
         if obj.image:
-            return _absolute_media_url(self.context.get("request"), obj.image.url)
+            return _normalize_media_url(_absolute_media_url(self.context.get("request"), obj.image.url))
         return None
 
 
@@ -230,7 +284,7 @@ class ParentCategorySerializer(serializers.ModelSerializer):
 
     def get_image_url(self, obj: ParentCategory) -> str | None:
         if obj.image:
-            return _absolute_media_url(self.context.get("request"), obj.image.url)
+            return _normalize_media_url(_absolute_media_url(self.context.get("request"), obj.image.url))
         return None
 
     def get_children(self, obj: ParentCategory):
@@ -238,7 +292,47 @@ class ParentCategorySerializer(serializers.ModelSerializer):
         return CategorySerializer(subs, many=True, context=self.context).data
 
 
-class ProductImageSerializer(serializers.ModelSerializer):
+class BannerSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    """Public storefront banner; `image` is an absolute URL string."""
+
+    normalize_media_fields = ("image",)
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Banner
+        fields = ("id", "image", "url", "is_active")
+
+    def get_image(self, obj: Banner) -> str | None:
+        if obj.image:
+            return _normalize_media_url(_absolute_media_url(self.context.get("request"), obj.image.url))
+        return None
+
+
+class BannerAdminSerializer(serializers.ModelSerializer):
+    """Staff CRUD for homepage / explore / sweets carousel (`/api/admin/banners/`)."""
+
+    image_url = serializers.SerializerMethodField()
+    image = serializers.ImageField(write_only=True, required=False, allow_null=True)
+
+    class Meta:
+        model = Banner
+        fields = ("id", "image_url", "image", "url", "is_active", "created_at", "updated_at")
+        read_only_fields = ("id", "created_at", "updated_at", "image_url")
+
+    def get_image_url(self, obj: Banner) -> str | None:
+        if obj.image:
+            return _normalize_media_url(_absolute_media_url(self.context.get("request"), obj.image.url))
+        return None
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get("image"):
+            raise serializers.ValidationError({"image": "Upload an image for the banner."})
+        return attrs
+
+
+class ProductImageSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("image_url",)
+
     class Meta:
         model = ProductImage
         fields = ("id", "product_id", "image_url", "alt_text", "sort_order", "created_at")
@@ -251,7 +345,9 @@ class UnitMiniSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "sort_order")
 
 
-class ProductSerializer(serializers.ModelSerializer):
+class ProductSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("thumbnail_url",)
+
     category_id = serializers.PrimaryKeyRelatedField(source="category", queryset=Category.objects.all())
     effective_price = serializers.SerializerMethodField()
     unit = UnitMiniSerializer(read_only=True)
@@ -274,6 +370,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "is_available",
             "is_featured",
             "is_veg",
+            "is_sweet",
             "thumbnail_url",
             "sort_order",
             "created_at",
@@ -306,10 +403,20 @@ class CartItemSerializer(serializers.ModelSerializer):
             "unit_price",
             "total_price",
             "notes",
+            "is_preorder",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "cart_id", "unit_price", "total_price", "created_at", "updated_at", "product")
+        read_only_fields = (
+            "id",
+            "cart_id",
+            "unit_price",
+            "total_price",
+            "created_at",
+            "updated_at",
+            "product",
+            "is_preorder",
+        )
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -325,6 +432,7 @@ class CartItemWriteSerializer(serializers.Serializer):
     product_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1)
     notes = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    is_preorder = serializers.BooleanField(required=False, default=False)
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -350,6 +458,7 @@ class OrderSerializer(serializers.ModelSerializer):
     customer = UserPublicSerializer(source="user", read_only=True)
     delivery_boy = UserPublicSerializer(read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
+    pending_cancellation_request = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -363,6 +472,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "status",
             "subtotal",
             "delivery_fee",
+            "platform_fee_amount",
             "total_amount",
             "address",
             "delivery_latitude",
@@ -375,9 +485,12 @@ class OrderSerializer(serializers.ModelSerializer):
             "payment_method",
             "payment_status",
             "delivery_type",
+            "is_preorder",
+            "pre_order_date_time",
             "created_at",
             "updated_at",
             "items",
+            "pending_cancellation_request",
         )
         read_only_fields = (
             "id",
@@ -387,6 +500,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "delivery_boy",
             "subtotal",
             "delivery_fee",
+            "platform_fee_amount",
             "total_amount",
             "delivered_at",
             "cancelled_at",
@@ -396,12 +510,64 @@ class OrderSerializer(serializers.ModelSerializer):
             "payment_method",
             "payment_status",
             "delivery_type",
+            "is_preorder",
+            "pre_order_date_time",
+            "pending_cancellation_request",
         )
+
+    def get_pending_cancellation_request(self, obj: Order):
+        pending = getattr(obj, "_prefetched_pending_cancellations", None)
+        row = pending[0] if pending else None
+        if row is None:
+            row = OrderCancellationRequest.objects.filter(
+                order=obj, status=OrderCancellationRequest.Status.PENDING
+            ).first()
+        if not row:
+            return None
+        return {
+            "id": row.id,
+            "reason": row.reason,
+            "status": row.status,
+            "created_at": row.created_at,
+        }
 
 
 class OrderStatusUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Order.Status.choices)
     cancellation_reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class OrderCancellationRequestCreateSerializer(serializers.Serializer):
+    reason = serializers.CharField(min_length=3, max_length=2000)
+
+
+class OrderCancellationReviewSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=("approve", "reject"))
+
+
+class OrderCancellationRequestAdminSerializer(serializers.ModelSerializer):
+    order_number = serializers.CharField(source="order.order_number", read_only=True)
+    order_status = serializers.CharField(source="order.status", read_only=True)
+    customer_name = serializers.CharField(source="order.user.name", read_only=True)
+    customer_phone = serializers.CharField(source="order.user.phone", read_only=True)
+
+    class Meta:
+        model = OrderCancellationRequest
+        fields = (
+            "id",
+            "order",
+            "order_number",
+            "order_status",
+            "customer_name",
+            "customer_phone",
+            "reason",
+            "status",
+            "requested_by",
+            "reviewed_by",
+            "reviewed_at",
+            "created_at",
+        )
+        read_only_fields = fields
 
 
 class OrderTrackingLocationSerializer(serializers.Serializer):
@@ -450,6 +616,7 @@ class CheckoutSerializer(serializers.Serializer):
         max_digits=11, decimal_places=8, required=False, allow_null=True
     )
     special_instructions = serializers.CharField(required=False, allow_blank=True)
+    pre_order_date_time = serializers.DateTimeField(required=False, allow_null=True)
 
     def validate(self, attrs):
         lat = attrs.get("delivery_latitude")
@@ -542,7 +709,9 @@ class OrderChatMessageWriteSerializer(serializers.Serializer):
         return attrs
 
 
-class SuperSettingSerializer(serializers.ModelSerializer):
+class SuperSettingSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("logo", "android_file", "ios_file")
+
     class Meta:
         model = SuperSetting
         fields = (
@@ -556,6 +725,9 @@ class SuperSettingSerializer(serializers.ModelSerializer):
             "meta_title",
             "meta_description",
             "meta_keywords",
+            "about_us",
+            "terms_and_conditions",
+            "privacy_policy",
             "delivery_charge_per_km",
             "is_open",
             "android_file",
@@ -579,9 +751,7 @@ def _save_supersetting_uploaded_file(request, uploaded, subdir: str, default_ext
             ext = raw
     path = default_storage.save(f"store/{subdir}/{uuid.uuid4().hex}.{ext}", uploaded)
     rel = default_storage.url(path)
-    if request is not None:
-        return request.build_absolute_uri(rel)
-    return rel
+    return _absolute_media_url(request, rel)
 
 
 class SuperSettingUpdateSerializer(serializers.ModelSerializer):
@@ -604,6 +774,9 @@ class SuperSettingUpdateSerializer(serializers.ModelSerializer):
             "meta_title",
             "meta_description",
             "meta_keywords",
+            "about_us",
+            "terms_and_conditions",
+            "privacy_policy",
             "delivery_charge_per_km",
             "is_open",
             "android_file",
@@ -633,10 +806,7 @@ class SuperSettingUpdateSerializer(serializers.ModelSerializer):
                     ext = "jpg" if raw == "jpeg" else raw
             path = default_storage.save(f"store/logo/{uuid.uuid4().hex}.{ext}", logo_file)
             rel = default_storage.url(path)
-            if request is not None:
-                instance.logo = request.build_absolute_uri(rel)
-            else:
-                instance.logo = rel
+            instance.logo = _absolute_media_url(request, rel)
             extra_fields.append("logo")
 
         if android_file_upload is not None:
@@ -663,7 +833,8 @@ class UnitAdminSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
 
-class ProductAdminSerializer(serializers.ModelSerializer):
+class ProductAdminSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
+    normalize_media_fields = ("thumbnail_url",)
     category_id = serializers.PrimaryKeyRelatedField(source="category", queryset=Category.objects.all())
     category_name = serializers.CharField(source="category.name", read_only=True)
     unit_id = serializers.PrimaryKeyRelatedField(
@@ -693,6 +864,7 @@ class ProductAdminSerializer(serializers.ModelSerializer):
             "is_available",
             "is_featured",
             "is_veg",
+            "is_sweet",
             "thumbnail_url",
             "thumbnail_file",
             "sort_order",
@@ -733,10 +905,7 @@ class ProductAdminSerializer(serializers.ModelSerializer):
         path = default_storage.save(f"products/thumbnails/{uuid.uuid4().hex}.{ext}", thumbnail_file)
         rel = default_storage.url(path)
         request = self.context.get("request")
-        if request is not None:
-            instance.thumbnail_url = request.build_absolute_uri(rel)
-        else:
-            instance.thumbnail_url = rel
+        instance.thumbnail_url = _absolute_media_url(request, rel)
         instance.save(update_fields=["thumbnail_url", "updated_at"])
 
     def create(self, validated_data):
@@ -810,7 +979,7 @@ class ParentCategoryAdminSerializer(serializers.ModelSerializer):
 
     def get_image_url(self, obj: ParentCategory) -> str | None:
         if obj.image:
-            return _absolute_media_url(self.context.get("request"), obj.image.url)
+            return _normalize_media_url(_absolute_media_url(self.context.get("request"), obj.image.url))
         return None
 
 
@@ -853,7 +1022,7 @@ class CategoryAdminSerializer(serializers.ModelSerializer):
 
     def get_image_url(self, obj: Category) -> str | None:
         if obj.image:
-            return _absolute_media_url(self.context.get("request"), obj.image.url)
+            return _normalize_media_url(_absolute_media_url(self.context.get("request"), obj.image.url))
         return None
 
 

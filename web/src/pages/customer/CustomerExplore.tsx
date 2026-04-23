@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import CustomerBanners from '@/components/customer/CustomerBanners';
 import StoreClosedBanner from '@/components/customer/StoreClosedBanner';
 import { getJson } from '@/lib/api';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
@@ -74,11 +75,14 @@ export default function CustomerExplore() {
         ) : null}
       </div>
       {!menusOpen ? (
-        <div className="p-4">
+        <div className="p-4 space-y-4">
+          <CustomerBanners />
           <StoreClosedBanner />
         </div>
       ) : (
-        <div className="p-4 grid grid-cols-2 gap-3">
+        <div className="p-4 space-y-4">
+          <CustomerBanners />
+          <div className="grid grid-cols-2 gap-3">
           {isLoading && <div className="col-span-2 text-center py-12 text-muted-foreground">Loading…</div>}
           {!isLoading &&
             results.map(p => {
@@ -107,6 +111,7 @@ export default function CustomerExplore() {
           {!isLoading && results.length === 0 && (
             <div className="col-span-2 text-center py-12 text-muted-foreground">No products found</div>
           )}
+          </div>
         </div>
       )}
     </div>

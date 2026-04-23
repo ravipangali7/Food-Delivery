@@ -9,12 +9,13 @@ import type { SuperSetting } from '@/types';
 
 const LocationMiniMap = lazy(() => import('@/components/maps/LocationMiniMap'));
 
-type SettingsTab = 'general' | 'location' | 'seo' | 'account' | 'appVersion';
+type SettingsTab = 'general' | 'location' | 'seo' | 'customerPages' | 'appVersion' | 'billing' | 'account';
 
-const TABS: { id: SettingsTab; label: string }[] = [
+const BASE_TABS: { id: SettingsTab; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'location', label: 'Location' },
   { id: 'seo', label: 'Seo' },
+  { id: 'customerPages', label: 'About & legal' },
   { id: 'appVersion', label: 'App Version' },
   { id: 'account', label: 'Account' },
 ];
@@ -26,9 +27,17 @@ export default function AdminSettings() {
 
   const [tab, setTab] = useState<SettingsTab>('general');
 
-  const { data: s, isLoading } = useQuery({
-    queryKey: ['settings'],
-    queryFn: () => getJson<SuperSetting>('/api/settings/', null),
+  const {
+    data: s,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ['settings', token],
+    queryFn: () => getJson<SuperSetting>('/api/settings/', token),
+    enabled: !!token,
   });
 
   const [form, setForm] = useState({
@@ -46,6 +55,12 @@ export default function AdminSettings() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
+  const [formCustomerPages, setFormCustomerPages] = useState({
+    about_us: '',
+    terms_and_conditions: '',
+    privacy_policy: '',
+  });
+
   const [formApp, setFormApp] = useState({
     android_version: '',
     ios_version: '',
@@ -55,6 +70,20 @@ export default function AdminSettings() {
   const [androidApkFile, setAndroidApkFile] = useState<File | null>(null);
   const [iosIpaFile, setIosIpaFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
+  const [formBilling, setFormBilling] = useState({
+    sms_cost_per_message: '',
+    per_transaction_fee: '',
+  });
+
+  const isSuperAdmin = !!(user?.role === 'super_admin' || user?.is_superuser);
+  const tabs: { id: SettingsTab; label: string }[] = isSuperAdmin
+    ? [
+        ...BASE_TABS.slice(0, 5),
+        { id: 'billing' as const, label: 'Billing' },
+        BASE_TABS[5]!,
+      ]
+    : BASE_TABS;
 
   useEffect(() => {
     if (!s) return;
@@ -71,6 +100,11 @@ export default function AdminSettings() {
     });
     setLogoFile(null);
     setLogoPreview(s.logo || null);
+    setFormCustomerPages({
+      about_us: s.about_us || '',
+      terms_and_conditions: s.terms_and_conditions || '',
+      privacy_policy: s.privacy_policy || '',
+    });
     setFormApp({
       android_version: s.android_version || '',
       ios_version: s.ios_version || '',
@@ -80,6 +114,11 @@ export default function AdminSettings() {
     setAndroidApkFile(null);
     setIosIpaFile(null);
     setUploadProgress(null);
+    setFormBilling({
+      sms_cost_per_message:
+        s.sms_cost_per_message != null ? String(s.sms_cost_per_message) : '',
+      per_transaction_fee: s.per_transaction_fee != null ? String(s.per_transaction_fee) : '',
+    });
   }, [s]);
 
   useEffect(() => {
@@ -89,6 +128,12 @@ export default function AdminSettings() {
       }
     };
   }, [logoPreview]);
+
+  useEffect(() => {
+    if (!isSuperAdmin && tab === 'billing') {
+      setTab('general');
+    }
+  }, [isSuperAdmin, tab]);
 
   const onPickLogo = (file: File | null) => {
     setLogoFile(file);
@@ -171,6 +216,26 @@ export default function AdminSettings() {
     onError: (err: Error) => toast.error(err.message || 'Could not save settings'),
   });
 
+  const saveCustomerPages = useMutation({
+    mutationFn: async () => {
+      if (!token || !s?.id) return;
+      return patchJson<SuperSetting, Record<string, unknown>>(
+        `/api/admin/settings/${s.id}/`,
+        {
+          about_us: formCustomerPages.about_us.trim() || null,
+          terms_and_conditions: formCustomerPages.terms_and_conditions.trim() || null,
+          privacy_policy: formCustomerPages.privacy_policy.trim() || null,
+        },
+        token,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      toast.success('About & legal pages saved.');
+    },
+    onError: (err: Error) => toast.error(err.message || 'Could not save settings'),
+  });
+
   const saveAppVersion = useMutation({
     mutationFn: async () => {
       if (!token || !s?.id) return;
@@ -220,13 +285,59 @@ export default function AdminSettings() {
     },
   });
 
+  const saveBilling = useMutation({
+    mutationFn: async () => {
+      if (!token || !s?.id) return;
+      return patchJson<SuperSetting, Record<string, unknown>>(
+        `/api/admin/settings/${s.id}/`,
+        {
+          sms_cost_per_message: formBilling.sms_cost_per_message.trim() || '0',
+          per_transaction_fee: formBilling.per_transaction_fee.trim() || '0',
+        },
+        token,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      toast.success('Billing settings saved.');
+    },
+    onError: (err: Error) => toast.error(err.message || 'Could not save billing settings'),
+  });
+
   if (!token) {
     return <div className="p-8 text-muted-foreground">Staff only.</div>;
   }
 
-  if (isLoading || !s) {
+  if (isError && !s) {
+    const msg =
+      error instanceof Error ? error.message : 'Could not load store settings. Check your connection and API base.';
+    return (
+      <div className="max-w-3xl space-y-4 p-8">
+        <h1 className="text-2xl font-display font-bold text-foreground">Store Settings</h1>
+        <p className="text-sm text-destructive">{msg}</p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="rounded-[10px] bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if ((isLoading || isFetching) && !s) {
     return (
       <div className="p-8 text-muted-foreground text-sm">Loading store settings…</div>
+    );
+  }
+
+  if (!s) {
+    return (
+      <div className="p-8 text-muted-foreground text-sm">
+        No store configuration found. Create a store row in the database or open the public site once to bootstrap
+        settings.
+      </div>
     );
   }
 
@@ -244,7 +355,7 @@ export default function AdminSettings() {
       </h1>
 
       <div className="flex flex-wrap gap-2">
-        {TABS.map(t => (
+        {tabs.map(t => (
           <button
             key={t.id}
             type="button"
@@ -446,6 +557,137 @@ export default function AdminSettings() {
             >
               <Save size={18} strokeWidth={2.25} />
               {saveSeo.isPending ? 'Saving…' : 'Save SEO Settings'}
+            </button>
+          </div>
+        )}
+
+        {tab === 'customerPages' && (
+          <div className="space-y-6">
+            <p className="text-sm text-muted-foreground">
+              Terms and privacy open on their own pages. The About us body is shown only on the customer About us page
+              (not on profile or listings). Plain text; blank lines make paragraphs. Wrap a heading or phrase in{' '}
+              <strong>**double asterisks**</strong> to show it in bold there.
+            </p>
+            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-2">About</h3>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">About us</label>
+              <textarea
+                value={formCustomerPages.about_us}
+                onChange={e =>
+                  setFormCustomerPages(f => ({ ...f, about_us: e.target.value }))
+                }
+                rows={8}
+                className="w-full rounded-[10px] border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                placeholder={'**Our story**\n\nHow we began…\n\n**Visit us**\nMon–Sat 9–8'}
+              />
+            </div>
+            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-2 pt-2">Legal</h3>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Terms &amp; conditions</label>
+              <textarea
+                value={formCustomerPages.terms_and_conditions}
+                onChange={e =>
+                  setFormCustomerPages(f => ({ ...f, terms_and_conditions: e.target.value }))
+                }
+                rows={10}
+                className="w-full rounded-[10px] border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                placeholder="Ordering, payment, delivery, cancellations, liability…"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Privacy policy</label>
+              <textarea
+                value={formCustomerPages.privacy_policy}
+                onChange={e =>
+                  setFormCustomerPages(f => ({ ...f, privacy_policy: e.target.value }))
+                }
+                rows={10}
+                className="w-full rounded-[10px] border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                placeholder="What data you collect and how you use it…"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => saveCustomerPages.mutate()}
+              disabled={saveCustomerPages.isPending}
+              className="inline-flex items-center gap-2 rounded-[10px] bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity disabled:opacity-60"
+            >
+              <Save size={18} strokeWidth={2.25} />
+              {saveCustomerPages.isPending ? 'Saving…' : 'Save About & legal'}
+            </button>
+          </div>
+        )}
+
+        {tab === 'billing' && isSuperAdmin && (
+          <div className="space-y-6">
+            <p className="text-sm text-muted-foreground">
+              SMS usage is charged after each successful OTP send (login and registration). Owner accounts
+              (super admins and staff marked as store owner) accrue to <strong>Owner SMS due</strong>; other staff,
+              customers, and delivery partners accrue to <strong>Restaurant SMS due</strong>. The per-order platform
+              fee is taken from the global rate below whenever a customer places an order (even if no per-restaurant
+              override exists in the system).
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">SMS cost per OTP (NPR)</label>
+                <input
+                  value={formBilling.sms_cost_per_message}
+                  onChange={e =>
+                    setFormBilling(f => ({ ...f, sms_cost_per_message: e.target.value }))
+                  }
+                  className="w-full rounded-[10px] border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                  inputMode="decimal"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Per-order platform fee (NPR)
+                </label>
+                <input
+                  value={formBilling.per_transaction_fee}
+                  onChange={e =>
+                    setFormBilling(f => ({ ...f, per_transaction_fee: e.target.value }))
+                  }
+                  className="w-full rounded-[10px] border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                  inputMode="decimal"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="rounded-[10px] border border-border bg-muted/20 px-4 py-4 space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Accumulated dues (read-only)
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">Owner SMS due</div>
+                  <div className="text-sm font-semibold text-foreground">
+                    NPR {Number(s.owner_sms_due ?? 0).toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Restaurant SMS due</div>
+                  <div className="text-sm font-semibold text-foreground">
+                    NPR {Number(s.restaurant_sms_due ?? 0).toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Restaurant platform due</div>
+                  <div className="text-sm font-semibold text-foreground">
+                    NPR {Number(s.restaurant_platform_due ?? 0).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => saveBilling.mutate()}
+              disabled={saveBilling.isPending}
+              className="inline-flex items-center gap-2 rounded-[10px] bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity disabled:opacity-60"
+            >
+              <Save size={18} strokeWidth={2.25} />
+              {saveBilling.isPending ? 'Saving…' : 'Save billing rates'}
             </button>
           </div>
         )}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
@@ -12,13 +14,15 @@ from django.views.decorators.http import require_http_methods
 from .. import otp_service
 from ..forms.otp_forms import OtpSendForm, OtpVerifyForm
 from ..models import User
-from ..sms_service import send_otp_sms
+from ..sms_service import send_otp_sms_checked
 
 SESSION_PREFIX = "otp_web"
 SESSION_SENT = f"{SESSION_PREFIX}_sent"
 SESSION_PHONE = f"{SESSION_PREFIX}_phone"
 SESSION_PURPOSE = f"{SESSION_PREFIX}_purpose"
 SESSION_NAME = f"{SESSION_PREFIX}_name"
+
+logger = logging.getLogger(__name__)
 
 
 def _session_clear(request) -> None:
@@ -96,13 +100,22 @@ def _handle_send(request, context) -> redirect | render:
         purpose=purpose,
         user=user_for_row,
     )
-    send_otp_sms(phone, result.otp_code, purpose)
+    sms_ok, sms_err, _sms_meta = send_otp_sms_checked(phone=phone, code=result.otp_code, purpose=purpose)
+    if not sms_ok:
+        logger.warning("OTP web SMS send failed for %s: %s", phone, sms_err)
 
     request.session[SESSION_SENT] = True
     request.session[SESSION_PHONE] = phone
     request.session[SESSION_PURPOSE] = purpose
     request.session[SESSION_NAME] = name if purpose == "register" else (name.strip() if name else "")
-    messages.success(request, "We sent a verification code to your phone via SMS.")
+    if sms_ok:
+        messages.success(request, "We sent a verification code to your phone via SMS.")
+    else:
+        messages.warning(
+            request,
+            "SMS could not be sent right now. If you receive a code (or use a test environment), "
+            f"enter it on the next step. ({sms_err or 'unknown error'})",
+        )
     return redirect("otp_verification")
 
 
@@ -131,7 +144,14 @@ def _handle_resend(request) -> redirect:
         purpose=purpose,
         user=user_for_row,
     )
-    send_otp_sms(phone, result.otp_code, purpose)
+    sms_ok, sms_err, _sms_meta = send_otp_sms_checked(phone=phone, code=result.otp_code, purpose=purpose)
+    if not sms_ok:
+        logger.warning("OTP web SMS resend failed for %s: %s", phone, sms_err)
+        messages.warning(
+            request,
+            f"SMS resend failed: {sms_err or 'unknown error'}. You can try again later; your previous code may still work until it expires.",
+        )
+        return redirect("otp_verification")
     messages.success(request, "A new code was sent.")
     return redirect("otp_verification")
 

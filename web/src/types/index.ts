@@ -56,6 +56,8 @@ export interface User {
   profile_photo?: string;
   is_active: boolean;
   is_delivery_boy: boolean;
+  /** Staff: when true, OTP SMS accrues to owner due; when false, to restaurant due (super admin only). */
+  is_store_owner?: boolean;
   /** Delivery partners: when false, no orders are listed or assigned. */
   is_online?: boolean;
   latitude?: number;
@@ -78,6 +80,12 @@ export interface SuperSetting {
   meta_title?: string;
   meta_description?: string;
   meta_keywords?: string;
+  /** Plain text; shown only on `/customer/about`. Use `**heading**` for bold. */
+  about_us?: string | null;
+  /** Plain text; shown on customer Terms when set. */
+  terms_and_conditions?: string | null;
+  /** Plain text; shown on customer Privacy when set. */
+  privacy_policy?: string | null;
   delivery_charge_per_km: number;
   is_open: boolean;
   android_file?: string | null;
@@ -86,6 +94,31 @@ export interface SuperSetting {
   applestore_link?: string | null;
   android_version?: string | null;
   ios_version?: string | null;
+  /** Super admin only on GET /api/settings/ when authenticated as superuser. */
+  sms_cost_per_message?: number;
+  /** Global per-order platform fee (NPR); always applied when non-zero. */
+  per_transaction_fee?: number;
+  owner_sms_due?: number;
+  restaurant_sms_due?: number;
+  restaurant_platform_due?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Promotional strip on customer home / explore / sweets (`GET /api/banners/`). */
+export interface Banner {
+  id: number;
+  image: string | null;
+  url: string;
+  is_active: boolean;
+}
+
+/** Staff carousel management (`GET/PATCH/POST /api/admin/banners/`). */
+export interface AdminBanner {
+  id: number;
+  image_url: string | null;
+  url: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -154,6 +187,8 @@ export interface Product {
   is_available: boolean;
   is_featured: boolean;
   is_veg: boolean;
+  /** When true, product appears on the customer Sweets tab. */
+  is_sweet?: boolean;
   thumbnail_url?: string;
   sort_order: number;
   created_at: string;
@@ -192,6 +227,8 @@ export interface CartItem {
   unit_price: number;
   total_price: number;
   notes?: string;
+  /** Sweet items only: line was added as a pre-order (date/time at checkout). */
+  is_preorder?: boolean;
   created_at: string;
   updated_at: string;
   product?: Product;
@@ -224,6 +261,14 @@ export type OrderPaymentStatus = 'pending' | 'paid';
 
 export type OrderDeliveryType = 'bike' | 'walking';
 
+/** Pending customer cancellation; present on `GET /api/orders/:id/` while awaiting super admin review. */
+export interface PendingCancellationRequest {
+  id: number;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
 export interface Order {
   id: number;
   order_number: string;
@@ -232,6 +277,8 @@ export interface Order {
   status: OrderStatus;
   subtotal: number;
   delivery_fee: number;
+  /** Per-order platform fee recorded at checkout (NPR). */
+  platform_fee_amount?: number;
   total_amount: number;
   address: string;
   delivery_latitude?: number;
@@ -245,11 +292,16 @@ export interface Order {
   payment_method: OrderPaymentMethod;
   payment_status: OrderPaymentStatus;
   delivery_type: OrderDeliveryType;
+  /** True when the order includes at least one pre-order sweet line. */
+  is_preorder?: boolean;
+  /** When the customer asked to have pre-order items ready (ISO datetime from API). */
+  pre_order_date_time?: string | null;
   created_at: string;
   updated_at: string;
   customer?: User;
   delivery_boy?: User;
   items?: OrderItem[];
+  pending_cancellation_request?: PendingCancellationRequest | null;
 }
 
 export type OrderTrackingPhase = 'preparing' | 'on_the_way' | 'delivered';

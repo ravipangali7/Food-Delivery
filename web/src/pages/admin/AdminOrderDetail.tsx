@@ -8,6 +8,7 @@ import { ArrowLeft, Phone, MapPin, User } from 'lucide-react';
 import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import OrderChatPanel from '@/components/customer/OrderChatPanel';
+import { PreorderScheduleSummary } from '@/components/admin/PreorderScheduleSummary';
 import type { Order, OrderDeliveryType, OrderStatus, User as U } from '@/types';
 
 const allStatuses: OrderStatus[] = [
@@ -66,6 +67,20 @@ export default function AdminOrderDetail() {
       setSelectedStatus('');
       invalidate();
     },
+  });
+
+  const isSuperAdmin = !!(user?.role === 'super_admin' || user?.is_superuser);
+
+  const reviewCancellationMut = useMutation({
+    mutationFn: async (vars: { decision: 'approve' | 'reject'; requestId: number }) => {
+      if (!token) throw new Error('Not signed in');
+      await postJson(
+        `/api/admin/order-cancellation-requests/${vars.requestId}/review/`,
+        { decision: vars.decision },
+        token,
+      );
+    },
+    onSuccess: invalidate,
   });
 
   if (!token) {
@@ -127,6 +142,8 @@ export default function AdminOrderDetail() {
         </div>
       </div>
 
+      <PreorderScheduleSummary order={order} variant="full" />
+
       {!['cancelled', 'failed'].includes(order.status) && (
         <Link
           to={`/admin/orders/${id}/track`}
@@ -134,6 +151,60 @@ export default function AdminOrderDetail() {
         >
           Track order on live map →
         </Link>
+      )}
+
+      {order.pending_cancellation_request && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/90 p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-amber-950">Customer cancellation request</h3>
+          <p className="text-xs text-amber-900/90">
+            Submitted {formatDateTime(order.pending_cancellation_request.created_at)} — the order stays active until
+            this is approved.
+          </p>
+          <div className="text-sm text-foreground border-l-2 border-amber-400 pl-3 whitespace-pre-wrap">
+            {order.pending_cancellation_request.reason}
+          </div>
+          {isSuperAdmin ? (
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() =>
+                  reviewCancellationMut.mutate({
+                    decision: 'approve',
+                    requestId: order.pending_cancellation_request!.id,
+                  })
+                }
+                disabled={reviewCancellationMut.isPending}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:opacity-90 disabled:opacity-50"
+              >
+                Approve and cancel order
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  reviewCancellationMut.mutate({
+                    decision: 'reject',
+                    requestId: order.pending_cancellation_request!.id,
+                  })
+                }
+                disabled={reviewCancellationMut.isPending}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold border border-border bg-card hover:bg-muted disabled:opacity-50"
+              >
+                Reject request
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Only a super admin can approve or reject this request. Use a superuser account to act on it.
+            </p>
+          )}
+          {reviewCancellationMut.isError && (
+            <p className="text-xs text-red-600">
+              {reviewCancellationMut.error instanceof Error
+                ? reviewCancellationMut.error.message
+                : 'Action failed'}
+            </p>
+          )}
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

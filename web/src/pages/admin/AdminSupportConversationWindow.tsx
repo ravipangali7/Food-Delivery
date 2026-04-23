@@ -76,7 +76,9 @@ export default function AdminSupportConversationWindow() {
         </div>
         <p className="text-sm text-muted-foreground mt-1">
           {resolvedLane === 'customer'
-            ? 'Customer threads: support and store coordination (live).'
+            ? riderAssigned
+              ? 'Private customer ↔ delivery partner thread (same as customer ↔ rider).'
+              : 'Store support thread with the customer until a delivery partner is assigned.'
             : resolvedLane === 'customer-rider'
               ? 'Private customer ↔ delivery partner thread.'
               : 'Rider ↔ store operations chat for this order.'}
@@ -87,7 +89,19 @@ export default function AdminSupportConversationWindow() {
       </div>
 
       {user && resolvedLane === 'customer' ? (
-        <div className="space-y-4">
+        riderAssigned ? (
+          <OrderChatPanel
+            orderId={order.id}
+            token={token}
+            currentUserId={user.id}
+            partnerLabel="customer ↔ delivery partner"
+            chatThread="customer_rider"
+            wsThread="all"
+            wsIngestFilter={m => Boolean(m.customer_rider)}
+            notifyPeerMessages={false}
+            enabled
+          />
+        ) : (
           <OrderChatPanel
             orderId={order.id}
             token={token}
@@ -99,18 +113,7 @@ export default function AdminSupportConversationWindow() {
             notifyPeerMessages={false}
             enabled
           />
-          <OrderChatPanel
-            orderId={order.id}
-            token={token}
-            currentUserId={user.id}
-            partnerLabel="customer (delivery coordination)"
-            chatThread="delivery"
-            wsThread="all"
-            wsIngestFilter={m => !m.support && !m.rider_staff && !m.customer_rider}
-            notifyPeerMessages={false}
-            enabled
-          />
-        </div>
+        )
       ) : null}
 
       {user && resolvedLane === 'customer-rider' ? (

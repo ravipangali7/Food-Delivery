@@ -1,0 +1,12 @@
+# Use on the API subdomain (api.shyam-sweets.com) only if preflight still has no CORS headers after
+# redeploying Django with CORS_ALLOWED_ORIGINS — often Apache/cPanel answers OPTIONS before WSGI.
+# Requires mod_headers. Use EITHER these lines OR django-cors-headers for ACAO, not both duplicates.
+#
+# Replace https://shyam-sweets.com if your storefront origin differs.
+
+<IfModule mod_headers.c>
+  Header always set Access-Control-Allow-Origin "https://shyam-sweets.com"
+  Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  Header always set Access-Control-Allow-Headers "Authorization, Content-Type, Accept, X-CSRFToken"
+  Header always set Access-Control-Max-Age "86400"
+</IfModule>

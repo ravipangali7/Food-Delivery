@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   User,
   MapPin,
@@ -12,6 +13,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getJson } from '@/lib/api';
+import type { SuperSetting } from '@/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,15 +31,39 @@ export default function CustomerProfile() {
   const navigate = useNavigate();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => getJson<SuperSetting>('/api/settings/', null),
+  });
+
+  const termsPreview = settings?.terms_and_conditions?.trim();
+  const privacyPreview = settings?.privacy_policy?.trim();
+  const storePhone = settings?.phone?.trim();
+
   const menuItems = [
     { icon: User, label: 'Edit Profile', desc: 'Name, email, address', path: '/customer/profile/edit' },
     { icon: MapPin, label: 'Saved Addresses', path: '/customer/profile/addresses' },
     { icon: ClipboardList, label: 'Order History', path: '/customer/orders' },
     { divider: true },
-    { icon: Info, label: 'About Us', path: '/customer/about' },
-    { icon: FileText, label: 'Terms & Conditions', path: '/customer/terms' },
-    { icon: Lock, label: 'Privacy Policy', path: '/customer/privacy' },
-    { icon: Phone, label: 'Contact Support', path: '/customer/support' },
+    {
+      icon: Info,
+      label: 'About Us',
+      path: '/customer/about',
+      desc: 'Store name, logo, and full story',
+    },
+    {
+      icon: FileText,
+      label: 'Terms & Conditions',
+      path: '/customer/terms',
+      desc: termsPreview ? 'Updated from Store Settings' : 'View store terms',
+    },
+    {
+      icon: Lock,
+      label: 'Privacy Policy',
+      path: '/customer/privacy',
+      desc: privacyPreview ? 'Updated from Store Settings' : 'View privacy details',
+    },
+    { icon: Phone, label: 'Contact Support', path: '/customer/support', desc: storePhone || undefined },
     { divider: true },
     { icon: LogOut, label: 'Logout', path: '/', danger: true, action: 'logout' as const },
   ];

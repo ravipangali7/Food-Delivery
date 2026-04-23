@@ -3,26 +3,33 @@ Domain logic for FoodDelivery (aligned with models_logic.md).
 """
 from __future__ import annotations
 
+import logging
 import math
 from decimal import Decimal
+from datetime import datetime
 from typing import Iterable
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
 from .fcm_service import send_push_multicast
+from .sms_service import infelo_sms_configured, send_notification_sms
 from .models import (
     Cart,
     CartItem,
     Notification,
     NotificationUser,
     Order,
+    OrderCancellationRequest,
     OrderItem,
     Product,
     SuperSetting,
     User,
 )
+
+logger = logging.getLogger(__name__)
 
 # Mirrors web/src/lib/colors.ts validStatusTransitions
 VALID_STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
@@ -63,6 +70,25 @@ def get_store_settings() -> SuperSetting | None:
     return SuperSetting.objects.order_by("pk").first()
 
 
+def _send_order_status_sms(order: Order, title: str, body: str) -> None:
+    """Notify customer and store contact phone when Infelo SMS is configured (or DEBUG no-op)."""
+    if not infelo_sms_configured() and not settings.DEBUG:
+        return
+    if order.user_id:
+        u = User.objects.filter(pk=order.user_id).only("phone").first()
+        phone = (u.phone or "").strip() if u else ""
+        if phone:
+            ok, err = send_notification_sms(phone=phone, title=title, body=body)
+            if not ok:
+                logger.warning("Order status SMS to customer failed (%s): %s", order.pk, err)
+    store = get_store_settings()
+    sphone = (store.phone or "").strip() if store else ""
+    if sphone:
+        ok, err = send_notification_sms(phone=sphone, title=title, body=body)
+        if not ok:
+            logger.warning("Order status SMS to store failed (%s): %s", order.pk, err)
+
+
 def compute_delivery_fee(
     *,
     delivery_lat: Decimal | None,
@@ -101,9 +127,12 @@ def upsert_cart_line(
     product: Product,
     quantity: int,
     notes: str | None = None,
+    *,
+    is_preorder: bool = False,
 ) -> CartItem:
     """
     Merge line per UniqueConstraint (cart, product); prices from Product.effective_price.
+    Pre-order lines (sweets only) skip live stock checks; date/time is collected at checkout.
     """
     if quantity < 1:
         raise ValueError("quantity must be at least 1")
@@ -111,7 +140,9 @@ def upsert_cart_line(
         raise ValueError("Product is not available")
     if not product.is_available:
         raise ValueError("Product is not available for purchase")
-    if product.stock_quantity < quantity:
+    if is_preorder and not product.is_sweet:
+        raise ValueError("Only sweet items can be pre-ordered")
+    if not is_preorder and product.stock_quantity < quantity:
         raise ValueError("Insufficient stock")
 
     unit = product.effective_price
@@ -125,12 +156,14 @@ def upsert_cart_line(
             "unit_price": unit,
             "total_price": total,
             "notes": notes or "",
+            "is_preorder": is_preorder,
         },
     )
     if not created:
         item.quantity = quantity
         item.unit_price = unit
         item.total_price = (unit * quantity).quantize(Decimal("0.01"))
+        item.is_preorder = is_preorder
         if notes is not None:
             item.notes = notes
         item.save()
@@ -210,6 +243,31 @@ def create_order_notifications(
                         error_message=(err or "FCM error")[:500],
                         delivered_at=now,
                     )
+    elif medium == Notification.Medium.SMS:
+        users = {u.pk: u for u in User.objects.filter(pk__in=uids).only("id", "phone")}
+        for uid in uids:
+            u = users.get(uid)
+            phone = (u.phone or "").strip() if u else ""
+            if not phone:
+                NotificationUser.objects.filter(notification=n, user_id=uid).update(
+                    delivery_status=NotificationUser.DeliveryStatus.SKIPPED,
+                    error_message="No phone number",
+                    delivered_at=now,
+                )
+                continue
+            ok, err = send_notification_sms(phone=phone, title=title, body=body)
+            if ok:
+                NotificationUser.objects.filter(notification=n, user_id=uid).update(
+                    delivery_status=NotificationUser.DeliveryStatus.SENT,
+                    error_message="",
+                    delivered_at=now,
+                )
+            else:
+                NotificationUser.objects.filter(notification=n, user_id=uid).update(
+                    delivery_status=NotificationUser.DeliveryStatus.FAILED,
+                    error_message=(err or "SMS failed")[:500],
+                    delivered_at=now,
+                )
     else:
         NotificationUser.objects.filter(notification=n).update(
             delivery_status=NotificationUser.DeliveryStatus.SENT,
@@ -260,39 +318,104 @@ def apply_order_status_change(
     customer_id = order.user_id
     targets = [customer_id]
     if new_status == Order.Status.CONFIRMED and old != new_status:
+        title, body = "Order confirmed", f"Your order {order.order_number} has been confirmed."
         create_order_notifications(
             order,
             Notification.Type.ORDER_CONFIRMED,
-            title="Order confirmed",
-            body=f"Your order {order.order_number} has been confirmed.",
+            title=title,
+            body=body,
             user_ids=targets,
         )
+        _send_order_status_sms(order, title, body)
     elif new_status == Order.Status.OUT_FOR_DELIVERY and old != new_status:
+        title, body = "On the way", f"Your order {order.order_number} is out for delivery."
         create_order_notifications(
             order,
             Notification.Type.OUT_FOR_DELIVERY,
-            title="On the way",
-            body=f"Your order {order.order_number} is out for delivery.",
+            title=title,
+            body=body,
             user_ids=targets,
         )
+        _send_order_status_sms(order, title, body)
     elif new_status == Order.Status.DELIVERED and old != new_status:
+        title, body = "Delivered", f"Your order {order.order_number} has been delivered."
         create_order_notifications(
             order,
             Notification.Type.DELIVERED,
-            title="Delivered",
-            body=f"Your order {order.order_number} has been delivered.",
+            title=title,
+            body=body,
             user_ids=targets,
         )
+        _send_order_status_sms(order, title, body)
     elif new_status == Order.Status.CANCELLED and old != new_status:
+        title, body = "Order cancelled", f"Your order {order.order_number} has been cancelled."
         create_order_notifications(
             order,
             Notification.Type.CANCELLED,
-            title="Order cancelled",
-            body=f"Your order {order.order_number} has been cancelled.",
+            title=title,
+            body=body,
             user_ids=targets,
         )
+        _send_order_status_sms(order, title, body)
     _ = actor
     return order
+
+
+def submit_order_cancellation_request(*, order: Order, user: User, reason: str) -> OrderCancellationRequest:
+    """
+    Customer asks to cancel; order is unchanged until a superuser approves.
+    Only the owning customer may submit, while the order is still pending.
+    """
+    text = (reason or "").strip()
+    if len(text) < 3:
+        raise ValueError("Please enter a cancellation reason (at least 3 characters).")
+    if order.user_id != user.id:
+        raise ValueError("You cannot cancel this order.")
+    if order.status != Order.Status.PENDING:
+        raise ValueError("Cancellation can only be requested while the order is pending.")
+    if OrderCancellationRequest.objects.filter(
+        order=order, status=OrderCancellationRequest.Status.PENDING
+    ).exists():
+        raise ValueError("A cancellation request is already waiting for review.")
+    return OrderCancellationRequest.objects.create(
+        order=order,
+        requested_by=user,
+        reason=text[:2000],
+        status=OrderCancellationRequest.Status.PENDING,
+    )
+
+
+@transaction.atomic
+def review_order_cancellation_request(
+    *,
+    req: OrderCancellationRequest,
+    reviewer: User,
+    approve: bool,
+) -> OrderCancellationRequest:
+    """Superuser only (caller must enforce). Approving cancels the order and stores the customer's reason."""
+    if not reviewer.is_superuser:
+        raise ValueError("Only a super admin can review cancellation requests.")
+    if req.status != OrderCancellationRequest.Status.PENDING:
+        raise ValueError("This request has already been reviewed.")
+    now = timezone.now()
+    if approve:
+        order = Order.objects.select_for_update().get(pk=req.order_id)
+        if order.status != Order.Status.PENDING:
+            raise ValueError("The order is no longer pending; it cannot be cancelled this way.")
+        reason_for_order = req.reason[:255]
+        apply_order_status_change(
+            order,
+            Order.Status.CANCELLED,
+            cancellation_reason=reason_for_order,
+            actor=reviewer,
+        )
+        req.status = OrderCancellationRequest.Status.APPROVED
+    else:
+        req.status = OrderCancellationRequest.Status.REJECTED
+    req.reviewed_by = reviewer
+    req.reviewed_at = now
+    req.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+    return req
 
 
 @transaction.atomic
@@ -303,6 +426,7 @@ def place_order_from_cart(
     delivery_latitude: Decimal | None = None,
     delivery_longitude: Decimal | None = None,
     special_instructions: str | None = None,
+    pre_order_date_time: datetime | None = None,
 ) -> Order:
     """
     Create Order + OrderItems from user's cart; clear cart; notification.
@@ -312,31 +436,44 @@ def place_order_from_cart(
         raise ValueError("Cart is empty")
 
     items = list(cart.items.select_related("product").select_for_update())
+    has_preorder = any(ci.is_preorder for ci in items)
+    if has_preorder:
+        if pre_order_date_time is None:
+            raise ValueError("Choose a date and time for your pre-order.")
+        if pre_order_date_time <= timezone.now():
+            raise ValueError("Pre-order date and time must be in the future.")
+    else:
+        pre_order_date_time = None
+
     subtotal = Decimal("0.00")
-    line_snapshots: list[tuple[Product, int, Decimal, str]] = []
+    line_snapshots: list[tuple[Product, int, Decimal, str, bool]] = []
 
     for ci in items:
         p = ci.product
         if p.deleted_at is not None or not p.is_available:
             raise ValueError(f"Product '{p.name}' is not available")
-        if p.stock_quantity < ci.quantity:
+        if ci.is_preorder and not p.is_sweet:
+            raise ValueError(f"Product '{p.name}' cannot be on a pre-order line")
+        if not ci.is_preorder and p.stock_quantity < ci.quantity:
             raise ValueError(f"Insufficient stock for '{p.name}'")
         unit = p.effective_price
         line_total = (unit * ci.quantity).quantize(Decimal("0.01"))
         subtotal += line_total
-        line_snapshots.append((p, ci.quantity, unit, ci.notes or ""))
+        line_snapshots.append((p, ci.quantity, unit, ci.notes or "", ci.is_preorder))
 
     delivery_fee, _ = compute_delivery_fee(
         delivery_lat=delivery_latitude,
         delivery_lon=delivery_longitude,
     )
-    total_amount = (subtotal + delivery_fee).quantize(Decimal("0.01"))
+    platform_fee_amount = Decimal("0.00")
+    total_amount = (subtotal + delivery_fee + platform_fee_amount).quantize(Decimal("0.01"))
 
     order = Order(
         user=user,
         status=Order.Status.PENDING,
         subtotal=subtotal,
         delivery_fee=delivery_fee,
+        platform_fee_amount=platform_fee_amount,
         total_amount=total_amount,
         address=address,
         delivery_latitude=delivery_latitude,
@@ -344,10 +481,12 @@ def place_order_from_cart(
         special_instructions=special_instructions or "",
         payment_method=Order.PaymentMethod.CASH_ON_DELIVERY,
         payment_status=Order.PaymentStatus.PENDING,
+        is_preorder=has_preorder,
+        pre_order_date_time=pre_order_date_time,
     )
     order.save()
 
-    for p, qty, unit, notes in line_snapshots:
+    for p, qty, unit, notes, line_is_preorder in line_snapshots:
         OrderItem.objects.create(
             order=order,
             product=p,
@@ -356,7 +495,8 @@ def place_order_from_cart(
             total_price=(unit * qty).quantize(Decimal("0.01")),
             notes=notes or None,
         )
-        Product.objects.filter(pk=p.pk).update(stock_quantity=p.stock_quantity - qty)
+        if not line_is_preorder:
+            Product.objects.filter(pk=p.pk).update(stock_quantity=p.stock_quantity - qty)
 
     cart.items.all().delete()
     recalculate_cart_totals(cart)

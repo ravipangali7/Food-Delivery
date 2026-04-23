@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import {
   formatCurrency,
   formatDateTime,
@@ -52,16 +53,21 @@ export default function CustomerOrderTracking() {
     enabled: trackingEnabled,
   });
 
+  const [cancelReason, setCancelReason] = useState('');
+
   const cancelMut = useMutation({
     mutationFn: async () => {
       if (!token || !id) return;
-      await postJson<Order, { status: string; cancellation_reason?: string }>(
-        `/api/orders/${id}/transition/`,
-        { status: 'cancelled', cancellation_reason: 'Customer requested' },
+      const reason = cancelReason.trim();
+      if (reason.length < 3) throw new Error('Please enter a reason (at least 3 characters).');
+      await postJson<Order, { reason: string }>(
+        `/api/orders/${id}/cancellation-request/`,
+        { reason },
         token,
       );
     },
     onSuccess: () => {
+      setCancelReason('');
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
@@ -95,6 +101,13 @@ export default function CustomerOrderTracking() {
       </div>
 
       <div className="flex-1 flex flex-col gap-4 px-4 py-4">
+        {order.is_preorder && order.pre_order_date_time && (
+          <div className="rounded-xl border border-violet-200 bg-violet-50/90 px-4 py-3 text-sm text-violet-950">
+            <span className="font-semibold">Pre-order</span>
+            <span className="text-violet-900"> — requested for {formatDateTime(order.pre_order_date_time)}</span>
+          </div>
+        )}
+
         {trackingEnabled && (
           <>
             <Link
@@ -228,15 +241,47 @@ export default function CustomerOrderTracking() {
           </div>
         </div>
 
-        {order.status === 'pending' && (
-          <button
-            type="button"
-            onClick={() => cancelMut.mutate()}
-            disabled={cancelMut.isPending}
-            className="w-full py-3 border-2 border-red-200 text-red-600 font-semibold rounded-full text-sm hover:bg-red-50"
-          >
-            Cancel Order
-          </button>
+        {order.pending_cancellation_request && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+            <p className="font-semibold">Cancellation request sent</p>
+            <p className="text-amber-900/90 mt-1">
+              Your order stays active until a super admin reviews your reason. You will see updates here once they
+              decide.
+            </p>
+          </div>
+        )}
+
+        {order.status === 'pending' && !order.pending_cancellation_request && (
+          <div className="rounded-xl border border-red-100 bg-card p-4 space-y-3">
+            <label htmlFor="cancel-reason" className="block text-sm font-semibold text-foreground">
+              Cancel this order
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Your order will not be cancelled until you submit a reason and a super admin approves the request.
+            </p>
+            <textarea
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              placeholder="Why do you need to cancel? (required)"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-200"
+            />
+            <button
+              type="button"
+              onClick={() => cancelMut.mutate()}
+              disabled={cancelMut.isPending || cancelReason.trim().length < 3}
+              className="w-full py-3 border-2 border-red-200 text-red-600 font-semibold rounded-full text-sm hover:bg-red-50 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {cancelMut.isPending ? 'Submitting…' : 'Submit cancellation request'}
+            </button>
+            {cancelMut.isError && (
+              <p className="text-xs text-red-600">
+                {cancelMut.error instanceof Error ? cancelMut.error.message : 'Request failed'}
+              </p>
+            )}
+          </div>
         )}
 
         {order.status === 'delivered' && (

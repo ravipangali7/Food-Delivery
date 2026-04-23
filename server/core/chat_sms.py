@@ -1,4 +1,4 @@
-"""Optional SMS mirror when staff reply in order chat (Twilio)."""
+"""Optional SMS mirror when staff reply in order chat (Infelo)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def maybe_send_staff_chat_reply_sms(order: Order, msg: OrderChatMessage, sender: User) -> None:
     """
     When store staff reply in chat, optionally send the same text via SMS so the recipient
-    sees it even without the app. Controlled by CHAT_REPLY_SMS (default on when Twilio configured).
+    sees it even without the app. Controlled by ``CHAT_REPLY_SMS`` (uses Infelo when ``INFELO_SMS_API_KEY`` is set).
     """
     if not getattr(sender, "is_staff", False) or not sender.is_active:
         return

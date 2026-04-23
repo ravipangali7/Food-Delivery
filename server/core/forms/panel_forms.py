@@ -110,6 +110,7 @@ class ProductPanelForm(forms.ModelForm):
             "is_available",
             "is_featured",
             "is_veg",
+            "is_sweet",
             "thumbnail_url",
             "sort_order",
         )
@@ -250,6 +251,9 @@ class StoreSettingsPanelForm(forms.ModelForm):
             "meta_title",
             "meta_description",
             "meta_keywords",
+            "about_us",
+            "terms_and_conditions",
+            "privacy_policy",
             "delivery_charge_per_km",
             "is_open",
             "android_file",
@@ -262,4 +266,7 @@ class StoreSettingsPanelForm(forms.ModelForm):
         widgets = {
             "address": forms.Textarea(attrs={"rows": 3}),
             "meta_description": forms.Textarea(attrs={"rows": 2}),
+            "about_us": forms.Textarea(attrs={"rows": 8}),
+            "terms_and_conditions": forms.Textarea(attrs={"rows": 10}),
+            "privacy_policy": forms.Textarea(attrs={"rows": 10}),
         }

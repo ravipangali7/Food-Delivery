@@ -40,10 +40,9 @@ export default function CustomerSupport() {
   const selected = chatOrders.find(o => o.id === selectedId) ?? chatOrders[0];
 
   useEffect(() => {
-    if (recipient === 'rider' && selected && !selected.delivery_boy_id) {
-      setRecipient('admin');
-    }
-  }, [recipient, selected]);
+    if (recipient !== 'rider' || !selected) return;
+    if (!selected.delivery_boy_id) setRecipient('admin');
+  }, [recipient, selected?.id, selected?.delivery_boy_id]);
 
   if (!token || !user) {
     return (

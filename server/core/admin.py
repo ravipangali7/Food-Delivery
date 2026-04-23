@@ -7,6 +7,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
+    Banner,
     Cart,
     CartItem,
     Category,
@@ -358,6 +359,16 @@ class SuperSettingAdmin(admin.ModelAdmin):
             },
         ),
         (
+            _("Customer app pages"),
+            {
+                "fields": (
+                    "about_us",
+                    "terms_and_conditions",
+                    "privacy_policy",
+                )
+            },
+        ),
+        (
             _("App version"),
             {
                 "fields": (
@@ -386,6 +397,29 @@ class SuperSettingAdmin(admin.ModelAdmin):
     @admin.display(description=_("Logo preview"))
     def logo_preview(self, obj: SuperSetting):
         return admin_img(obj.logo, size=96, alt=obj.name)
+
+
+@admin.register(Banner)
+class BannerAdmin(admin.ModelAdmin):
+    list_display = ("id", "list_image", "url", "is_active", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("url",)
+    ordering = ("id",)
+    readonly_fields = ("created_at", "updated_at", "image_preview")
+    fieldsets = (
+        (None, {"fields": ("image", "image_preview", "url", "is_active")}),
+        (_("Timestamps"), {"fields": ("created_at", "updated_at")}),
+    )
+
+    @admin.display(description=_("Image"))
+    def list_image(self, obj: Banner):
+        url = obj.image.url if obj.image else None
+        return admin_img(url, size=56, alt=f"Banner {obj.pk}")
+
+    @admin.display(description=_("Image preview"))
+    def image_preview(self, obj: Banner):
+        url = obj.image.url if obj.image else None
+        return admin_img(url, size=160, alt=f"Banner {obj.pk}")
 
 
 @admin.register(ParentCategory)
@@ -477,7 +511,7 @@ class ProductAdmin(admin.ModelAdmin):
         "is_available",
         "updated_at",
     )
-    list_filter = ("is_available", "is_featured", "is_veg", "category", "deleted_at")
+    list_filter = ("is_available", "is_featured", "is_veg", "is_sweet", "category", "deleted_at")
     search_fields = ("name", "slug", "short_description", "description")
     prepopulated_fields = {"slug": ("name",)}
     autocomplete_fields = ("category", "unit")
@@ -515,6 +549,7 @@ class ProductAdmin(admin.ModelAdmin):
                     "is_available",
                     "is_featured",
                     "is_veg",
+                    "is_sweet",
                 )
             },
         ),
@@ -550,6 +585,8 @@ class ProductAdmin(admin.ModelAdmin):
             parts.append(badge(_("Veg"), color="#198754"))
         else:
             parts.append(badge(_("Non-veg"), color="#6c757d"))
+        if obj.is_sweet:
+            parts.append(badge(_("Sweet"), color="#e91e8c"))
         if obj.deleted_at:
             parts.append(badge(_("Deleted"), color="#343a40"))
         return mark_safe(" ".join(str(p) for p in parts)) if parts else "—"
@@ -634,6 +671,7 @@ class OrderAdmin(admin.ModelAdmin):
                 "fields": (
                     "subtotal",
                     "delivery_fee",
+                    "platform_fee_amount",
                     "total_amount",
                 )
             },
@@ -653,6 +691,10 @@ class OrderAdmin(admin.ModelAdmin):
                     "cancellation_reason",
                 )
             },
+        ),
+        (
+            _("Pre-order"),
+            {"fields": ("is_preorder", "pre_order_date_time")},
         ),
         (_("Timestamps"), {"fields": ("created_at", "updated_at")}),
     )
@@ -763,7 +805,7 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ("id", "cart", "product", "quantity", "unit_price_display", "total_price_display")
+    list_display = ("id", "cart", "product", "quantity", "is_preorder", "unit_price_display", "total_price_display")
     search_fields = ("cart__user__phone", "product__name")
     autocomplete_fields = ("cart", "product")
 

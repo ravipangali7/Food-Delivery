@@ -2,13 +2,26 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { getJson } from '@/lib/api';
+import { renderAboutPlainText } from '@/lib/customerAboutText';
 import type { SuperSetting } from '@/types';
 
+function storeInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
+}
+
 export default function CustomerAboutUs() {
-  const { data: s, isLoading } = useQuery({
+  const { data: s, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['settings'],
     queryFn: () => getJson<SuperSetting>('/api/settings/', null),
+    refetchOnMount: 'always',
   });
+
+  const aboutText = s?.about_us?.trim();
+  const addressText = s?.address?.trim();
+  const phoneText = s?.phone?.trim();
 
   return (
     <div className="pb-8">
@@ -22,49 +35,64 @@ export default function CustomerAboutUs() {
       <div className="px-4 py-6 space-y-6 max-w-prose mx-auto">
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
+        {isError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {error instanceof Error ? error.message : 'Could not load store settings.'}{' '}
+            <button
+              type="button"
+              className="underline font-medium"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {s && (
           <>
             <div className="flex flex-col items-center text-center gap-3">
               {s.logo ? (
-                <img src={s.logo} alt="" className="h-20 w-20 object-contain rounded-2xl border border-border bg-white" />
+                <img
+                  src={s.logo}
+                  alt={s.name}
+                  className="h-20 w-20 object-contain rounded-2xl border border-border bg-white"
+                />
               ) : (
-                <div className="h-20 w-20 rounded-2xl bg-amber-100 flex items-center justify-center text-3xl">🍬</div>
+                <div
+                  className="h-20 w-20 rounded-2xl bg-amber-100 flex items-center justify-center text-lg font-bold text-amber-900 border border-border"
+                  aria-hidden
+                >
+                  {storeInitials(s.name)}
+                </div>
               )}
               <h2 className="font-display font-bold text-xl text-amber-900">{s.name}</h2>
+              {phoneText ? (
+                <a href={`tel:${phoneText}`} className="text-sm text-amber-700 font-medium">
+                  {phoneText}
+                </a>
+              ) : (
+                <p className="text-xs text-muted-foreground">Phone number is set in Store settings → General.</p>
+              )}
             </div>
 
             <section className="space-y-2">
-              <h3 className="font-semibold text-sm text-amber-900">Who we are</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {s.meta_description?.trim()
-                  ? s.meta_description
-                  : `${s.name} is our food and sweets storefront. We prepare orders placed through this app and coordinate delivery to your door when you choose delivery.`}
-              </p>
-            </section>
-
-            <section className="space-y-2">
-              <h3 className="font-semibold text-sm text-amber-900">Store location</h3>
-              {s.address?.trim() ? (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{s.address}</p>
+              <h3 className="font-semibold text-sm text-amber-900">About</h3>
+              {aboutText ? (
+                renderAboutPlainText(aboutText)
               ) : (
-                <p className="text-sm text-muted-foreground">Address is configured in store settings.</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  About text has not been published yet. Add it under Store settings → About &amp; legal → About us.
+                </p>
               )}
             </section>
 
-            <section className="space-y-2">
-              <h3 className="font-semibold text-sm text-amber-900">Contact</h3>
-              {s.phone?.trim() ? (
-                <a href={`tel:${s.phone}`} className="text-sm text-amber-700 font-medium">
-                  {s.phone}
-                </a>
-              ) : (
-                <p className="text-sm text-muted-foreground">Phone is set in store settings.</p>
-              )}
-            </section>
-
-            {s.meta_title?.trim() && (
-              <p className="text-[11px] text-muted-foreground border-t border-border pt-4">{s.meta_title}</p>
-            )}
+            {addressText ? (
+              <section className="space-y-2">
+                <h3 className="font-semibold text-sm text-amber-900">Address</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{addressText}</p>
+              </section>
+            ) : null}
           </>
         )}
       </div>

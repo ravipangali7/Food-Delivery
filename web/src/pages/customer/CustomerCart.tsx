@@ -29,11 +29,13 @@ export default function CustomerCart() {
         await deleteJson<Cart>(`/api/cart/items/${item.id}/`, token);
         return;
       }
-      await postJson<Cart, { product_id: number; quantity: number; notes?: string }>(
-        '/api/cart/items/',
-        { product_id: item.product_id, quantity, notes: item.notes },
-        token,
-      );
+      const body: { product_id: number; quantity: number; notes?: string; is_preorder?: boolean } = {
+        product_id: item.product_id,
+        quantity,
+        notes: item.notes,
+      };
+      if (item.is_preorder) body.is_preorder = true;
+      await postJson<Cart, typeof body>('/api/cart/items/', body, token);
     },
     onSuccess: invalidate,
   });
@@ -106,8 +108,15 @@ export default function CustomerCart() {
                 <div className="w-16 h-16 rounded-lg bg-amber-50 flex items-center justify-center">🍬</div>
               )}
               <div className="flex-1">
-                <div className="flex justify-between">
-                  <h3 className="font-semibold text-sm">{item.product?.name}</h3>
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <h3 className="font-semibold text-sm">{item.product?.name}</h3>
+                    {item.is_preorder ? (
+                      <span className="inline-block mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded">
+                        Pre-order
+                      </span>
+                    ) : null}
+                  </div>
                   <button
                     type="button"
                     onClick={() => updateQty.mutate({ item, quantity: 0 })}
@@ -170,8 +179,8 @@ export default function CustomerCart() {
 
       <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[430px] p-4 bg-card border-t border-border space-y-2">
         <p className="text-[11px] text-center text-muted-foreground px-1">
-          At checkout, your saved profile map pin is used as the default drop-off. You can move the pin there before
-          ordering.
+          At checkout, a delivery map pin is required. Your profile pin loads as the default; you can search or move the pin
+          before placing the order.
         </p>
         <Link
           to="/customer/checkout"
