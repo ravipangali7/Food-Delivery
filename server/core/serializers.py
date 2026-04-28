@@ -1150,7 +1150,7 @@ class OtpSendSerializer(serializers.Serializer):
 class OtpVerifySerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
     purpose = serializers.ChoiceField(choices=("login", "register"))
-    otp = serializers.CharField(max_length=10, trim_whitespace=True)
+    otp = serializers.CharField(min_length=6, max_length=6, trim_whitespace=True)
     name = serializers.CharField(max_length=100, required=False, allow_blank=True)
 
     def validate_phone(self, value: str) -> str:
@@ -1162,6 +1162,10 @@ class OtpVerifySerializer(serializers.Serializer):
         return digits
 
     def validate(self, attrs):
+        otp = (attrs.get("otp") or "").strip()
+        if not otp.isdigit():
+            raise serializers.ValidationError({"otp": "Enter a valid 6-digit code."})
+        attrs["otp"] = otp
         purpose = attrs["purpose"]
         name = (attrs.get("name") or "").strip()
         if purpose == "register" and len(name) < 2:

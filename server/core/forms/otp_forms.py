@@ -48,11 +48,14 @@ class OtpSendForm(forms.Form):
 
 class OtpVerifyForm(forms.Form):
     otp = forms.CharField(
-        max_length=10,
-        min_length=4,
+        max_length=6,
+        min_length=6,
         label="Verification code",
         help_text="Enter the code we sent by SMS.",
     )
 
     def clean_otp(self) -> str:
-        return str(self.cleaned_data["otp"]).strip()
+        otp = str(self.cleaned_data["otp"]).strip()
+        if not otp.isdigit():
+            raise forms.ValidationError("Enter a valid 6-digit code.")
+        return otp

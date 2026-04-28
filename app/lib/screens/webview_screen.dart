@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../services/auth_token_storage.dart';
@@ -14,6 +15,28 @@ import '../services/auth_token_storage.dart';
 const String _kWebAuthLocalStorageKey = 'fd_auth_token';
 
 const String _kJsAuthPersistHandler = 'fdAuthTokenPersist';
+
+/// Wraps `localStorage.setItem/removeItem` so every SPA login/logout hits Flutter without relying on SPA code.
+final String _kLocalStorageHookScript = '''
+(function(){
+  var KEY=${jsonEncode(_kWebAuthLocalStorageKey)};
+  var H=${jsonEncode(_kJsAuthPersistHandler)};
+  function persist(v){
+    try{
+      var w=window.flutter_inappwebview;
+      if(w&&typeof w.callHandler==='function')w.callHandler(H,v==null?'':String(v));
+    }catch(e){}
+  }
+  try{
+    var ls=window.localStorage;
+    if(!ls)return;
+    var _s=ls.setItem.bind(ls);
+    ls.setItem=function(k,val){_s(k,val);if(k===KEY)persist(val);};
+    var _r=ls.removeItem.bind(ls);
+    ls.removeItem=function(k){_r(k);if(k===KEY)persist('');};
+  }catch(e){}
+})();
+''';
 
 /// Locks pinch/zoom from pages that set `user-scalable=yes` or omit viewport limits.
 /// Runs at document end and again on [InAppWebView.onLoadStop] for full navigations.
@@ -51,7 +74,13 @@ final UnmodifiableListView<UserScript> _kNoZoomUserScripts =
 ]);
 
 UnmodifiableListView<UserScript> _initialUserScriptsWithAuth(String? authToken) {
-  final scripts = <UserScript>[];
+  final scripts = <UserScript>[
+    UserScript(
+      source: _kLocalStorageHookScript,
+      injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+      forMainFrameOnly: true,
+    ),
+  ];
   if (authToken != null && authToken.isNotEmpty) {
     final key = jsonEncode(_kWebAuthLocalStorageKey);
     final val = jsonEncode(authToken);
@@ -93,10 +122,20 @@ class WebViewScreen extends StatefulWidget {
 class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserver {
   InAppWebViewController? _controller;
   PullToRefreshController? _pullToRefreshController;
+  Timer? _authTokenPollTimer;
   double _progress = 0;
   bool _prefsReady = false;
   String? _mirroredAuthToken;
   bool _didEarlyAuthInjectThisLoad = false;
+  bool _didBootstrapReload = false;
+  bool _authBootstrapSettled = false;
+
+  String _lenTag(String? token) => token == null ? 'null' : 'len=${token.length}';
+
+  void _dbg(String msg) {
+    if (!kDebugMode) return;
+    debugPrint('[AuthMirror] $msg');
+  }
 
   InAppWebViewSettings get _settings => InAppWebViewSettings(
         javaScriptEnabled: true,
@@ -141,14 +180,17 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
     if (!mounted) return;
     setState(() {
       _mirroredAuthToken = t;
+      _authBootstrapSettled = t == null || t.isEmpty;
       _prefsReady = true;
     });
+    _dbg('_loadMirroredAuthToken -> ${_lenTag(t)} settled=$_authBootstrapSettled');
   }
 
   /// Re-reads Flutter-persisted session after cold start or resume, then pushes it into the WebView.
   Future<void> _refreshSessionFromNativeStorageAndInject() async {
     if (!_prefsReady) return;
     final t = await AuthTokenStorage.readMirroredToken();
+    _dbg('_refreshSessionFromNativeStorageAndInject read ${_lenTag(t)} current=${_lenTag(_mirroredAuthToken)}');
     if (!mounted) return;
     if (t != _mirroredAuthToken) {
       setState(() => _mirroredAuthToken = t);
@@ -165,26 +207,126 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
     return 'Loading…';
   }
 
+  String? _tokenFromWebBridgeValue(dynamic raw) {
+    if (raw == null) return null;
+    var s = raw is String ? raw : raw.toString();
+    if (s.isEmpty || s == 'null') return null;
+    if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) {
+      try {
+        final d = jsonDecode(s);
+        if (d is String) s = d;
+      } catch (_) {}
+    }
+    return s.isEmpty ? null : s;
+  }
+
   Future<void> _persistAuthMirrorFromWeb(List<dynamic> args) async {
     final raw = args.isNotEmpty ? args[0] : null;
-    final s = raw is String ? raw : raw?.toString();
+    final s = _tokenFromWebBridgeValue(raw);
     final next = (s == null || s.isEmpty) ? null : s;
+    _dbg('_persistAuthMirrorFromWeb raw=$raw parsed=${_lenTag(next)} settled=$_authBootstrapSettled current=${_lenTag(_mirroredAuthToken)}');
+    // During first startup restore, ignore premature clear signals from the page
+    // until we've confirmed bootstrap auth synchronization.
+    if (!_authBootstrapSettled &&
+        (next == null || next.isEmpty) &&
+        _mirroredAuthToken != null &&
+        _mirroredAuthToken!.isNotEmpty) {
+      _dbg('_persistAuthMirrorFromWeb ignored premature clear during bootstrap');
+      return;
+    }
     await AuthTokenStorage.writeMirroredToken(next);
     if (!mounted) return;
-    setState(() => _mirroredAuthToken = next);
+    setState(() {
+      _mirroredAuthToken = next;
+      if (next != null && next.isNotEmpty) {
+        _authBootstrapSettled = true;
+      }
+    });
+    _dbg('_persistAuthMirrorFromWeb wrote ${_lenTag(next)} settled=$_authBootstrapSettled');
   }
 
   Future<void> _backupAuthTokenFromLocalStorage(InAppWebViewController c) async {
+    await _pullWebAuthTokenIntoNativeMirror(c);
+  }
+
+  /// Copies `fd_auth_token` from the WebView into Flutter storage (SPA often never reloads after login).
+  Future<void> _pullWebAuthTokenIntoNativeMirror(InAppWebViewController c) async {
     try {
-      final v = await c.webStorage.localStorage.getItem(key: _kWebAuthLocalStorageKey);
-      final tokenFromWeb = v is String ? v : v?.toString();
+      String? tokenFromWeb;
+      try {
+        final v = await c.webStorage.localStorage.getItem(key: _kWebAuthLocalStorageKey);
+        tokenFromWeb = v is String ? v : v?.toString();
+        if (tokenFromWeb == 'null') tokenFromWeb = null;
+        _dbg('_pullWebAuthTokenIntoNativeMirror webStorage value=${_lenTag(_tokenFromWebBridgeValue(tokenFromWeb))}');
+      } catch (_) {}
+      tokenFromWeb = _tokenFromWebBridgeValue(tokenFromWeb) ??
+          await _readAuthTokenFromWebViaEvaluateJavascript(c);
+      _dbg('_pullWebAuthTokenIntoNativeMirror final web token=${_lenTag(tokenFromWeb)} current=${_lenTag(_mirroredAuthToken)}');
       if (tokenFromWeb == null || tokenFromWeb.isEmpty) return;
+      if (tokenFromWeb == _mirroredAuthToken) return;
+      final existing = await AuthTokenStorage.readMirroredToken();
+      if (existing == tokenFromWeb) return;
       await AuthTokenStorage.writeMirroredToken(tokenFromWeb);
       if (!mounted) return;
       if (_mirroredAuthToken != tokenFromWeb) {
-        setState(() => _mirroredAuthToken = tokenFromWeb);
+        setState(() {
+          _mirroredAuthToken = tokenFromWeb;
+          _authBootstrapSettled = true;
+        });
+        _dbg('_pullWebAuthTokenIntoNativeMirror mirrored ${_lenTag(tokenFromWeb)}');
       }
     } catch (_) {}
+  }
+
+  Future<String?> _readAuthTokenFromWebViaEvaluateJavascript(InAppWebViewController c) async {
+    try {
+      final r = await c.evaluateJavascript(
+        source:
+            '(function(){try{return localStorage.getItem(${jsonEncode(_kWebAuthLocalStorageKey)});}catch(e){return null;}})()',
+      );
+      final parsed = _tokenFromWebBridgeValue(r);
+      _dbg('_readAuthTokenFromWebViaEvaluateJavascript raw=$r parsed=${_lenTag(parsed)}');
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _startAuthTokenPoll() {
+    _authTokenPollTimer?.cancel();
+    _dbg('_startAuthTokenPoll every 1s');
+    _authTokenPollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final c = _controller;
+      if (c == null || !mounted) return;
+      unawaited(_pullWebAuthTokenIntoNativeMirror(c));
+    });
+  }
+
+  /// Re-applies stored token a few times after first paint (SPA may read `localStorage` very early).
+  Future<void> _burstReinjectNativeAuthToken(InAppWebViewController c) async {
+    for (var i = 0; i < 10; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (!mounted || _controller != c) return;
+      await _injectMirroredAuthIntoPage(c);
+    }
+  }
+
+  /// Forces one reload after first page bootstrap when a mirrored token exists.
+  /// This guarantees the SPA initializes with `fd_auth_token` already present.
+  Future<void> _ensureBootstrapReloadWithMirroredAuth(InAppWebViewController c) async {
+    if (_didBootstrapReload) return;
+    final t = _mirroredAuthToken;
+    if (t == null || t.isEmpty) {
+      _didBootstrapReload = true;
+      _dbg('_ensureBootstrapReloadWithMirroredAuth skip reload (no mirrored token)');
+      return;
+    }
+
+    _dbg('_ensureBootstrapReloadWithMirroredAuth reloading with ${_lenTag(t)}');
+    await _injectMirroredAuthIntoPage(c);
+    _didBootstrapReload = true;
+    _authBootstrapSettled = true;
+    await _performWebReload(c);
   }
 
   /// Re-applies the native mirror into `localStorage` on every navigation so sessions survive
@@ -198,7 +340,11 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
           setState(() => _mirroredAuthToken = t);
         }
       }
-      if (t == null || t.isEmpty) return;
+      if (t == null || t.isEmpty) {
+        _dbg('_injectMirroredAuthIntoPage skipped (no token)');
+        return;
+      }
+      _dbg('_injectMirroredAuthIntoPage writing ${_lenTag(t)}');
       await c.evaluateJavascript(
         source:
             'try{localStorage.setItem(${jsonEncode(_kWebAuthLocalStorageKey)},${jsonEncode(t)});}catch(e){}',
@@ -207,6 +353,7 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
   }
 
   Future<void> _performWebReload(InAppWebViewController c) async {
+    _dbg('_performWebReload');
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       final uri = await c.getUrl();
       if (uri != null) {
@@ -234,6 +381,7 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _authTokenPollTimer?.cancel();
     _pullToRefreshController?.dispose();
     super.dispose();
   }
@@ -245,9 +393,12 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
+        _dbg('lifecycle -> $state');
+        unawaited(_pullWebAuthTokenIntoNativeMirror(c));
         c.pause();
         break;
       case AppLifecycleState.resumed:
+        _dbg('lifecycle -> resumed');
         c.resume();
         unawaited(_refreshSessionFromNativeStorageAndInject());
         break;
@@ -291,6 +442,39 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
     if (exit == true && mounted) {
       SystemNavigator.pop();
     }
+  }
+
+  Uri? _parseNavigationUri(NavigationAction action) {
+    final raw = action.request.url?.toString();
+    if (raw == null || raw.isEmpty) return null;
+    return Uri.tryParse(raw);
+  }
+
+  bool _isGoogleMapsNavigationUri(Uri uri) {
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme == 'geo' || scheme == 'google.navigation' || scheme == 'comgooglemaps') {
+      return true;
+    }
+    if (scheme != 'http' && scheme != 'https') return false;
+    final host = uri.host.toLowerCase();
+    if (host == 'maps.google.com') return true;
+    if (host == 'www.google.com' || host == 'google.com') {
+      return uri.path.startsWith('/maps');
+    }
+    return false;
+  }
+
+  Future<NavigationActionPolicy> _handleUrlOverride(NavigationAction action) async {
+    final uri = _parseNavigationUri(action);
+    if (uri == null || !_isGoogleMapsNavigationUri(uri)) {
+      return NavigationActionPolicy.ALLOW;
+    }
+
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (opened) return NavigationActionPolicy.CANCEL;
+    } catch (_) {}
+    return NavigationActionPolicy.ALLOW;
   }
 
   @override
@@ -338,12 +522,18 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
                       pullToRefreshController: _pullToRefreshController,
                       onWebViewCreated: (c) {
                         _controller = c;
+                        _dbg('onWebViewCreated');
                         c.addJavaScriptHandler(
                           handlerName: _kJsAuthPersistHandler,
-                          callback: _persistAuthMirrorFromWeb,
+                          callback: (args) {
+                            unawaited(_persistAuthMirrorFromWeb(args));
+                            return null;
+                          },
                         );
+                        _startAuthTokenPoll();
                       },
                       onLoadStart: (c, uri) async {
+                        _dbg('onLoadStart url=${uri?.toString()}');
                         _didEarlyAuthInjectThisLoad = false;
                         await _injectMirroredAuthIntoPage(c);
                       },
@@ -359,12 +549,15 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
                         }
                       },
                       onLoadStop: (c, uri) async {
+                        _dbg('onLoadStop url=${uri?.toString()}');
                         await _injectMirroredAuthIntoPage(c);
                         await _backupAuthTokenFromLocalStorage(c);
                         await c.evaluateJavascript(source: _kLockViewportScript);
+                        await _ensureBootstrapReloadWithMirroredAuth(c);
                         await _pullToRefreshController?.endRefreshing();
                         if (!mounted) return;
                         setState(() => _progress = 1.0);
+                        unawaited(_burstReinjectNativeAuthToken(c));
                       },
                       onZoomScaleChanged: (c, oldScale, newScale) async {
                         if ((newScale - 1.0).abs() < 0.001) return;
@@ -373,7 +566,7 @@ class WebViewScreenState extends State<WebViewScreen> with WidgetsBindingObserve
                         } catch (_) {}
                       },
                       shouldOverrideUrlLoading: (c, action) async {
-                        return NavigationActionPolicy.ALLOW;
+                        return _handleUrlOverride(action);
                       },
                       onPermissionRequest: (c, request) async {
                         return PermissionResponse(

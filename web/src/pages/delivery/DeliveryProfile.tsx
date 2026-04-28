@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { LogOut, MapPin, Phone, User } from 'lucide-react';
-import { patchJson, getJson } from '@/lib/api';
+import { Camera, LogOut, MapPin, Phone, User } from 'lucide-react';
+import { patchFormData, patchJson, getJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { num, formatCurrency } from '@/lib/formatting';
 import type { Order } from '@/types';
@@ -26,13 +26,38 @@ export default function DeliveryProfile() {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [editing, setEditing] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
       setName(user.name);
       setAddress(user.address || '');
+      setPhotoFile(null);
+      setPreviewUrl(prev => {
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return null;
+      });
     }
   }, [user]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const onPickPhoto = (file: File | null) => {
+    setPhotoFile(file);
+    setPreviewUrl(prev => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      if (file) return URL.createObjectURL(file);
+      return null;
+    });
+  };
 
   const { data: orders = [] } = useQuery({
     queryKey: ['orders', token],
@@ -52,10 +77,26 @@ export default function DeliveryProfile() {
   const save = useMutation({
     mutationFn: async () => {
       if (!token) return;
+      if (photoFile) {
+        const fd = new FormData();
+        fd.append('name', name);
+        fd.append('address', address);
+        fd.append('profile_photo_file', photoFile);
+        await patchFormData('/api/auth/me/', fd, token);
+        await refreshUser();
+        return;
+      }
       await patchJson('/api/auth/me/', { name, address }, token);
       await refreshUser();
     },
-    onSuccess: () => setEditing(false),
+    onSuccess: () => {
+      setEditing(false);
+      setPhotoFile(null);
+      setPreviewUrl(prev => {
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return null;
+      });
+    },
   });
 
   const stats = [
@@ -74,13 +115,35 @@ export default function DeliveryProfile() {
       <div className="px-4 py-4 space-y-5">
         <div className="flex flex-col items-center">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center text-3xl overflow-hidden border-2 border-border">
-              {user?.profile_photo?.trim() ? (
-                <img src={user.profile_photo} alt="" className="h-full w-full object-cover" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={e => onPickPhoto(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (editing) fileInputRef.current?.click();
+              }}
+              disabled={!editing}
+              className={`w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center text-3xl overflow-hidden border-2 border-border relative ${
+                editing ? 'cursor-pointer' : 'cursor-default'
+              }`}
+              aria-label={editing ? 'Change profile image' : 'Profile image'}
+            >
+              {(previewUrl || user?.profile_photo?.trim()) ? (
+                <img src={previewUrl || user?.profile_photo} alt="" className="h-full w-full object-cover" />
               ) : (
                 '🛵'
               )}
-            </div>
+              {editing ? (
+                <span className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-white flex items-center justify-center border border-background">
+                  <Camera size={14} />
+                </span>
+              ) : null}
+            </button>
           </div>
           <h2 className="font-display font-bold text-lg mt-3">{user?.name}</h2>
           <p className="text-sm text-muted-foreground">Delivery Partner</p>
@@ -111,6 +174,28 @@ export default function DeliveryProfile() {
           </div>
 
           <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">Profile Image</label>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!editing}
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-10 justify-center"
+              >
+                <Camera size={16} className="mr-2" />
+                {photoFile ? 'Change selected image' : 'Choose image (or tap avatar above)'}
+              </Button>
+              {editing && photoFile ? (
+                <button
+                  type="button"
+                  onClick={() => onPickPhoto(null)}
+                  className="mt-2 text-xs text-red-600 hover:underline"
+                >
+                  Remove new selection
+                </button>
+              ) : null}
+            </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                 <User size={12} /> Full Name

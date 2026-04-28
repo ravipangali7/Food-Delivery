@@ -7,6 +7,7 @@ import { OrderStatusBadge } from '@/components/shared/StatusBadge';
 import { ArrowLeft, Phone, MapPin, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getJson, postJson } from '@/lib/api';
+import { openGoogleMapsNavigation } from '@/lib/googleNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import OrderChatPanel from '@/components/customer/OrderChatPanel';
 import type { Order, OrderStatus, SuperSetting } from '@/types';
@@ -174,12 +175,15 @@ export default function DeliveryOrderDetail() {
             </div>
           )}
           {order.status === 'out_for_delivery' && isMyOrder && (
-            <Link
-              to={`/delivery/order/${order.id}/navigate`}
+            <button
+              type="button"
+              onClick={() => {
+                void openGoogleMapsNavigation(order);
+              }}
               className="mt-3 flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-sky-600 text-white text-sm font-semibold hover:bg-sky-700"
             >
               <Navigation size={16} /> Open live map navigation
-            </Link>
+            </button>
           )}
           <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Delivery type</span>
@@ -226,12 +230,15 @@ export default function DeliveryOrderDetail() {
               <Phone size={14} /> {callTarget.label}
             </a>
             {order.status === 'out_for_delivery' && isMyOrder ? (
-              <Link
-                to={`/delivery/order/${order.id}/navigate`}
+              <button
+                type="button"
+                onClick={() => {
+                  void openGoogleMapsNavigation(order);
+                }}
                 className="flex-1 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg flex items-center justify-center gap-1"
               >
                 <Navigation size={14} /> Live map
-              </Link>
+              </button>
             ) : (
               <span className="flex-1 py-2 bg-muted/50 text-muted-foreground text-xs font-medium rounded-lg flex items-center justify-center text-center px-1">
                 Live map unlocks when out for delivery

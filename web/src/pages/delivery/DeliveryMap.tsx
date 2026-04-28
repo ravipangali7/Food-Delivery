@@ -5,6 +5,7 @@ import { MapPin, Navigation } from 'lucide-react';
 import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLiveOrderTracking } from '@/hooks/useLiveOrderTracking';
+import { openGoogleMapsNavigation } from '@/lib/googleNavigation';
 import OrderTrackingMap from '@/components/tracking/OrderTrackingMap';
 import type { Order } from '@/types';
 
@@ -161,13 +162,16 @@ export default function DeliveryMap() {
                   {order.address}
                 </p>
               </Link>
-              <Link
-                to={`/delivery/order/${order.id}/navigate`}
+              <button
+                type="button"
+                onClick={() => {
+                  void openGoogleMapsNavigation(order);
+                }}
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-sky-600 text-white text-sm font-semibold"
               >
                 <Navigation size={16} />
                 Open live navigation
-              </Link>
+              </button>
             </div>
           ))
         )}
