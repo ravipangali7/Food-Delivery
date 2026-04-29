@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Headphones, User } from 'lucide-react';
-import { getJson } from '@/lib/api';
+import { ApiHttpError, getJson, postJson } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import OrderChatPanel from '@/components/customer/OrderChatPanel';
@@ -60,12 +60,29 @@ function ChatAvatar({
 export default function AdminCustomerSupport() {
   const { token, user } = useAuth();
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
 
-  const { data: rows = [], isLoading } = useQuery({
+  const {
+    data: rows = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['admin-support-inbox', token],
     queryFn: () => getJson<SupportInboxRow[]>('/api/admin/support/inbox/', token),
     enabled: !!token,
   });
+  const loadErrorText = useMemo(() => {
+    if (!isError || !error) return '';
+    if (error instanceof ApiHttpError) {
+      const code = error.status ? ` (${error.status})` : '';
+      return `Failed to load support inbox${code}: ${error.message || 'Unknown API error'}`;
+    }
+    if (error instanceof Error) {
+      return `Failed to load support inbox: ${error.message || 'Unknown error'}`;
+    }
+    return 'Failed to load support inbox.';
+  }, [error, isError]);
 
   useEffect(() => {
     if (!rows.length) {
@@ -94,6 +111,29 @@ export default function AdminCustomerSupport() {
   }, [selectedId]);
 
   const selected = useMemo(() => rows.find(r => r.id === selectedId) ?? null, [rows, selectedId]);
+  const markRead = useMutation({
+    mutationFn: (orderId: number) =>
+      postJson<{ ok: boolean }, Record<string, never>>(
+        `/api/admin/support/inbox/${orderId}/mark-read/`,
+        {},
+        token,
+      ),
+    onSuccess: (_, orderId) => {
+      queryClient.setQueryData<SupportInboxRow[]>(['admin-support-inbox', token], old =>
+        (old ?? []).map(row =>
+          row.id === orderId ? { ...row, unread_count: 0, has_unread: false } : row,
+        ),
+      );
+      void queryClient.invalidateQueries({ queryKey: ['admin-support-inbox'] });
+    },
+  });
+
+  useEffect(() => {
+    if (!selectedId || !token) return;
+    const selectedRow = rows.find(r => r.id === selectedId);
+    if (!selectedRow || (selectedRow.unread_count ?? 0) <= 0) return;
+    markRead.mutate(selectedId);
+  }, [markRead, rows, selectedId, token]);
 
   if (!token) {
     return <div className="p-8 text-muted-foreground">Staff sign-in required.</div>;
@@ -121,6 +161,15 @@ export default function AdminCustomerSupport() {
           <div className="overflow-y-auto flex-1">
             {isLoading ? (
               <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+            ) : loadErrorText ? (
+              <div className="p-4 space-y-2">
+                <p className="text-sm font-semibold text-rose-700">Could not load conversations.</p>
+                <p className="text-xs text-rose-700/90 leading-relaxed">{loadErrorText}</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Check API response for <code>/api/admin/support/inbox/</code> and ensure backend migrations are up
+                  to date.
+                </p>
+              </div>
             ) : rows.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">
                 No orders in the support inbox yet. When customers message the store, or riders and staff coordinate on
@@ -145,6 +194,11 @@ export default function AdminCustomerSupport() {
                       className="w-full text-left px-3 py-2 hover:bg-muted/30 transition-colors"
                     >
                       <div className="font-semibold text-sm text-foreground">{row.order_number}</div>
+                      {(row.unread_count ?? 0) > 0 ? (
+                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                          Unread {row.unread_count}
+                        </div>
+                      ) : null}
                       <div className="mt-2 space-y-2">
                         <ChatAvatar
                           name={row.customer_name}
@@ -265,18 +319,18 @@ export default function AdminCustomerSupport() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {selected.delivery_boy_id != null
-                      ? 'Private thread between the customer and the assigned delivery partner. Store staff can follow and reply here.'
-                      : 'No delivery partner is assigned yet — this is the support thread with the customer. Assign a partner on the order page to switch to private customer ↔ rider chat.'}
+                      ? 'Live unified inbox for this order: customer ↔ rider and rider ↔ store messages appear instantly in one stream so staff can reply without switching tabs.'
+                      : 'No delivery partner is assigned yet — this is the support thread with the customer. Assign a partner on the order page to unlock rider lanes.'}
                   </p>
                   {selected.delivery_boy_id != null ? (
                     <OrderChatPanel
                       orderId={selected.id}
                       token={token}
                       currentUserId={user.id}
-                      partnerLabel="customer ↔ delivery partner (private)"
+                      partnerLabel="customer, delivery partner, and store"
                       chatThread="customer_rider"
                       wsThread="all"
-                      wsIngestFilter={m => Boolean(m.customer_rider)}
+                      unified
                       notifyPeerMessages={false}
                       enabled
                     />

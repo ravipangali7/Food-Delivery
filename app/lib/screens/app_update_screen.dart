@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/store_settings.dart';
+import '../widgets/update_check_loading_hero.dart';
 
 /// Full-screen forced update UI with optional auto store redirect or APK/IPA download.
 class AppUpdateScreen extends StatefulWidget {
@@ -21,12 +22,7 @@ class AppUpdateScreen extends StatefulWidget {
   State<AppUpdateScreen> createState() => _AppUpdateScreenState();
 }
 
-class _AppUpdateScreenState extends State<AppUpdateScreen> with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1800),
-  )..repeat(reverse: true);
-
+class _AppUpdateScreenState extends State<AppUpdateScreen> {
   String _status = '';
   double? _progress;
   bool _busy = false;
@@ -43,12 +39,6 @@ class _AppUpdateScreenState extends State<AppUpdateScreen> with SingleTickerProv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoStart());
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
   }
 
   Future<void> _autoStart() async {
@@ -156,29 +146,10 @@ class _AppUpdateScreenState extends State<AppUpdateScreen> with SingleTickerProv
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ScaleTransition(
-                  scale: Tween<double>(begin: 0.92, end: 1.0).animate(
-                    CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: scheme.primary.withValues(alpha: 0.12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.2),
-                          blurRadius: 28,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Icon(Icons.system_update_alt_rounded, size: 56, color: scheme.primary),
-                  ),
-                ),
+                const UpdateCheckLoadingHero(),
                 const SizedBox(height: 28),
                 Text(
-                  'Update required',
+                  'Checking for updates',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
@@ -187,8 +158,8 @@ class _AppUpdateScreenState extends State<AppUpdateScreen> with SingleTickerProv
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'A newer version of Shyam Sweets is available. '
-                  '${(_storeLink?.isNotEmpty ?? false) ? 'We opened the store for you.' : 'We are preparing your download.'}',
+                  'Please wait while we prepare the latest Shyam Sweets build for your device. '
+                  '${(_storeLink?.isNotEmpty ?? false) ? 'Store redirect is enabled.' : 'Secure download will start automatically.'}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                         height: 1.45,

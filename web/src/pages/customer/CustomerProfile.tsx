@@ -8,7 +8,6 @@ import {
   Info,
   FileText,
   Lock,
-  Phone,
   LogOut,
   ChevronRight,
 } from 'lucide-react';
@@ -38,7 +37,6 @@ export default function CustomerProfile() {
 
   const termsPreview = settings?.terms_and_conditions?.trim();
   const privacyPreview = settings?.privacy_policy?.trim();
-  const storePhone = settings?.phone?.trim();
 
   const menuItems = [
     { icon: User, label: 'Edit Profile', desc: 'Name, email, address', path: '/customer/profile/edit' },
@@ -63,7 +61,6 @@ export default function CustomerProfile() {
       path: '/customer/privacy',
       desc: privacyPreview ? 'Updated from Store Settings' : 'View privacy details',
     },
-    { icon: Phone, label: 'Contact Support', path: '/customer/support', desc: storePhone || undefined },
     { divider: true },
     { icon: LogOut, label: 'Logout', path: '/', danger: true, action: 'logout' as const },
   ];

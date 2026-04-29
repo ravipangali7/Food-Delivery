@@ -1,12 +1,30 @@
 import type { Order } from '@/types';
 
-export function buildGoogleMapsNavigationUrl(order: Pick<Order, 'delivery_latitude' | 'delivery_longitude' | 'address'>): string {
-  const hasCoords = Number.isFinite(order.delivery_latitude) && Number.isFinite(order.delivery_longitude);
-  const destination = hasCoords
-    ? `${order.delivery_latitude},${order.delivery_longitude}`
-    : order.address;
+type CoordValue = number | string | null | undefined;
 
+function asFiniteNumber(value: CoordValue): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getDestination(order: Pick<Order, 'delivery_latitude' | 'delivery_longitude'>): string | null {
+  const lat = asFiniteNumber(order.delivery_latitude as CoordValue);
+  const lng = asFiniteNumber(order.delivery_longitude as CoordValue);
+  if (lat === null || lng === null) return null;
+  return `${lat},${lng}`;
+}
+
+export function buildGoogleMapsNavigationUrl(order: Pick<Order, 'delivery_latitude' | 'delivery_longitude'>): string | null {
+  const destination = getDestination(order);
+  if (!destination) return null;
   return `https://www.google.com/maps/dir/?api=1&dir_action=navigate&travelmode=driving&destination=${encodeURIComponent(destination)}`;
+}
+
+function buildGoogleNavigationSchemeUrl(order: Pick<Order, 'delivery_latitude' | 'delivery_longitude'>): string | null {
+  const destination = getDestination(order);
+  if (!destination) return null;
+  return `google.navigation:q=${encodeURIComponent(destination)}&mode=d`;
 }
 
 function getCurrentPosition(): Promise<GeolocationPosition> {
@@ -19,16 +37,30 @@ function getCurrentPosition(): Promise<GeolocationPosition> {
   });
 }
 
-export async function openGoogleMapsNavigation(order: Pick<Order, 'delivery_latitude' | 'delivery_longitude' | 'address'>) {
-  let url = buildGoogleMapsNavigationUrl(order);
+export async function openGoogleMapsNavigation(order: Pick<Order, 'delivery_latitude' | 'delivery_longitude'>) {
+  const destination = getDestination(order);
+  if (!destination) return;
+
+  const inFlutterWebView =
+    typeof window !== 'undefined' &&
+    typeof (window as Window & { flutter_inappwebview?: unknown }).flutter_inappwebview !== 'undefined';
+
+  let url = buildGoogleMapsNavigationUrl(order) ?? '';
+  if (inFlutterWebView) {
+    // Prefer direct app intent in Flutter WebView for immediate turn-by-turn.
+    url = buildGoogleNavigationSchemeUrl(order) ?? url;
+  }
   if (navigator.geolocation) {
     try {
       const pos = await getCurrentPosition();
       const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
-      url += `&origin=${encodeURIComponent(origin)}`;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        url += `&origin=${encodeURIComponent(origin)}`;
+      }
     } catch (_) {
       // Keep destination-only navigation if location permission is denied/unavailable.
     }
   }
+  if (!url) return;
   window.location.assign(url);
 }

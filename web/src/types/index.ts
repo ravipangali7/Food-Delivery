@@ -252,6 +252,8 @@ export interface SupportInboxRow {
   /** Profile image URL for the assigned delivery partner, when present. */
   delivery_boy_profile_photo?: string;
   last_message_at: string | null;
+  unread_count?: number;
+  has_unread?: boolean;
 }
 
 export type OrderPaymentMethod = 'cash_on_delivery';

@@ -12,6 +12,7 @@ class AuthTokenStorage {
   AuthTokenStorage._();
 
   static const prefsBackupKey = 'webview_mirror_fd_auth_token';
+  static const prefsPhoneKey = 'webview_saved_phone';
 
   static String _lenTag(String? token) => token == null ? 'null' : 'len=${token.length}';
 
@@ -68,6 +69,64 @@ class AuthTokenStorage {
     } catch (e, st) {
       assert(() {
         debugPrint('AuthTokenStorage.writeMirroredToken failed: $e\n$st');
+        return true;
+      }());
+    }
+  }
+
+  static String? _normalizePhone(String? phone) {
+    if (phone == null) return null;
+    final digits = phone.replaceAll(RegExp(r'\D+'), '');
+    if (digits.length < 7 || digits.length > 15) return null;
+    return digits;
+  }
+
+  static Future<String?> readSavedPhone() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final fromPrefs = _normalizePhone(prefs.getString(prefsPhoneKey));
+      if (fromPrefs != null) {
+        return fromPrefs;
+      }
+      if (!kIsWeb) {
+        final fromFile = _normalizePhone(await mirror_file.readAuthPhoneMirrorFile());
+        if (fromFile != null) {
+          await prefs.setString(prefsPhoneKey, fromFile);
+          _dbg('read phone -> file $fromFile then wrote prefs');
+          return fromFile;
+        }
+      }
+      return null;
+    } catch (e, st) {
+      assert(() {
+        debugPrint('AuthTokenStorage.readSavedPhone failed: $e\n$st');
+        return true;
+      }());
+      return null;
+    }
+  }
+
+  static Future<void> writeSavedPhone(String? phone) async {
+    try {
+      final normalized = _normalizePhone(phone);
+      final prefs = await SharedPreferences.getInstance();
+      if (normalized == null) {
+        await prefs.remove(prefsPhoneKey);
+        if (!kIsWeb) {
+          await mirror_file.writeAuthPhoneMirrorFile(null);
+        }
+        _dbg('write phone -> cleared');
+        return;
+      }
+      await prefs.setString(prefsPhoneKey, normalized);
+      if (!kIsWeb) {
+        await mirror_file.writeAuthPhoneMirrorFile(normalized);
+      }
+      _dbg('write phone -> $normalized');
+    } catch (e, st) {
+      assert(() {
+        debugPrint('AuthTokenStorage.writeSavedPhone failed: $e\n$st');
         return true;
       }());
     }

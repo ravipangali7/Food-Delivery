@@ -59,6 +59,10 @@ export function useStaffInboxWebSocket(
           };
           if (parsed.type !== 'inbox' || !parsed.data?.kind) return;
           const d = parsed.data;
+          if (d.kind === 'mark_read') {
+            void queryClient.invalidateQueries({ queryKey: ['admin-support-inbox'] });
+            return;
+          }
           if (d.kind !== 'new_message') return;
           const orderId = d.order_id;
           const support = Boolean(d.message?.support ?? d.support);
@@ -78,10 +82,10 @@ export function useStaffInboxWebSocket(
           const muted =
             onSupportPage && selected && orderId != null && String(orderId) === selected;
 
-          void queryClient.invalidateQueries({ queryKey: ['admin-support-inbox'] });
-
           const senderId = d.message?.sender;
           if (currentUserId != null && senderId != null && senderId === currentUserId) return;
+
+          void queryClient.invalidateQueries({ queryKey: ['admin-support-inbox'] });
 
           if (muted) return;
           toast(`New message · Order #${orderId}`, {

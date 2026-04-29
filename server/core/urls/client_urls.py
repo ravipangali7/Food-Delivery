@@ -38,6 +38,7 @@ urlpatterns = [
     # admin's catch-all and POSTs would fail CSRF (see fooddelivery.urls order).
     path("auth/otp/send/", otp_views.send_otp),
     path("auth/otp/verify/", otp_views.verify_otp),
+    path("auth/flutter/phone-login/", otp_views.flutter_phone_login),
     path("auth/me/", home_views.me),
     path("delivery/earnings/", delivery_views.delivery_earnings),
 ]

@@ -339,3 +339,14 @@ def broadcast_chat_message_update(order_id: int, message_payload: dict[str, Any]
         f"order_staff_observer_{order_id}",
     ):
         async_to_sync(layer.group_send)(group, event)
+
+
+def broadcast_staff_inbox_event(payload: dict[str, Any]) -> None:
+    """Broadcast support-inbox state updates (new message, read markers, etc.)."""
+    layer = get_channel_layer()
+    if not layer:
+        return
+    async_to_sync(layer.group_send)(
+        "staff_inbox_feed",
+        {"type": "staff.inbox", "payload": payload},
+    )

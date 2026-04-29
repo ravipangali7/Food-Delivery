@@ -112,13 +112,16 @@ export default function DeliveryMap() {
               <div className="absolute bottom-0 left-0 right-0 z-[500] p-2 bg-gradient-to-t from-background/95 to-transparent pointer-events-none">
                 <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-lg border border-border bg-card/95 px-3 py-2 shadow-sm max-w-lg mx-auto">
                   <p className="text-xs font-semibold text-foreground truncate">{mapOrder.order_number}</p>
-                  <Link
-                    to={`/delivery/order/${mapOrder.id}/navigate`}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void openGoogleMapsNavigation(mapOrder);
+                    }}
                     className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700"
                   >
                     <Navigation size={14} />
                     Full screen
-                  </Link>
+                  </button>
                 </div>
               </div>
             </>

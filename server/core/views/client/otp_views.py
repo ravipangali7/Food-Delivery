@@ -7,6 +7,7 @@ import logging
 from django.conf import settings
 from django.db import IntegrityError
 from rest_framework import status
+from rest_framework.exceptions import APIException
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -15,7 +16,12 @@ from rest_framework.response import Response
 from ... import otp_service
 from ...models import User
 from ...sms_service import send_otp_sms_checked
-from ...serializers import OtpSendSerializer, OtpVerifySerializer, UserSerializer
+from ...serializers import (
+    FlutterPhoneAutoLoginSerializer,
+    OtpSendSerializer,
+    OtpVerifySerializer,
+    UserSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,3 +107,52 @@ def verify_otp(request):
 
     token, _ = Token.objects.get_or_create(user=user)
     return Response({"token": token.key, "user": UserSerializer(user).data})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def flutter_phone_login(request):
+    """
+    Flutter WebView bootstrap login:
+    accepts only phone and returns a DRF token for that active user.
+    """
+    try:
+        ser = FlutterPhoneAutoLoginSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        phone = ser.validated_data["phone"]
+        user = User.objects.filter(phone=phone, deleted_at__isnull=True).first()
+        if user is None:
+            logger.info("flutter_phone_login failed: account not found phone=%s", phone)
+            return Response(
+                {
+                    "detail": "Account not found for this phone.",
+                    "code": "account_not_found",
+                    "retryable": False,
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if not user.is_active:
+            logger.info("flutter_phone_login failed: inactive account user_id=%s phone=%s", user.id, phone)
+            return Response(
+                {
+                    "detail": "This account is disabled.",
+                    "code": "account_disabled",
+                    "retryable": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        token, _ = Token.objects.get_or_create(user=user)
+        logger.info("flutter_phone_login success user_id=%s phone=%s", user.id, phone)
+        return Response({"token": token.key, "user": UserSerializer(user).data})
+    except Exception as exc:
+        if isinstance(exc, APIException):
+            raise
+        logger.exception("flutter_phone_login unexpected error")
+        return Response(
+            {
+                "detail": "Unable to restore session right now.",
+                "code": "restore_temporarily_unavailable",
+                "retryable": True,
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )

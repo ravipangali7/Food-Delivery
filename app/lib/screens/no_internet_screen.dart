@@ -20,10 +20,21 @@ class NoInternetScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(flex: 2),
-              Icon(
-                Icons.wifi_off_rounded,
-                size: 88,
-                color: theme.colorScheme.primary.withValues(alpha: 0.85),
+              Container(
+                width: 108,
+                height: 108,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               Text(

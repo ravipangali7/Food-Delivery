@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Order, OrderChatMessage, OrderChatReceipt, User
+from .models import Order, OrderChatMessage, OrderChatReceipt, OrderChatStaffReadState, User
 
 if TYPE_CHECKING:
     pass
@@ -118,3 +118,27 @@ def maybe_stub_offline_notification(order: Order, message: OrderChatMessage) -> 
 
 def touch_presence(user_id: int) -> None:
     User.objects.filter(pk=user_id).update(last_chat_ping_at=timezone.now())
+
+
+def mark_staff_order_read(order_id: int, staff_user_id: int) -> None:
+    """
+    Move staff unread cursor to the latest non-staff message in the order.
+    This powers admin support inbox unread indicators.
+    """
+    if order_id <= 0 or staff_user_id <= 0:
+        return
+    latest = (
+        OrderChatMessage.objects.filter(order_id=order_id, sender__is_staff=False)
+        .order_by("-created_at", "-id")
+        .only("id", "created_at")
+        .first()
+    )
+    defaults = {
+        "last_read_message_id": latest.id if latest else None,
+        "last_read_at": latest.created_at if latest else timezone.now(),
+    }
+    OrderChatStaffReadState.objects.update_or_create(
+        order_id=order_id,
+        staff_user_id=staff_user_id,
+        defaults=defaults,
+    )

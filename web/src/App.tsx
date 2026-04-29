@@ -26,8 +26,6 @@ import AdminUsersList from "./pages/admin/AdminUsersList";
 import AdminUserForm from "./pages/admin/AdminUserForm";
 import AdminUserView from "./pages/admin/AdminUserView";
 import AdminNotifications from "./pages/admin/AdminNotifications";
-import AdminCustomerSupport from "./pages/admin/AdminCustomerSupport";
-import AdminSupportConversationWindow from "./pages/admin/AdminSupportConversationWindow";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminSmsTest from "./pages/admin/AdminSmsTest";
 import AdminInfeloMap from "./pages/admin/AdminInfeloMap";
@@ -54,7 +52,6 @@ import CustomerSavedAddresses from "./pages/customer/CustomerSavedAddresses";
 import CustomerAboutUs from "./pages/customer/CustomerAboutUs";
 import CustomerTerms from "./pages/customer/CustomerTerms";
 import CustomerPrivacy from "./pages/customer/CustomerPrivacy";
-import CustomerSupport from "./pages/customer/CustomerSupport";
 import CustomerNotifications from "./pages/customer/CustomerNotifications";
 import CustomerCategoryProducts from "./pages/customer/CustomerCategoryProducts";
 import CustomerParentCategory from "./pages/customer/CustomerParentCategory";
@@ -133,8 +130,6 @@ const App = () => (
             <Route path="infelo/sms" element={<AdminInfeloSms />} />
             <Route path="sms/test" element={<AdminSmsTest />} />
             <Route path="sms/credits" element={<AdminSmsCredits />} />
-            <Route path="customer-support" element={<AdminCustomerSupport />} />
-            <Route path="customer-support/chat/:orderId/:lane" element={<AdminSupportConversationWindow />} />
             <Route path="store-settings" element={<AdminSettings />} />
             <Route path="settings" element={<Navigate to="/admin/store-settings" replace />} />
             <Route path="users/*" element={<LegacyAdminUsersRedirect />} />
@@ -166,7 +161,6 @@ const App = () => (
             <Route path="about" element={<CustomerAboutUs />} />
             <Route path="terms" element={<CustomerTerms />} />
             <Route path="privacy" element={<CustomerPrivacy />} />
-            <Route path="support" element={<CustomerSupport />} />
             <Route path="notifications" element={<CustomerNotifications />} />
           </Route>
 

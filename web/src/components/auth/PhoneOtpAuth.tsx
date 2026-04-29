@@ -7,6 +7,7 @@ import { Phone, ShieldCheck } from 'lucide-react';
 import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { SuperSetting, User } from '@/types';
+import { resolveStoreLogoUrl } from '@/lib/branding';
 import { homeForUser } from '@/pages/auth/authPaths';
 
 type TokenResponse = { token: string; user: User };
@@ -45,7 +46,6 @@ export default function PhoneOtpAuth({
     queryKey: ['settings'],
     queryFn: () => getJson<SuperSetting>('/api/settings/', null),
   });
-  const logoUrl = settings?.logo?.trim();
   const storeName = settings?.name?.trim() || 'Store';
 
   const [name, setName] = useState('');
@@ -141,17 +141,11 @@ export default function PhoneOtpAuth({
       <div className="w-full max-w-[400px] bg-card rounded-2xl shadow-lg p-8 space-y-6">
         <div className="text-center">
           <div className="mx-auto h-[4.5rem] w-[4.5rem] flex items-center justify-center">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={storeName}
-                className="max-h-full max-w-full object-contain"
-              />
-            ) : (
-              <span className="text-5xl leading-none" aria-hidden>
-                🍬
-              </span>
-            )}
+            <img
+              src={resolveStoreLogoUrl(settings?.logo)}
+              alt={storeName}
+              className="max-h-full max-w-full object-contain"
+            />
           </div>
           <h1 className="text-2xl font-display font-bold text-foreground mt-3">{title}</h1>
           <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>

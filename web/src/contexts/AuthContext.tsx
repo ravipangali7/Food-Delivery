@@ -11,6 +11,7 @@ import { ApiHttpError, apiFetch } from '@/lib/api';
 import type { User } from '@/types';
 
 const TOKEN_KEY = 'fd_auth_token';
+const PHONE_KEY = 'fd_auth_phone';
 
 const FLUTTER_AUTH_HANDLER = 'fdAuthTokenPersist';
 
@@ -100,6 +101,7 @@ function mirrorAuthTokenToFlutterHost(token: string | null): void {
 }
 
 const ME_RETRIES = 5;
+const FLUTTER_BOOTSTRAP_WAIT_MS = 2500;
 
 async function fetchMeWithRetries(token: string): Promise<User> {
   let lastError: unknown;
@@ -144,6 +146,46 @@ function readStoredToken(): string | null {
   }
 }
 
+function isLikelyFlutterWebView(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const w = window as unknown as { flutter_inappwebview?: unknown };
+    if (w.flutter_inappwebview) return true;
+    return /\bwv\b|Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent || '');
+  } catch {
+    return false;
+  }
+}
+
+async function waitForFlutterBootstrapSignal(maxWaitMs: number): Promise<void> {
+  if (typeof window === 'undefined') return;
+  if (!isLikelyFlutterWebView()) return;
+  await new Promise<void>(resolve => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener('flutterInAppWebViewPlatformReady', onReady);
+      resolve();
+    };
+    const onReady = () => finish();
+    window.addEventListener('flutterInAppWebViewPlatformReady', onReady, { once: true });
+    window.setTimeout(finish, maxWaitMs);
+  });
+}
+
+function writeStoredPhone(phone: string | null): void {
+  try {
+    if (!phone || !phone.trim()) {
+      localStorage.removeItem(PHONE_KEY);
+      return;
+    }
+    localStorage.setItem(PHONE_KEY, phone.trim());
+  } catch {
+    /* ignore */
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -153,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     try {
       localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(PHONE_KEY);
       mirrorAuthTokenToFlutterHost(null);
     } catch {
       /* ignore */
@@ -175,6 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await fetchMeWithRetries(t);
       setUser(me);
       setSessionRestoreFailed(false);
+      writeStoredPhone(me.phone ?? null);
       mirrorAuthTokenToFlutterHost(t);
       return me;
     } catch (e) {
@@ -201,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await fetchMeWithRetries(t);
       setUser(me);
       setSessionRestoreFailed(false);
+      writeStoredPhone(me.phone ?? null);
       mirrorAuthTokenToFlutterHost(t);
     } catch (e) {
       if (e instanceof ApiHttpError && (e.status === 401 || e.status === 403)) {
@@ -212,7 +257,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const t = readStoredToken();
+      let t = readStoredToken();
+      if (!t) {
+        await waitForFlutterBootstrapSignal(FLUTTER_BOOTSTRAP_WAIT_MS);
+        t = readStoredToken();
+      }
       if (!t) {
         if (!cancelled) {
           setIsLoading(false);
@@ -225,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setUser(me);
           setSessionRestoreFailed(false);
+          writeStoredPhone(me.phone ?? null);
           // Keep the Flutter mirror in sync even if setSession() never ran (e.g. cold restore only).
           mirrorAuthTokenToFlutterHost(t);
         }
@@ -250,6 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setSession = useCallback((newToken: string, u: User) => {
     try {
       localStorage.setItem(TOKEN_KEY, newToken);
+      writeStoredPhone(u.phone ?? null);
       mirrorAuthTokenToFlutterHost(newToken);
     } catch {
       /* ignore */

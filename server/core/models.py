@@ -854,3 +854,46 @@ class OrderChatReceipt(models.Model):
 
     def __str__(self) -> str:
         return f"msg {self.message_id} → user {self.user_id}"
+
+
+class OrderChatStaffReadState(models.Model):
+    """Staff read cursor for support inbox unread badges."""
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="staff_chat_read_states",
+        verbose_name=_("order"),
+    )
+    staff_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="order_chat_staff_read_states",
+        verbose_name=_("staff user"),
+    )
+    last_read_message = models.ForeignKey(
+        OrderChatMessage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="staff_read_states",
+        verbose_name=_("last read message"),
+    )
+    last_read_at = models.DateTimeField(_("last read at"), blank=True, null=True)
+
+    class Meta:
+        db_table = "order_chat_staff_read_states"
+        verbose_name = _("order chat staff read state")
+        verbose_name_plural = _("order chat staff read states")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order", "staff_user"],
+                name="uq_order_chat_staff_read_state_order_staff",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["staff_user", "order"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"order {self.order_id} staff {self.staff_user_id}"

@@ -29,6 +29,7 @@ urlpatterns = [
     path("admin/notifications/send/", crud_views.admin_notification_broadcast),
     path("admin/notifications/<int:pk>/", crud_views.admin_notification_detail),
     path("admin/support/inbox/", crud_views.support_inbox),
+    path("admin/support/inbox/<int:order_id>/mark-read/", crud_views.support_inbox_mark_read),
     path("admin/sms/overview/", crud_views.admin_sms_overview),
     path("admin/sms/test-send/", crud_views.admin_sms_test_send),
     path("admin/banners/", crud_views.admin_banner_list_create),

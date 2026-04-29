@@ -1175,3 +1175,15 @@ class OtpVerifySerializer(serializers.Serializer):
         else:
             attrs["name"] = name if len(name) >= 2 else ""
         return attrs
+
+
+class FlutterPhoneAutoLoginSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=15)
+
+    def validate_phone(self, value: str) -> str:
+        from .utils.phone import normalize_phone
+
+        digits = normalize_phone(value)
+        if len(digits) < 7 or len(digits) > 15:
+            raise serializers.ValidationError("Enter a valid phone number.")
+        return digits

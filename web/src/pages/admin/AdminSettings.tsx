@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Save } from 'lucide-react';
 import { getJson, patchFormData, patchFormDataWithProgress, patchJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { DEFAULT_STORE_LOGO_URL } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import type { SuperSetting } from '@/types';
 
@@ -419,9 +420,11 @@ export default function AdminSettings() {
                   />
                 ) : (
                   <>
-                    <span className="text-4xl" aria-hidden>
-                      🍬
-                    </span>
+                    <img
+                      src={DEFAULT_STORE_LOGO_URL}
+                      alt=""
+                      className="max-h-28 max-w-[200px] object-contain opacity-90"
+                    />
                     <span className="text-sm font-medium text-muted-foreground">
                       Click to upload logo
                     </span>

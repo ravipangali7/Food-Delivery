@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Power, Package, CheckCircle, TrendingUp, ChevronRight } from 'lucide-react';
@@ -8,10 +8,21 @@ import { OrderStatusBadge } from '@/components/shared/StatusBadge';
 import { getJson, patchJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Order, User } from '@/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function DeliveryHome() {
   const { token, user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
+  const [onlineToggleDialogOpen, setOnlineToggleDialogOpen] = useState(false);
   const isOnline = user?.is_online !== false;
 
   const toggleOnline = useMutation({
@@ -86,7 +97,7 @@ export default function DeliveryHome() {
             <NotificationBellLink to="/delivery/notifications" />
             <button
               type="button"
-              onClick={() => toggleOnline.mutate()}
+              onClick={() => setOnlineToggleDialogOpen(true)}
               disabled={toggleOnline.isPending || !token}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                 isOnline ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
@@ -98,6 +109,37 @@ export default function DeliveryHome() {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={onlineToggleDialogOpen} onOpenChange={setOnlineToggleDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isOnline ? 'Go offline?' : 'Go online?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isOnline
+                ? 'You will stop receiving new delivery assignments until you go online again.'
+                : 'You will appear available for deliveries and your order list will start refreshing.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={
+                isOnline
+                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-600'
+                  : 'bg-green-600 hover:bg-green-700 focus:ring-green-600'
+              }
+              disabled={toggleOnline.isPending}
+              onClick={() => {
+                toggleOnline.mutate(undefined, {
+                  onSettled: () => setOnlineToggleDialogOpen(false),
+                });
+              }}
+            >
+              {isOnline ? 'Go offline' : 'Go online'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="px-4 py-4 space-y-5">
         {!isOnline && (

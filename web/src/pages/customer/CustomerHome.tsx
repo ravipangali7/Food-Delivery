@@ -8,6 +8,7 @@ import { getJson, postJson, deleteJson } from '@/lib/api';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
 import { collectDescendantCategoryIds } from '@/lib/category-tree';
 import { formatCurrency, getEffectivePrice, num, unitLabel } from '@/lib/formatting';
+import { resolveStoreLogoUrl } from '@/lib/branding';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Cart, ParentCategory, Product, SuperSetting } from '@/types';
 
@@ -64,8 +65,6 @@ export default function CustomerHome() {
   const storeName = settings?.name ?? 'Shyam Sweets';
   const addressLine = settings?.address ?? '';
   const phoneLine = settings?.phone?.trim();
-  const logoUrl = settings?.logo?.trim();
-
   const ProductCard = ({ product }: { product: Product }) => {
     const effective = getEffectivePrice(product);
     const line = cart?.items?.find(i => i.product_id === product.id);
@@ -191,11 +190,11 @@ export default function CustomerHome() {
       <div className="sticky top-0 bg-card z-40 px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="h-10 w-10 rounded-xl border border-border bg-amber-50 overflow-hidden shrink-0 flex items-center justify-center">
-            {logoUrl ? (
-              <img src={logoUrl} alt={storeName} className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-xl">🍬</span>
-            )}
+            <img
+              src={resolveStoreLogoUrl(settings?.logo)}
+              alt={storeName}
+              className="h-full w-full object-cover"
+            />
           </div>
           <div className="min-w-0">
             <span className="font-display font-bold text-foreground block truncate">{storeName}</span>

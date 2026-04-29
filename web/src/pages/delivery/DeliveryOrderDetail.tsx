@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { getJson, postJson } from '@/lib/api';
 import { openGoogleMapsNavigation } from '@/lib/googleNavigation';
 import { useAuth } from '@/contexts/AuthContext';
-import OrderChatPanel from '@/components/customer/OrderChatPanel';
 import type { Order, OrderStatus, SuperSetting } from '@/types';
 
 export default function DeliveryOrderDetail() {
@@ -80,11 +79,11 @@ export default function DeliveryOrderDetail() {
         { status: newStatus },
         token,
       ),
-    onSuccess: (_data, newStatus) => {
+    onSuccess: (data, newStatus) => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       if (newStatus === 'out_for_delivery' && id) {
-        navigate(`/delivery/order/${id}/navigate`);
+        void openGoogleMapsNavigation(data);
       }
     },
   });
@@ -98,8 +97,8 @@ export default function DeliveryOrderDetail() {
   const callTarget = useMemo(() => {
     const customer = String(order?.customer?.phone ?? '').replace(/\s/g, '');
     const store = String(settings?.phone ?? '').replace(/\s/g, '');
-    const toCustomer = order?.status === 'out_for_delivery';
-    const num = toCustomer ? customer : store || customer;
+    const toCustomer = order?.status === 'out_for_delivery' || order?.status === 'delivered';
+    const num = toCustomer ? customer || store : store || customer;
     const label = toCustomer ? 'Call customer' : 'Call restaurant';
     return { href: num ? `tel:${num}` : undefined, label };
   }, [order?.customer?.phone, order?.status, settings?.phone]);
@@ -209,14 +208,6 @@ export default function DeliveryOrderDetail() {
           <h3 className="font-semibold text-sm mb-3">Customer Details</h3>
           <p className="text-sm font-medium">{order.customer?.name}</p>
           <p className="text-xs text-muted-foreground mt-1">{order.customer?.phone}</p>
-          {order.user_id ? (
-            <a
-              href="#fd-customer-chat"
-              className="mt-2 inline-block text-xs font-mono text-amber-700 font-medium hover:underline"
-            >
-              Customer user #{order.user_id} — open private chat ↓
-            </a>
-          ) : null}
           <div className="flex gap-2 mt-3">
             <a
               href={callTarget.href ?? undefined}
@@ -246,29 +237,6 @@ export default function DeliveryOrderDetail() {
             )}
           </div>
         </div>
-
-        {user && isMyOrder && (
-          <div id="fd-customer-chat" className="scroll-mt-28 space-y-4">
-            <OrderChatPanel
-              orderId={order.id}
-              token={token}
-              currentUserId={user.id}
-              partnerLabel="Restaurant & admin"
-              chatThread="rider_ops"
-              notifyPeerMessages={false}
-              enabled
-            />
-            <OrderChatPanel
-              orderId={order.id}
-              token={token}
-              currentUserId={user.id}
-              partnerLabel={order.customer?.name ? `Customer (${order.customer.name})` : 'Customer'}
-              chatThread="customer_rider"
-              enabled
-              notifyPeerMessages
-            />
-          </div>
-        )}
 
         <div className="bg-card border border-border rounded-xl p-4">
           <h3 className="font-semibold text-sm mb-2">Delivery Address</h3>

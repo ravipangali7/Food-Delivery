@@ -11,6 +11,7 @@ from ... import services
 from ...tracking import (
     broadcast_chat_message_update,
     broadcast_order_chat_message,
+    broadcast_staff_inbox_event,
     broadcast_tracking_location,
     build_tracking_payload,
     ensure_route_for_order,
@@ -32,7 +33,7 @@ from ...models import (
     SuperSetting,
     User,
 )
-from ...chat_utils import can_user_ack_message, record_delivered, record_read
+from ...chat_utils import can_user_ack_message, mark_staff_order_read, record_delivered, record_read
 from ...serializers import (
     BannerSerializer,
     CartItemWriteSerializer,
@@ -718,6 +719,31 @@ def order_chat_receipts(request, pk):
                 continue
             allowed.append(mid)
         record_read(allowed, request.user.id, order_id=order.pk)
+        if allowed:
+            refreshed = (
+                OrderChatMessage.objects.filter(pk__in=allowed)
+                .select_related("sender")
+                .prefetch_related(
+                    Prefetch(
+                        "receipts",
+                        queryset=OrderChatReceipt.objects.filter(user=request.user),
+                        to_attr="_my_receipts",
+                    )
+                )
+                .order_by("id")
+            )
+            for msg in refreshed:
+                payload = OrderChatMessageSerializer(msg, context={"request": request}).data
+                broadcast_chat_message_update(order.pk, payload)
+        if request.user.is_staff:
+            mark_staff_order_read(order.pk, request.user.id)
+            broadcast_staff_inbox_event(
+                {
+                    "kind": "mark_read",
+                    "order_id": order.pk,
+                    "staff_user_id": request.user.id,
+                }
+            )
         return Response({"ok": True})
     return Response({"detail": "Invalid action. Use delivered or read."}, status=status.HTTP_400_BAD_REQUEST)
 

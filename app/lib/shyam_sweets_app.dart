@@ -9,6 +9,7 @@ import 'screens/app_update_screen.dart';
 import 'screens/no_internet_screen.dart';
 import 'screens/webview_screen.dart';
 import 'services/app_update_service.dart';
+import 'widgets/update_check_loading_screen.dart';
 
 /// Root app widget: theme and connectivity-aware shell (WebView vs offline).
 class ShyamSweetsApp extends StatelessWidget {
@@ -49,6 +50,9 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
   bool _hasBuiltWebView = false;
   final GlobalKey<WebViewScreenState> _webViewKey = GlobalKey<WebViewScreenState>();
 
+  /// True until [loadStoreSettingsAtLaunch] finishes (success or failure).
+  bool _versionGatePending = true;
+
   /// When non-null, user must pass the forced-update gate before browsing.
   StoreSettingsDto? _forceUpdateSettings;
 
@@ -84,6 +88,7 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
       final outcome = await loadStoreSettingsAtLaunch();
       if (!mounted) return;
       setState(() {
+        _versionGatePending = false;
         if (outcome == null) {
           _forceUpdateSettings = null;
           if (_online) _hasBuiltWebView = true;
@@ -99,6 +104,7 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
+        _versionGatePending = false;
         _forceUpdateSettings = null;
         if (_online) _hasBuiltWebView = true;
       });
@@ -157,6 +163,10 @@ class _ConnectivityShellState extends State<_ConnectivityShell> {
   Widget build(BuildContext context) {
     if (_forceUpdateSettings != null) {
       return AppUpdateScreen(settings: _forceUpdateSettings!);
+    }
+
+    if (_versionGatePending) {
+      return const UpdateCheckLoadingScreen();
     }
 
     return PopScope(

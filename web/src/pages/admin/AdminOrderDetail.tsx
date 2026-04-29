@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Phone, MapPin, User } from 'lucide-react';
 import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import OrderChatPanel from '@/components/customer/OrderChatPanel';
 import { PreorderScheduleSummary } from '@/components/admin/PreorderScheduleSummary';
 import type { Order, OrderDeliveryType, OrderStatus, User as U } from '@/types';
 
@@ -316,66 +315,6 @@ export default function AdminOrderDetail() {
               View customer →
             </Link>
           </div>
-
-          {user && (
-            <div className="bg-card rounded-lg shadow-sm border border-border p-4">
-              <h3 className="text-sm font-semibold mb-2">Support chat</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Messages here are only visible to you and the customer — not delivery partners.
-              </p>
-              <OrderChatPanel
-                orderId={order.id}
-                token={token}
-                currentUserId={user.id}
-                partnerLabel={order.customer?.name ?? 'Customer'}
-                chatThread="support"
-                wsThread="all"
-                wsIngestFilter={m => Boolean(m.support)}
-                notifyPeerMessages={false}
-                enabled
-              />
-            </div>
-          )}
-
-          {user && order.delivery_boy_id ? (
-            <div className="bg-card rounded-lg shadow-sm border border-border p-4">
-              <h3 className="text-sm font-semibold mb-2">Customer ↔ delivery partner</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Private thread between the customer and the assigned rider. Your team can still read and reply here.
-              </p>
-              <OrderChatPanel
-                orderId={order.id}
-                token={token}
-                currentUserId={user.id}
-                partnerLabel="customer ↔ rider"
-                chatThread="customer_rider"
-                wsThread="all"
-                wsIngestFilter={m => Boolean(m.customer_rider)}
-                notifyPeerMessages={false}
-                enabled
-              />
-            </div>
-          ) : null}
-
-          {user && order.delivery_boy_id ? (
-            <div className="bg-card rounded-lg shadow-sm border border-border p-4">
-              <h3 className="text-sm font-semibold mb-2">Rider ↔ store</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                The customer does not see this thread — only the assigned partner and your team.
-              </p>
-              <OrderChatPanel
-                orderId={order.id}
-                token={token}
-                currentUserId={user.id}
-                partnerLabel={order.delivery_boy?.name ?? 'Delivery partner'}
-                chatThread="rider_ops"
-                wsThread="all"
-                wsIngestFilter={m => Boolean(m.rider_staff)}
-                notifyPeerMessages={false}
-                enabled
-              />
-            </div>
-          ) : null}
 
           <div className="bg-card rounded-lg shadow-sm border border-border p-5">
             <h3 className="text-sm font-semibold mb-1">Payment</h3>

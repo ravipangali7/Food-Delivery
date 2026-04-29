@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getJson } from '@/lib/api';
+import { resolveStoreLogoUrl } from '@/lib/branding';
 import { useAuth } from '@/contexts/AuthContext';
+import type { SuperSetting } from '@/types';
 import {
   LayoutDashboard,
   Package,
@@ -16,7 +18,6 @@ import {
   Users,
   Truck,
   Bell,
-  Headphones,
   Settings,
   MessageSquare,
   Map,
@@ -257,10 +258,7 @@ function buildSidebarSections(pending: number): { label?: string; items: NavItem
     },
     {
       label: 'COMMUNICATION',
-      items: [
-        { label: 'Customer Support', icon: Headphones, path: '/admin/customer-support' },
-        { label: 'Notifications', icon: Bell, path: '/admin/notifications' },
-      ],
+      items: [{ label: 'Notifications', icon: Bell, path: '/admin/notifications' }],
     },
     {
       label: 'SYSTEM',
@@ -279,7 +277,11 @@ export default function AdminSidebar({ collapsed, onToggle }: { collapsed: boole
     queryFn: () => getJson<Summary>('/api/admin/dashboard/summary/', token),
     enabled: !!token,
   });
-
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => getJson<SuperSetting>('/api/settings/', token),
+    enabled: !!token,
+  });
   const sidebarSections = useMemo(
     () => buildSidebarSections(summary?.orders_pending ?? 0),
     [summary?.orders_pending],
@@ -296,7 +298,11 @@ export default function AdminSidebar({ collapsed, onToggle }: { collapsed: boole
         ${collapsed ? 'w-0 lg:w-[72px] overflow-hidden' : 'w-[260px]'}`}
       >
         <div className="h-[72px] flex items-center px-4 border-b border-stone-800 shrink-0">
-          <span className="text-2xl">🍬</span>
+          <img
+            src={resolveStoreLogoUrl(settings?.logo)}
+            alt=""
+            className="h-9 w-9 shrink-0 rounded-lg object-cover border border-stone-700 bg-stone-800"
+          />
           {!collapsed && (
             <div className="ml-3">
               <div className="font-bold text-amber-400 font-display">Shyam Sweets</div>

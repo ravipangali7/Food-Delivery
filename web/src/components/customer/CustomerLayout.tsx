@@ -5,6 +5,7 @@ import { getJson } from '@/lib/api';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
 import NotificationBellLink from '@/components/NotificationBellLink';
 import CustomerCartLink from '@/components/customer/CustomerCartLink';
+import { resolveStoreLogoUrl } from '@/lib/branding';
 import type { SuperSetting } from '@/types';
 
 function isCustomerTabActive(tabPath: string, pathname: string): boolean {
@@ -32,7 +33,6 @@ function isCustomerTabActive(tabPath: string, pathname: string): boolean {
       p === '/customer/about' ||
       p === '/customer/terms' ||
       p === '/customer/privacy' ||
-      p === '/customer/support' ||
       p === '/customer/notifications'
     );
   }
@@ -71,7 +71,11 @@ export default function CustomerLayout() {
       <aside className="hidden md:flex md:flex-col md:fixed md:left-0 md:top-0 md:z-50 md:h-screen md:w-[260px] md:border-r md:border-border md:bg-card md:shadow-sm">
         <div className="p-5 border-b border-border">
           <Link to="/customer" className="flex items-center gap-2.5">
-            <span className="text-2xl">{settings?.logo?.startsWith('http') ? '' : '🍬'}</span>
+            <img
+              src={resolveStoreLogoUrl(settings?.logo)}
+              alt=""
+              className="h-9 w-9 shrink-0 rounded-xl border border-border bg-muted object-cover"
+            />
             <div>
               <span className="font-display font-bold text-lg text-foreground leading-tight block">{storeName}</span>
               <span className="text-[11px] text-muted-foreground">

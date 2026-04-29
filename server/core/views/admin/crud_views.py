@@ -20,6 +20,8 @@ from ...models import (
     Notification,
     NotificationUser,
     Order,
+    OrderChatMessage,
+    OrderChatStaffReadState,
     OrderCancellationRequest,
     ParentCategory,
     Product,
@@ -27,7 +29,9 @@ from ...models import (
     Unit,
     User,
 )
+from ...chat_utils import mark_staff_order_read
 from ... import services
+from ...tracking import broadcast_staff_inbox_event
 from ...notification_delivery import create_recipient_rows, deliver_broadcast
 from ...serializers import (
     BannerAdminSerializer,
@@ -622,10 +626,21 @@ def support_inbox(request):
         .annotate(last_chat=Max("chat_messages__created_at"))
         .order_by("-last_chat", "-updated_at")[:200]
     )
+    order_ids = [o.id for o in qs]
+    states_by_order = {
+        s.order_id: s
+        for s in OrderChatStaffReadState.objects.filter(order_id__in=order_ids, staff_user=request.user)
+        .only("order_id", "last_read_at")
+    }
     rows = []
     for o in qs:
         u = o.user
         db = o.delivery_boy
+        state = states_by_order.get(o.id)
+        unread_qs = OrderChatMessage.objects.filter(order_id=o.id, sender__is_staff=False)
+        if state and state.last_read_at:
+            unread_qs = unread_qs.filter(created_at__gt=state.last_read_at)
+        unread_count = unread_qs.count()
         rows.append(
             {
                 "id": o.id,
@@ -639,9 +654,26 @@ def support_inbox(request):
                 "delivery_boy_id": o.delivery_boy_id,
                 "delivery_boy_profile_photo": (db.profile_photo or "").strip() if db else "",
                 "last_message_at": o.last_chat.isoformat() if o.last_chat else None,
+                "unread_count": unread_count,
+                "has_unread": unread_count > 0,
             }
         )
     return Response(rows)
+
+
+@api_view(["POST"])
+@permission_classes([IsStaffUser])
+def support_inbox_mark_read(request, order_id: int):
+    order = get_object_or_404(Order.objects.only("id"), pk=order_id)
+    mark_staff_order_read(order.id, request.user.id)
+    broadcast_staff_inbox_event(
+        {
+            "kind": "mark_read",
+            "order_id": order.id,
+            "staff_user_id": request.user.id,
+        }
+    )
+    return Response({"ok": True, "order_id": order.id})
 
 
 @api_view(["GET"])
