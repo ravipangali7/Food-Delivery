@@ -11,7 +11,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../services/auth_token_storage.dart';
-import '../widgets/update_check_loading_hero.dart';
 
 /// Must match [TOKEN_KEY] in `web/src/contexts/AuthContext.tsx`.
 const String _kWebAuthLocalStorageKey = 'fd_auth_token';
@@ -813,7 +812,24 @@ class WebViewScreenState extends State<WebViewScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const UpdateCheckLoadingHero(),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  'assets/logo.png',
+                  width: 88,
+                  height: 88,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: scheme.primary,
+                ),
+              ),
               const SizedBox(height: 20),
               Text(
                 _bootStatusLine,
