@@ -1,0 +1,5 @@
+# Copy to key.properties (same folder) and fill in values.
+# Keystore file is fixed at ../upload-keystore.jks (app/upload-keystore.jks).
+keyAlias=
+keyPassword=
+storePassword=
