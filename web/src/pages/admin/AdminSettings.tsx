@@ -5,6 +5,7 @@ import { Save } from 'lucide-react';
 import { getJson, patchFormData, patchFormDataWithProgress, patchJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEFAULT_STORE_LOGO_URL } from '@/lib/branding';
+import { num } from '@/lib/formatting';
 import { cn } from '@/lib/utils';
 import type { SuperSetting } from '@/types';
 
@@ -48,6 +49,7 @@ export default function AdminSettings() {
     latitude: '',
     longitude: '',
     delivery_charge_per_km: '',
+    delivery_under_km: '',
     meta_title: '',
     meta_description: '',
     meta_keywords: '',
@@ -95,6 +97,7 @@ export default function AdminSettings() {
       latitude: s.latitude != null ? String(s.latitude) : '',
       longitude: s.longitude != null ? String(s.longitude) : '',
       delivery_charge_per_km: String(s.delivery_charge_per_km),
+      delivery_under_km: String(s.delivery_under_km ?? 0),
       meta_title: s.meta_title || '',
       meta_description: s.meta_description || '',
       meta_keywords: s.meta_keywords || '',
@@ -185,7 +188,8 @@ export default function AdminSettings() {
           address: form.address || null,
           latitude: form.latitude.trim() ? form.latitude : null,
           longitude: form.longitude.trim() ? form.longitude : null,
-          delivery_charge_per_km: form.delivery_charge_per_km,
+          delivery_charge_per_km: num(form.delivery_charge_per_km),
+          delivery_under_km: num(form.delivery_under_km),
         },
         token,
       );
@@ -499,16 +503,34 @@ export default function AdminSettings() {
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Delivery charge per km (NPR)
-              </label>
-              <input
-                value={form.delivery_charge_per_km}
-                onChange={e => setForm(f => ({ ...f, delivery_charge_per_km: e.target.value }))}
-                className="w-full rounded-[10px] border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-                inputMode="decimal"
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Delivery charge per km (NPR)
+                </label>
+                <input
+                  value={form.delivery_charge_per_km}
+                  onChange={e => setForm(f => ({ ...f, delivery_charge_per_km: e.target.value }))}
+                  className="w-full rounded-[10px] border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                  inputMode="decimal"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Short delivery radius (km)
+                </label>
+                <input
+                  value={form.delivery_under_km}
+                  onChange={e => setForm(f => ({ ...f, delivery_under_km: e.target.value }))}
+                  className="w-full rounded-[10px] border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                  inputMode="decimal"
+                  placeholder="0 = charge by actual distance"
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Maximum delivery distance from the store. Customers beyond this radius cannot place
+                  orders. Delivery fee is always distance × per-km rate. Set 0 for no distance limit.
+                </p>
+              </div>
             </div>
             <button
               type="button"

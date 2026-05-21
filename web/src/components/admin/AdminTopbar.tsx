@@ -160,7 +160,7 @@ export default function AdminTopbar({ onToggleSidebar }: { onToggleSidebar: () =
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
               onClick={() => {
                 logout();
-                navigate('/login', { replace: true });
+                navigate('/admin/login', { replace: true });
               }}
             >
               Log out

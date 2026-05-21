@@ -2,12 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { formatCurrency, num } from '@/lib/formatting';
-import { previewDeliveryFeeNpr } from '@/lib/deliveryPreview';
+import { isOutOfDeliveryRadius, previewDeliveryFeeNpr } from '@/lib/deliveryPreview';
 import { ArrowLeft } from 'lucide-react';
 import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/hooks/useCart';
+import { clearGuestCart, guestLinesForCheckout } from '@/lib/guestCart';
+import {
+  clearGuestCheckoutDetails,
+  isCheckoutPersonalDetailsValid,
+  readGuestCheckoutDetails,
+} from '@/lib/guestCheckoutDetails';
+import { saveGuestOrderAccess } from '@/lib/guestOrderAccess';
 import LocationMiniMap from '@/components/maps/LocationMiniMap';
-import type { Cart, Order, SuperSetting } from '@/types';
+import type { Order, SuperSetting } from '@/types';
 
 type CheckoutRes = { order: Order };
 
@@ -27,6 +35,7 @@ function parseLatLng(latStr: string, lngStr: string): { lat: number; lng: number
 export default function CustomerCheckout() {
   const navigate = useNavigate();
   const { token, user } = useAuth();
+  const { cart, isLoading, guestLines } = useCart();
 
   /** Human-readable delivery line from map search or reverse-geocode (sent as order address). */
   const [deliveryAddressLine, setDeliveryAddressLine] = useState('');
@@ -45,12 +54,6 @@ export default function CustomerCheckout() {
   const onSearchPlaceLabel = useCallback((label: string) => {
     setDeliveryAddressLine(label);
   }, []);
-
-  const { data: cart, isLoading } = useQuery({
-    queryKey: ['cart', token],
-    queryFn: () => getJson<Cart>('/api/cart/', token),
-    enabled: !!token,
-  });
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -89,6 +92,7 @@ export default function CustomerCheckout() {
 
   const subtotal = num(cart?.subtotal);
   const chargePerKm = num(settings?.delivery_charge_per_km);
+  const underKmRadius = num(settings?.delivery_under_km);
   const { fee: deliveryFee, distanceKm } = previewDeliveryFeeNpr(
     deliveryPosition?.lat,
     deliveryPosition?.lng,
@@ -96,13 +100,16 @@ export default function CustomerCheckout() {
     storePosition?.lng,
     chargePerKm,
   );
+  const outOfRadius =
+    !!deliveryPosition &&
+    !!storePosition &&
+    isOutOfDeliveryRadius(distanceKm, underKmRadius);
   const totalPreview = subtotal + deliveryFee;
 
   const placeOrder = useMutation({
     mutationFn: async () => {
-      if (!token) throw new Error('Not signed in');
       if (!deliveryPosition) {
-        throw new Error('Place a map pin for your delivery location (or open Edit Profile to set a default pin).');
+        throw new Error('Place a map pin for your delivery location.');
       }
       const addr =
         deliveryAddressLine.trim() ||
@@ -112,6 +119,15 @@ export default function CustomerCheckout() {
         delivery_latitude: deliveryPosition.lat,
         delivery_longitude: deliveryPosition.lng,
       };
+      if (!token) {
+        const guest = readGuestCheckoutDetails();
+        if (!guest || !isCheckoutPersonalDetailsValid(guest.name, guest.phone)) {
+          throw new Error('Enter your name and phone on the cart page before checkout.');
+        }
+        body.items = guestLinesForCheckout(guestLines);
+        body.guest_name = guest.name.trim();
+        body.guest_phone = guest.phone;
+      }
       if (hasPreorderItems) {
         if (!preOrderLocal.trim()) {
           throw new Error('Choose the date and time for your pre-order.');
@@ -125,21 +141,15 @@ export default function CustomerCheckout() {
       return postJson<CheckoutRes, Record<string, unknown>>('/api/checkout/', body, token);
     },
     onSuccess: data => {
+      if (!token && data.order.guest_access_token) {
+        saveGuestOrderAccess(data.order.id, data.order.guest_access_token);
+        clearGuestCart();
+        clearGuestCheckoutDetails();
+      }
       navigate(`/customer/order/${data.order.id}`, { replace: true });
     },
     onError: (e: Error) => setError(e.message),
   });
-
-  if (!token) {
-    return (
-      <div className="p-8 text-center">
-        <Link to="/login" className="text-amber-600">
-          Sign in
-        </Link>{' '}
-        to checkout.
-      </div>
-    );
-  }
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Loading…</div>;
@@ -155,6 +165,10 @@ export default function CustomerCheckout() {
       </div>
     );
   }
+
+  const guestDetails = !token ? readGuestCheckoutDetails() : null;
+  const guestDetailsReady =
+    !!token || (!!guestDetails && isCheckoutPersonalDetailsValid(guestDetails.name, guestDetails.phone));
 
   return (
     <div className="pb-24">
@@ -173,6 +187,27 @@ export default function CustomerCheckout() {
 
         {error && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>
+        )}
+
+        {!guestDetailsReady && (
+          <div className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Add your name and phone on the{' '}
+            <Link to="/customer/cart" className="underline font-medium">
+              cart page
+            </Link>{' '}
+            before placing your order.
+          </div>
+        )}
+
+        {guestDetails && guestDetailsReady && (
+          <div className="bg-card rounded-xl border border-border p-4 space-y-1">
+            <h3 className="font-semibold text-sm">Your details</h3>
+            <p className="text-sm">{guestDetails.name.trim()}</p>
+            <p className="text-sm text-muted-foreground">{guestDetails.phone}</p>
+            <Link to="/customer/cart" className="text-xs text-amber-700 underline">
+              Edit on cart
+            </Link>
+          </div>
         )}
 
         <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-4">
@@ -205,9 +240,13 @@ export default function CustomerCheckout() {
           {!deliveryPosition && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
               <span className="font-semibold">Map pin required.</span>{' '}
-              <Link to="/customer/profile/edit?returnTo=/customer/checkout" className="underline font-medium">
-                Set location in profile
-              </Link>{' '}
+              {token ? (
+                <Link to="/customer/profile/edit?returnTo=/customer/checkout" className="underline font-medium">
+                  Set location in profile
+                </Link>
+              ) : (
+                <span>Sign in to save a default pin on your profile</span>
+              )}{' '}
               or place a pin below.
             </div>
           )}
@@ -224,6 +263,17 @@ export default function CustomerCheckout() {
               mapHeightClassName="h-[200px] min-h-[180px]"
             />
           </div>
+
+          {outOfRadius && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              You are out of delivery radius
+              {underKmRadius > 0 ? (
+                <span className="block text-xs mt-0.5 text-red-700/90">
+                  Delivery is limited to {underKmRadius} km from the store (~{distanceKm.toFixed(2)} km away).
+                </span>
+              ) : null}
+            </div>
+          )}
 
           {deliveryAddressLine.trim() ? (
             <p className="text-xs text-muted-foreground rounded-[10px] border border-border bg-muted/20 px-3 py-2">
@@ -265,14 +315,18 @@ export default function CustomerCheckout() {
                   <span>Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
+                <div className="flex justify-between text-muted-foreground gap-2">
                   <span>
                     Delivery
                     {deliveryPosition && storePosition && distanceKm > 0 ? (
-                      <span className="text-[11px] ml-1">(~{distanceKm.toFixed(2)} km)</span>
+                      <span className="text-[11px] block mt-0.5">
+                        {chargePerKm > 0
+                          ? `${formatCurrency(chargePerKm)}/km × ${distanceKm.toFixed(2)} km`
+                          : `~${distanceKm.toFixed(2)} km (no per-km charge set)`}
+                      </span>
                     ) : null}
                   </span>
-                  <span>{formatCurrency(deliveryFee)}</span>
+                  <span className="shrink-0">{formatCurrency(deliveryFee)}</span>
                 </div>
                 {!storePosition && (
                   <p className="text-[11px] text-muted-foreground">
@@ -297,9 +351,19 @@ export default function CustomerCheckout() {
       <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[430px] p-4 bg-card border-t border-border z-30">
         <button
           type="button"
-          disabled={!deliveryPosition || placeOrder.isPending || (hasPreorderItems && !preOrderLocal.trim())}
+          disabled={
+            !deliveryPosition ||
+            outOfRadius ||
+            placeOrder.isPending ||
+            (hasPreorderItems && !preOrderLocal.trim()) ||
+            !guestDetailsReady
+          }
           onClick={() => {
             setError(null);
+            if (outOfRadius) {
+              setError('You are out of delivery radius');
+              return;
+            }
             placeOrder.mutate();
           }}
           className="block w-full py-3.5 bg-amber-500 text-white text-center font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50"

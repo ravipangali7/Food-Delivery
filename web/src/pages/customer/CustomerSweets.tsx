@@ -1,18 +1,17 @@
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Minus, Plus } from 'lucide-react';
 import CustomerBanners from '@/components/customer/CustomerBanners';
 import StoreClosedBanner from '@/components/customer/StoreClosedBanner';
-import { getJson, postJson, deleteJson } from '@/lib/api';
+import { getJson } from '@/lib/api';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
+import { useCart } from '@/hooks/useCart';
 import { collectDescendantCategoryIds } from '@/lib/category-tree';
 import { formatCurrency, getEffectivePrice, num, unitLabel } from '@/lib/formatting';
-import { useAuth } from '@/contexts/AuthContext';
-import type { Cart, ParentCategory, Product } from '@/types';
+import type { ParentCategory, Product } from '@/types';
 
 export default function CustomerSweets() {
-  const { token } = useAuth();
-  const queryClient = useQueryClient();
+  const { cart, addProduct, setLineQuantity } = useCart();
   const menusOpen = useStoreMenusOpen();
 
   const { data: products = [], isLoading: loadingProducts } = useQuery({
@@ -25,33 +24,21 @@ export default function CustomerSweets() {
     queryFn: () => getJson<ParentCategory[]>('/api/categories/', null),
   });
 
-  const { data: cart } = useQuery({
-    queryKey: ['cart', token],
-    queryFn: () => getJson<Cart>('/api/cart/', token),
-    enabled: !!token,
-  });
-
-  const mutateCart = useMutation({
-    mutationFn: async (next: { productId: number; delta: number; asPreorder?: boolean }) => {
-      if (!token) throw new Error('Login required');
-      const line = cart?.items?.find(i => i.product_id === next.productId);
-      const isPreorder = line ? Boolean(line.is_preorder) : Boolean(next.asPreorder);
-      const cur = line?.quantity ?? 0;
-      const quantity = cur + next.delta;
-      if (quantity < 1 && line) {
-        await deleteJson<Cart>(`/api/cart/items/${line.id}/`, token);
-        return;
-      }
-      if (quantity < 1) return;
-      const body: { product_id: number; quantity: number; is_preorder?: boolean } = {
-        product_id: next.productId,
-        quantity,
-      };
-      if (isPreorder) body.is_preorder = true;
-      await postJson<Cart, typeof body>('/api/cart/items/', body, token);
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
-  });
+  const adjustCartQty = (product: Product, delta: number, asPreorder?: boolean) => {
+    const line = cart?.items?.find(
+      i => i.product_id === product.id && Boolean(i.is_preorder) === Boolean(asPreorder),
+    );
+    const nextQty = (line?.quantity ?? 0) + delta;
+    if (nextQty < 1) {
+      if (line) setLineQuantity.mutate({ item: line, quantity: 0, product });
+      return;
+    }
+    if (!line) {
+      addProduct.mutate({ product, quantity: nextQty, is_preorder: asPreorder });
+    } else {
+      setLineQuantity.mutate({ item: line, quantity: nextQty, product });
+    }
+  };
 
   const parentsWithSweets = categories.filter(cat => {
     const ids = collectDescendantCategoryIds(categories, cat.id);
@@ -94,9 +81,7 @@ export default function CustomerSweets() {
               ) : null}
               <span className="font-bold text-amber-600 text-sm">{formatCurrency(effective)}</span>
             </div>
-            {!token ? (
-              <span className="text-[10px] text-muted-foreground">Login to cart</span>
-            ) : qty > 0 ? (
+            {qty > 0 ? (
               <div className="flex flex-col items-end gap-1" onClick={e => e.preventDefault()}>
                 {lineIsPreorder ? (
                   <span className="text-[9px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded">
@@ -108,7 +93,7 @@ export default function CustomerSweets() {
                     type="button"
                     onClick={e => {
                       e.preventDefault();
-                      mutateCart.mutate({ productId: product.id, delta: -1 });
+                      adjustCartQty(product, -1, lineIsPreorder);
                     }}
                     className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"
                   >
@@ -119,7 +104,7 @@ export default function CustomerSweets() {
                     type="button"
                     onClick={e => {
                       e.preventDefault();
-                      mutateCart.mutate({ productId: product.id, delta: 1 });
+                      adjustCartQty(product, 1, lineIsPreorder);
                     }}
                     className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center"
                   >
@@ -133,7 +118,7 @@ export default function CustomerSweets() {
                   type="button"
                   onClick={e => {
                     e.preventDefault();
-                    mutateCart.mutate({ productId: product.id, delta: 1, asPreorder: false });
+                    adjustCartQty(product, 1, false);
                   }}
                   className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-semibold rounded-full hover:bg-amber-600 whitespace-nowrap"
                 >
@@ -143,7 +128,7 @@ export default function CustomerSweets() {
                   type="button"
                   onClick={e => {
                     e.preventDefault();
-                    mutateCart.mutate({ productId: product.id, delta: 1, asPreorder: true });
+                    adjustCartQty(product, 1, true);
                   }}
                   className="px-2.5 py-1 border border-violet-300 text-violet-800 text-[10px] font-semibold rounded-full bg-violet-50 hover:bg-violet-100 whitespace-nowrap"
                 >
@@ -158,76 +143,44 @@ export default function CustomerSweets() {
   };
 
   if (loadingProducts) {
+    return <div className="p-8 text-center text-muted-foreground">Loading sweets…</div>;
+  }
+
+  if (!menusOpen) {
     return (
-      <div className="p-8 text-center text-muted-foreground min-h-[40vh] flex items-center justify-center">
-        Loading…
+      <div className="pb-24">
+        <StoreClosedBanner />
+        <p className="px-4 text-sm text-center text-muted-foreground mt-4">
+          Sweets and pre-orders are available when the store is open.
+        </p>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="sticky top-0 bg-card z-40 px-4 py-3 border-b border-border">
-        <h1 className="font-display font-bold text-lg">Sweets</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Browse by category</p>
-      </div>
-
-      <div className="px-4 py-4 space-y-6">
-        <CustomerBanners />
-        {!menusOpen ? <StoreClosedBanner /> : null}
-
-        {!products.length ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No sweet items are listed yet. Check back soon.
-          </p>
-        ) : null}
-
-        {menusOpen && parentsWithSweets.length ? (
-          <div>
-            <h2 className="font-display font-semibold text-sm mb-3">Categories</h2>
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              {parentsWithSweets.map(cat => (
-                <a
-                  key={cat.id}
-                  href={`#sweets-parent-${cat.id}`}
-                  className="flex flex-col items-center min-w-[72px] shrink-0"
-                >
-                  <div className="w-16 h-16 rounded-full border-2 border-amber-200 overflow-hidden bg-amber-50">
-                    {cat.image_url ? (
-                      <img src={cat.image_url} className="w-full h-full object-cover" alt="" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl">🍬</div>
-                    )}
-                  </div>
-                  <span className="text-xs font-medium mt-1.5 text-center leading-tight">{cat.name}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {menusOpen
-          ? parentsWithSweets.map(cat => {
-              const inCatIds = collectDescendantCategoryIds(categories, cat.id);
-              const inCat = products.filter(p => inCatIds.has(p.category_id));
-              if (!inCat.length) return null;
-              return (
-                <div key={cat.id} id={`sweets-parent-${cat.id}`} className="scroll-mt-24">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-display font-semibold">{cat.name}</h3>
-                    <Link to={`/customer/parent/${cat.id}`} className="text-xs text-amber-500">
-                      See All →
-                    </Link>
-                  </div>
-                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    {inCat.map(p => (
-                      <ProductCard key={p.id} product={p} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })
-          : null}
+    <div className="pb-24">
+      <CustomerBanners />
+      <div className="px-4 py-4">
+        <h1 className="font-display font-bold text-xl mb-1">Sweets</h1>
+        <p className="text-sm text-muted-foreground mb-4">Order now or schedule a pre-order.</p>
+        {parentsWithSweets.map(parent => {
+          const ids = collectDescendantCategoryIds(categories, parent.id);
+          const sectionProducts = products.filter(p => ids.has(p.category_id));
+          if (!sectionProducts.length) return null;
+          return (
+            <section key={parent.id} className="mb-6">
+              <h2 className="font-semibold text-sm mb-2">{parent.name}</h2>
+              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                {sectionProducts.map(p => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+        {!products.length && (
+          <p className="text-sm text-muted-foreground text-center py-8">No sweets listed yet.</p>
+        )}
       </div>
     </div>
   );

@@ -1,0 +1,17 @@
+# Copy to the API subdomain document root as `.htaccess` AFTER creating the app in
+# cPanel → Setup Python App (cPanel usually writes PassengerAppRoot / PassengerPython).
+# If those lines are missing, paste the block cPanel generated, then merge CORS below.
+#
+# Application root must contain passenger_wsgi.py and manage.py (same folder as this file).
+
+PassengerEnabled On
+PassengerAppType wsgi
+PassengerStartupFile passenger_wsgi.py
+
+# Optional: only if preflight OPTIONS never reaches Django (see cpanel-api-subdomain.htaccess.example).
+# <IfModule mod_headers.c>
+#   Header always set Access-Control-Allow-Origin "https://shyam-sweets.com"
+#   Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+#   Header always set Access-Control-Allow-Headers "Authorization, Content-Type, Accept, X-CSRFToken"
+#   Header always set Access-Control-Max-Age "86400"
+# </IfModule>

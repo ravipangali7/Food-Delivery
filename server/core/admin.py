@@ -352,6 +352,7 @@ class SuperSettingAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "delivery_charge_per_km",
+                    "delivery_under_km",
                     "meta_title",
                     "meta_description",
                     "meta_keywords",

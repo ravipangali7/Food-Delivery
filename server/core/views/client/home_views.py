@@ -64,6 +64,7 @@ from ..helpers import (
     can_manage_order_status,
     can_view_order_tracking,
     get_or_create_cart,
+    resolve_order_for_request,
     is_delivery_boy_offline,
     order_queryset_for_user,
     persist_order_chat_message,
@@ -201,19 +202,38 @@ def cart_remove_item(request, item_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def checkout(request):
     ser = CheckoutSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
+    data = ser.validated_data
     try:
-        order = services.place_order_from_cart(
-            user=request.user,
-            address=ser.validated_data["address"],
-            delivery_latitude=ser.validated_data.get("delivery_latitude"),
-            delivery_longitude=ser.validated_data.get("delivery_longitude"),
-            special_instructions=ser.validated_data.get("special_instructions"),
-            pre_order_date_time=ser.validated_data.get("pre_order_date_time"),
-        )
+        if request.user.is_authenticated:
+            order = services.place_order_from_cart(
+                user=request.user,
+                address=data["address"],
+                delivery_latitude=data.get("delivery_latitude"),
+                delivery_longitude=data.get("delivery_longitude"),
+                special_instructions=data.get("special_instructions"),
+                pre_order_date_time=data.get("pre_order_date_time"),
+            )
+        else:
+            guest_lines = data.get("items") or []
+            if not guest_lines:
+                return Response(
+                    {"detail": "Cart is empty. Add items before checkout."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            order = services.place_guest_order(
+                guest_lines=guest_lines,
+                address=data["address"],
+                delivery_latitude=data.get("delivery_latitude"),
+                delivery_longitude=data.get("delivery_longitude"),
+                special_instructions=data.get("special_instructions"),
+                pre_order_date_time=data.get("pre_order_date_time"),
+                guest_name=data.get("guest_name"),
+                guest_phone=data.get("guest_phone"),
+            )
     except ValueError as e:
         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(
@@ -233,21 +253,29 @@ def order_list(request):
 
 
 @api_view(["GET", "DELETE"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def order_detail(request, pk):
-    user = request.user
-    if is_delivery_boy_offline(user):
-        return Response(
-            {"detail": "You are offline. Go online to view assigned orders."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-    qs = order_queryset_for_user(user)
-    order = get_object_or_404(qs, pk=pk)
     if request.method == "DELETE":
-        if not request.user.is_staff:
+        if not request.user.is_authenticated or not request.user.is_staff:
             return Response(status=status.HTTP_403_FORBIDDEN)
+        order = get_object_or_404(Order, pk=pk)
         order.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    if request.user.is_authenticated:
+        user = request.user
+        if is_delivery_boy_offline(user):
+            return Response(
+                {"detail": "You are offline. Go online to view assigned orders."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = order_queryset_for_user(user)
+        order = get_object_or_404(qs, pk=pk)
+        return Response(OrderSerializer(order).data)
+
+    order = resolve_order_for_request(request, pk)
+    if order is None:
+        return Response(status=status.HTTP_404_NOT_FOUND)
     return Response(OrderSerializer(order).data)
 
 
@@ -313,16 +341,28 @@ def order_cancellation_request(request, pk):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def order_tracking(request, pk):
-    if is_delivery_boy_offline(request.user):
-        return Response(
-            {"detail": "You are offline. Go online to view live tracking."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-    qs = order_queryset_for_user(request.user)
-    order = get_object_or_404(qs, pk=pk)
-    if not can_view_order_tracking(request.user, order):
+    guest_token = request.query_params.get("guest_token") or request.headers.get(
+        "X-Guest-Order-Token"
+    )
+    if request.user.is_authenticated:
+        if is_delivery_boy_offline(request.user):
+            return Response(
+                {"detail": "You are offline. Go online to view live tracking."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = order_queryset_for_user(request.user)
+        order = get_object_or_404(qs, pk=pk)
+    else:
+        order = resolve_order_for_request(request, pk)
+        if order is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+    if not can_view_order_tracking(
+        request.user if request.user.is_authenticated else None,
+        order,
+        guest_token=guest_token,
+    ):
         return Response(status=status.HTTP_403_FORBIDDEN)
     if order.status == Order.Status.OUT_FOR_DELIVERY and not order.route_polyline:
         ensure_route_for_order(order)

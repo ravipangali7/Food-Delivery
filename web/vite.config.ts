@@ -11,6 +11,12 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    // Same-origin /api and /ws → local Django (no CORS). Requires `py manage.py runserver` in server/.
+    proxy: {
+      "/api": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/ws": { target: "ws://127.0.0.1:8000", ws: true },
+      "/media": { target: "http://127.0.0.1:8000", changeOrigin: true },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

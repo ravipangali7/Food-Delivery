@@ -158,6 +158,16 @@ class SuperSetting(models.Model):
         decimal_places=2,
         default=Decimal("0.00"),
     )
+    delivery_under_km = models.DecimalField(
+        _("short delivery radius (km)"),
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_(
+            "Maximum delivery distance (km) from the store. "
+            "0 = no limit. Fee is always distance × delivery_charge_per_km."
+        ),
+    )
     is_open = models.BooleanField(_("store open"), default=True)
     android_file = models.URLField(_("Android package URL"), max_length=500, blank=True, null=True)
     google_playstore_link = models.URLField(_("Google Play Store link"), max_length=500, blank=True, null=True)
@@ -450,9 +460,32 @@ class Order(models.Model):
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="orders",
         verbose_name=_("customer"),
+    )
+    guest_access_token = models.CharField(
+        _("guest access token"),
+        max_length=64,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text=_("Token for viewing a guest order without logging in."),
+    )
+    guest_name = models.CharField(
+        _("guest name"),
+        max_length=100,
+        blank=True,
+        help_text=_("Customer name when the order was placed without an account."),
+    )
+    guest_phone = models.CharField(
+        _("guest phone"),
+        max_length=15,
+        blank=True,
+        help_text=_("Customer phone when the order was placed without an account."),
     )
     delivery_boy = models.ForeignKey(
         settings.AUTH_USER_MODEL,

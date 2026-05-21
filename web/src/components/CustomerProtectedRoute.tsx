@@ -2,16 +2,9 @@ import { useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { homeForUser, isAdminUser, isDeliveryPortalUser } from '@/pages/auth/authPaths';
-type Portal = 'customer' | 'admin' | 'delivery';
 
-export default function ProtectedRoute({
-  portal,
-  children,
-}: {
-  portal: Portal;
-  children: React.ReactNode;
-}) {
+/** Customer-only routes that require sign-in (profile, order history, notifications). */
+export default function CustomerProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, isLoading, sessionRestoreFailed, retrySessionRestore } = useAuth();
   const location = useLocation();
   const [retryBusy, setRetryBusy] = useState(false);
@@ -28,8 +21,7 @@ export default function ProtectedRoute({
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-stone-50 px-6 text-center">
         <p className="text-muted-foreground max-w-sm">
-          We could not verify your session. You may be offline or the connection was interrupted. Your
-          login is still saved—try again when the network is available.
+          We could not verify your session. You may be offline or the connection was interrupted.
         </p>
         <Button
           disabled={retryBusy}
@@ -49,16 +41,7 @@ export default function ProtectedRoute({
   }
 
   if (!token || !user) {
-    const loginPath = portal === 'admin' ? '/admin/login' : '/login';
-    return <Navigate to={loginPath} state={{ from: location }} replace />;
-  }
-
-  if (portal === 'admin' && !isAdminUser(user)) {
-    return <Navigate to={homeForUser(user)} replace />;
-  }
-
-  if (portal === 'delivery' && !isDeliveryPortalUser(user)) {
-    return <Navigate to={homeForUser(user)} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

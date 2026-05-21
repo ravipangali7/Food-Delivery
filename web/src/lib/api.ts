@@ -15,19 +15,40 @@ export class ApiHttpError extends Error {
   }
 }
 
-const base =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE) || 'http://api.shyam-sweets.com';
+/** API origin without trailing slash. Empty in dev → relative URLs via Vite proxy. */
+export function getApiBase(): string {
+  const envBase =
+    typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_API_BASE as string | undefined) : undefined;
+  if (envBase !== undefined && String(envBase).trim() !== '') {
+    return String(envBase).replace(/\/$/, '');
+  }
+  if (import.meta.env?.DEV) {
+    return '';
+  }
+  return 'http://api.shyam-sweets.com';
+}
+
+const base = getApiBase();
 
 export function apiUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;
-  return `${base.replace(/\/$/, '')}${p}`;
+  if (!base) {
+    return p;
+  }
+  return `${base}${p}`;
 }
 
 /** WebSocket URL for the same origin as `VITE_API_BASE` (http → ws, https → wss). */
 export function wsUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;
-  const origin = base.replace(/\/$/, '');
-  const u = new URL(origin.includes('://') ? origin : `http://${origin}`);
+  if (!base) {
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}${p}`;
+    }
+    return `ws://127.0.0.1:8080${p}`;
+  }
+  const u = new URL(base.includes('://') ? base : `http://${base}`);
   u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${u.origin}${p}`;
 }

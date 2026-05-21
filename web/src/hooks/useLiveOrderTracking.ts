@@ -1,25 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getJson } from '@/lib/api';
+import { orderTrackingApiPath } from '@/lib/guestOrderAccess';
 import { getTrackingWebSocketUrl } from '@/lib/trackingWs';
 import type { OrderTrackingPayload } from '@/types';
 
 type Options = {
   orderId: number | undefined;
   token: string | null;
+  guestToken?: string | null;
   /** Poll when true; WebSocket also updates state when available. */
   enabled?: boolean;
 };
 
-export function useLiveOrderTracking({ orderId, token, enabled = true }: Options) {
+export function useLiveOrderTracking({ orderId, token, guestToken, enabled = true }: Options) {
   const queryClient = useQueryClient();
   const [live, setLive] = useState<OrderTrackingPayload | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
+  const canFetch = !!orderId && (!!token || !!guestToken);
+
   const query = useQuery({
-    queryKey: ['order-tracking', orderId, token],
-    queryFn: () => getJson<OrderTrackingPayload>(`/api/orders/${orderId}/tracking/`, token),
-    enabled: !!enabled && !!orderId && !!token,
+    queryKey: ['order-tracking', orderId, token, guestToken],
+    queryFn: () =>
+      getJson<OrderTrackingPayload>(
+        orderTrackingApiPath(orderId!, guestToken),
+        token,
+      ),
+    enabled: !!enabled && canFetch,
     refetchInterval: q => {
       const d = q.state.data;
       return d?.tracking_phase === 'on_the_way' ? 2000 : false;
@@ -35,10 +43,10 @@ export function useLiveOrderTracking({ orderId, token, enabled = true }: Options
   const mergePayload = useCallback((payload: OrderTrackingPayload) => {
     setLive(payload);
     queryClient.setQueryData(['order-tracking', orderId, token], payload);
-  }, [orderId, token, queryClient]);
+  }, [orderId, token, guestToken, queryClient]);
 
   useEffect(() => {
-    if (!enabled || !orderId || !token) return;
+    if (!enabled || !orderId || !token) return; // live WS requires auth token
 
     const url = getTrackingWebSocketUrl(orderId, token);
     let ws: WebSocket;

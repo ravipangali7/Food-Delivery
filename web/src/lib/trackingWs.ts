@@ -1,12 +1,9 @@
+import { wsUrl } from '@/lib/api';
+
 /**
  * WebSocket URL for live order tracking (Django Channels).
- * Uses the same API origin as `VITE_API_BASE` with ws/wss scheme.
+ * Uses the same origin as `VITE_API_BASE` (or Vite proxy in dev).
  */
 export function getTrackingWebSocketUrl(orderId: number, token: string): string {
-  const base =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE) || 'http://api.shyam-sweets.com';
-  const trimmed = base.replace(/\/$/, '');
-  const u = new URL(trimmed);
-  u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${u.origin}/ws/tracking/${orderId}/?token=${encodeURIComponent(token)}`;
+  return wsUrl(`/ws/tracking/${orderId}/?token=${encodeURIComponent(token)}`);
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.exceptions import APIException
@@ -17,6 +18,7 @@ from ... import otp_service
 from ...models import User
 from ...sms_service import send_otp_sms_checked
 from ...serializers import (
+    AdminPasswordLoginSerializer,
     FlutterPhoneAutoLoginSerializer,
     OtpSendSerializer,
     OtpVerifySerializer,
@@ -105,6 +107,37 @@ def verify_otp(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({"token": token.key, "user": UserSerializer(user).data})
+
+
+def _user_is_admin_portal(user: User) -> bool:
+    return bool(user.is_staff or user.is_superuser)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def admin_password_login(request):
+    """Staff admin SPA login: phone + password (requires is_staff)."""
+    ser = AdminPasswordLoginSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    phone = ser.validated_data["phone"]
+    password = ser.validated_data["password"]
+    user = authenticate(request, username=phone, password=password)
+    if (
+        user is None
+        or not user.is_active
+        or user.deleted_at is not None
+    ):
+        return Response(
+            {"detail": "Invalid phone or password."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not _user_is_admin_portal(user):
+        return Response(
+            {"detail": "This account is not authorized for admin access."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     token, _ = Token.objects.get_or_create(user=user)
     return Response({"token": token.key, "user": UserSerializer(user).data})
 

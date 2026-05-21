@@ -114,8 +114,12 @@ _extra_cors = [
     if o.strip()
 ]
 CORS_ALLOWED_ORIGINS = list(dict.fromkeys([*_default_cors_origins, *_extra_cors]))
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://([\w-]+\.)?shyam-sweets\.com$",
+]
 # Set CORS_ALLOW_ALL_ORIGINS=1 in env for quick local testing; production should rely on CORS_ALLOWED_ORIGINS.
 CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "").lower() in ("1", "true", "yes")
+CORS_PREFLIGHT_MAX_AGE = 86400
 CORS_ALLOW_HEADERS = [
     "accept",
     "accept-encoding",

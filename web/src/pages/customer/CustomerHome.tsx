@@ -1,20 +1,19 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { MapPin, Phone, Plus, Minus } from 'lucide-react';
 import CustomerBanners from '@/components/customer/CustomerBanners';
 import StoreClosedBanner from '@/components/customer/StoreClosedBanner';
-import { getJson, postJson, deleteJson } from '@/lib/api';
+import { getJson } from '@/lib/api';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
+import { useCart } from '@/hooks/useCart';
 import { collectDescendantCategoryIds } from '@/lib/category-tree';
 import { formatCurrency, getEffectivePrice, num, unitLabel } from '@/lib/formatting';
 import { resolveStoreLogoUrl } from '@/lib/branding';
-import { useAuth } from '@/contexts/AuthContext';
-import type { Cart, ParentCategory, Product, SuperSetting } from '@/types';
+import type { ParentCategory, Product, SuperSetting } from '@/types';
 
 export default function CustomerHome() {
-  const { token } = useAuth();
-  const queryClient = useQueryClient();
+  const { cart, addProduct, setLineQuantity } = useCart();
   const menusOpen = useStoreMenusOpen();
 
   const { data: settings } = useQuery({
@@ -32,35 +31,23 @@ export default function CustomerHome() {
     queryFn: () => getJson<ParentCategory[]>('/api/categories/', null),
   });
 
-  const { data: cart } = useQuery({
-    queryKey: ['cart', token],
-    queryFn: () => getJson<Cart>('/api/cart/', token),
-    enabled: !!token,
-  });
-
   const topLevelCategories = categories;
 
-  const mutateCart = useMutation({
-    mutationFn: async (next: { productId: number; delta: number; asPreorder?: boolean }) => {
-      if (!token) throw new Error('Login required');
-      const line = cart?.items?.find(i => i.product_id === next.productId);
-      const isPreorder = line ? Boolean(line.is_preorder) : Boolean(next.asPreorder);
-      const cur = line?.quantity ?? 0;
-      const quantity = cur + next.delta;
-      if (quantity < 1 && line) {
-        await deleteJson<Cart>(`/api/cart/items/${line.id}/`, token);
-        return;
-      }
-      if (quantity < 1) return;
-      const body: { product_id: number; quantity: number; is_preorder?: boolean } = {
-        product_id: next.productId,
-        quantity,
-      };
-      if (isPreorder) body.is_preorder = true;
-      await postJson<Cart, typeof body>('/api/cart/items/', body, token);
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
-  });
+  const adjustCartQty = (product: Product, delta: number, asPreorder?: boolean) => {
+    const line = cart?.items?.find(
+      i => i.product_id === product.id && Boolean(i.is_preorder) === Boolean(asPreorder),
+    );
+    const nextQty = (line?.quantity ?? 0) + delta;
+    if (nextQty < 1) {
+      if (line) setLineQuantity.mutate({ item: line, quantity: 0, product });
+      return;
+    }
+    if (!line) {
+      addProduct.mutate({ product, quantity: nextQty, is_preorder: asPreorder });
+    } else {
+      setLineQuantity.mutate({ item: line, quantity: nextQty, product });
+    }
+  };
 
   const storeName = settings?.name ?? 'Shyam Sweets';
   const addressLine = settings?.address ?? '';
@@ -101,9 +88,7 @@ export default function CustomerHome() {
               ) : null}
               <span className="font-bold text-amber-600 text-sm">{formatCurrency(effective)}</span>
             </div>
-            {!token ? (
-              <span className="text-[10px] text-muted-foreground">Login to cart</span>
-            ) : qty > 0 ? (
+            {qty > 0 ? (
               <div className="flex flex-col items-end gap-1" onClick={e => e.preventDefault()}>
                 {product.is_sweet && lineIsPreorder ? (
                   <span className="text-[9px] font-semibold uppercase tracking-wide text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded">
@@ -115,7 +100,7 @@ export default function CustomerHome() {
                     type="button"
                     onClick={e => {
                       e.preventDefault();
-                      mutateCart.mutate({ productId: product.id, delta: -1 });
+                      adjustCartQty(product, -1, lineIsPreorder);
                     }}
                     className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"
                   >
@@ -126,7 +111,7 @@ export default function CustomerHome() {
                     type="button"
                     onClick={e => {
                       e.preventDefault();
-                      mutateCart.mutate({ productId: product.id, delta: 1 });
+                      adjustCartQty(product, 1, lineIsPreorder);
                     }}
                     className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center"
                   >
@@ -140,7 +125,7 @@ export default function CustomerHome() {
                   type="button"
                   onClick={e => {
                     e.preventDefault();
-                    mutateCart.mutate({ productId: product.id, delta: 1, asPreorder: false });
+                    adjustCartQty(product, 1, false);
                   }}
                   className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-semibold rounded-full hover:bg-amber-600 whitespace-nowrap"
                 >
@@ -150,7 +135,7 @@ export default function CustomerHome() {
                   type="button"
                   onClick={e => {
                     e.preventDefault();
-                    mutateCart.mutate({ productId: product.id, delta: 1, asPreorder: true });
+                    adjustCartQty(product, 1, true);
                   }}
                   className="px-2.5 py-1 border border-violet-300 text-violet-800 text-[10px] font-semibold rounded-full bg-violet-50 hover:bg-violet-100 whitespace-nowrap"
                 >
@@ -162,7 +147,7 @@ export default function CustomerHome() {
                 type="button"
                 onClick={e => {
                   e.preventDefault();
-                  mutateCart.mutate({ productId: product.id, delta: 1 });
+                  adjustCartQty(product, 1);
                 }}
                 className="px-3 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded-full hover:bg-amber-600"
               >

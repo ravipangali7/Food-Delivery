@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { getJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { getGuestOrderAccess, orderApiPath } from '@/lib/guestOrderAccess';
 import OrderTrackingMap from '@/components/tracking/OrderTrackingMap';
 import LiveTrackingStats from '@/components/tracking/LiveTrackingStats';
 import { useLiveOrderTracking } from '@/hooks/useLiveOrderTracking';
@@ -16,11 +17,13 @@ export default function CustomerOrderTrack() {
   const { id } = useParams();
   const { token } = useAuth();
   const oid = id ? Number(id) : undefined;
+  const guestToken = oid ? getGuestOrderAccess(oid) : null;
+  const canLoadOrder = !!id && (!!token || !!guestToken);
 
   const { data: order, isLoading: orderLoading } = useQuery({
-    queryKey: ['order', id, token],
-    queryFn: () => getJson<Order>(`/api/orders/${id}/`, token),
-    enabled: !!token && !!id,
+    queryKey: ['order', id, token, guestToken],
+    queryFn: () => getJson<Order>(orderApiPath(id!, guestToken), token),
+    enabled: canLoadOrder,
   });
 
   const trackingEnabled = !!order && !['cancelled', 'failed'].includes(order.status);
@@ -28,14 +31,16 @@ export default function CustomerOrderTrack() {
   const { data: tracking, isLoading: trackingLoading } = useLiveOrderTracking({
     orderId: oid,
     token,
+    guestToken,
     enabled: trackingEnabled,
   });
 
-  if (!token) {
+  if (!canLoadOrder) {
     return (
-      <div className="p-8 text-center">
-        <Link to="/login" className="text-amber-600">
-          Sign in
+      <div className="p-8 text-center text-muted-foreground">
+        <p>Order not found or access expired.</p>
+        <Link to="/customer" className="text-amber-600 mt-2 inline-block">
+          Back to home
         </Link>
       </div>
     );

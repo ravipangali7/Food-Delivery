@@ -1,0 +1,22 @@
+# api.shyam-sweets.com — copy to the Python app document root (same folder as passenger_wsgi.py).
+# cPanel "Setup Python App" also writes Passenger lines; keep both blocks if cPanel adds its own above.
+#
+# Fixes: (1) OPTIONS preflight answered with CORS before WSGI, (2) ACAO on error pages when LiteSpeed
+# returns 404 without Django. After Django is running, django-cors-headers handles CORS on API responses.
+
+<IfModule mod_headers.c>
+  SetEnvIf Origin "^https://([\w-]+\.)?shyam-sweets\.com$" CORS_ORIGIN=$0
+  SetEnvIf Origin "^http://(localhost|127\.0\.0\.1):(5173|8080)$" CORS_ORIGIN=$0
+  Header always set Access-Control-Allow-Origin "%{CORS_ORIGIN}e" env=CORS_ORIGIN
+  Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" env=CORS_ORIGIN
+  Header always set Access-Control-Allow-Headers "Authorization, Content-Type, Accept, X-CSRFToken, X-Requested-With" env=CORS_ORIGIN
+  Header always set Access-Control-Max-Age "86400" env=CORS_ORIGIN
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_METHOD} =OPTIONS
+  RewriteCond %{HTTP:Origin} ^https://([\w-]+\.)?shyam-sweets\.com$ [OR]
+  RewriteCond %{HTTP:Origin} ^http://(localhost|127\.0\.0\.1):(5173|8080)$
+  RewriteRule ^ - [R=204,L]
+</IfModule>

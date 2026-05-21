@@ -455,7 +455,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    customer = UserPublicSerializer(source="user", read_only=True)
+    customer = serializers.SerializerMethodField()
     delivery_boy = UserPublicSerializer(read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
     pending_cancellation_request = serializers.SerializerMethodField()
@@ -490,12 +490,14 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "items",
+            "guest_access_token",
             "pending_cancellation_request",
         )
         read_only_fields = (
             "id",
             "order_number",
             "user_id",
+            "guest_access_token",
             "customer",
             "delivery_boy",
             "subtotal",
@@ -514,6 +516,21 @@ class OrderSerializer(serializers.ModelSerializer):
             "pre_order_date_time",
             "pending_cancellation_request",
         )
+
+    def get_customer(self, obj: Order):
+        if obj.user_id:
+            return UserPublicSerializer(obj.user).data
+        name = (obj.guest_name or "").strip()
+        phone = (obj.guest_phone or "").strip()
+        if not name and not phone:
+            return None
+        return {
+            "id": None,
+            "name": name or "Guest",
+            "phone": phone,
+            "profile_photo": None,
+            "address": None,
+        }
 
     def get_pending_cancellation_request(self, obj: Order):
         pending = getattr(obj, "_prefetched_pending_cancellations", None)
@@ -548,8 +565,22 @@ class OrderCancellationReviewSerializer(serializers.Serializer):
 class OrderCancellationRequestAdminSerializer(serializers.ModelSerializer):
     order_number = serializers.CharField(source="order.order_number", read_only=True)
     order_status = serializers.CharField(source="order.status", read_only=True)
-    customer_name = serializers.CharField(source="order.user.name", read_only=True)
-    customer_phone = serializers.CharField(source="order.user.phone", read_only=True)
+    customer_name = serializers.SerializerMethodField()
+    customer_phone = serializers.SerializerMethodField()
+
+    def get_customer_name(self, obj: OrderCancellationRequest) -> str:
+        order = obj.order
+        u = order.user
+        if u:
+            return (u.name or "").strip()
+        return (order.guest_name or "").strip() or "Guest"
+
+    def get_customer_phone(self, obj: OrderCancellationRequest) -> str:
+        order = obj.order
+        u = order.user
+        if u:
+            return (u.phone or "").strip()
+        return (order.guest_phone or "").strip()
 
     class Meta:
         model = OrderCancellationRequest
@@ -607,6 +638,13 @@ class OrderAssignDeliverySerializer(serializers.Serializer):
         return attrs
 
 
+class CheckoutGuestLineSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+    notes = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    is_preorder = serializers.BooleanField(required=False, default=False)
+
+
 class CheckoutSerializer(serializers.Serializer):
     address = serializers.CharField()
     delivery_latitude = serializers.DecimalField(
@@ -617,6 +655,19 @@ class CheckoutSerializer(serializers.Serializer):
     )
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     pre_order_date_time = serializers.DateTimeField(required=False, allow_null=True)
+    items = CheckoutGuestLineSerializer(many=True, required=False)
+    guest_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    guest_phone = serializers.CharField(max_length=15, required=False, allow_blank=True)
+
+    def validate_guest_phone(self, value: str) -> str:
+        from .utils.phone import normalize_phone
+
+        digits = normalize_phone(value)
+        if not digits:
+            return ""
+        if len(digits) < 7 or len(digits) > 15:
+            raise serializers.ValidationError("Enter a valid phone number.")
+        return digits
 
     def validate(self, attrs):
         lat = attrs.get("delivery_latitude")
@@ -625,6 +676,20 @@ class CheckoutSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Delivery map pin (latitude and longitude) is required."
             )
+        guest_lines = attrs.get("items") or []
+        if guest_lines:
+            name = (attrs.get("guest_name") or "").strip()
+            phone = (attrs.get("guest_phone") or "").strip()
+            if len(name) < 2:
+                raise serializers.ValidationError(
+                    {"guest_name": "Enter your full name (at least 2 characters)."}
+                )
+            if not phone:
+                raise serializers.ValidationError(
+                    {"guest_phone": "Enter a valid phone number."}
+                )
+            attrs["guest_name"] = name
+            attrs["guest_phone"] = phone
         return attrs
 
 
@@ -729,6 +794,7 @@ class SuperSettingSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSeri
             "terms_and_conditions",
             "privacy_policy",
             "delivery_charge_per_km",
+            "delivery_under_km",
             "is_open",
             "android_file",
             "google_playstore_link",
@@ -778,6 +844,7 @@ class SuperSettingUpdateSerializer(serializers.ModelSerializer):
             "terms_and_conditions",
             "privacy_policy",
             "delivery_charge_per_km",
+            "delivery_under_km",
             "is_open",
             "android_file",
             "google_playstore_link",
@@ -788,6 +855,16 @@ class SuperSettingUpdateSerializer(serializers.ModelSerializer):
             "android_file_upload",
             "ios_file_upload",
         )
+
+    def validate_delivery_charge_per_km(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Delivery charge per km cannot be negative.")
+        return value
+
+    def validate_delivery_under_km(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Delivery radius cannot be negative.")
+        return value
 
     def update(self, instance: SuperSetting, validated_data):
         logo_file = validated_data.pop("logo_file", None)
@@ -1179,6 +1256,19 @@ class OtpVerifySerializer(serializers.Serializer):
 
 class FlutterPhoneAutoLoginSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
+
+    def validate_phone(self, value: str) -> str:
+        from .utils.phone import normalize_phone
+
+        digits = normalize_phone(value)
+        if len(digits) < 7 or len(digits) > 15:
+            raise serializers.ValidationError("Enter a valid phone number.")
+        return digits
+
+
+class AdminPasswordLoginSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=15)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
 
     def validate_phone(self, value: str) -> str:
         from .utils.phone import normalize_phone

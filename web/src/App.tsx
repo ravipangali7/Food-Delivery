@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 // Auth
 import SplashScreen from "./pages/auth/SplashScreen";
 import LoginPage from "./pages/auth/LoginPage";
+import AdminLoginPage from "./pages/auth/AdminLoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 
 // Admin
@@ -69,18 +70,25 @@ import DeliveryEarnings from "./pages/delivery/DeliveryEarnings";
 
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import CustomerProtectedRoute from "./components/CustomerProtectedRoute";
 import { LegacyAdminUsersRedirect } from "./components/admin/LegacyAdminRedirects";
 
 const App = () => (
   <TooltipProvider>
     <Toaster />
     <Sonner />
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <Routes>
           {/* Auth */}
           <Route path="/" element={<SplashScreen />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
 
           {/* Admin Portal */}
           <Route
@@ -135,15 +143,8 @@ const App = () => (
             <Route path="users/*" element={<LegacyAdminUsersRedirect />} />
           </Route>
 
-          {/* Customer Portal */}
-          <Route
-            path="/customer"
-            element={
-              <ProtectedRoute portal="customer">
-                <CustomerLayout />
-              </ProtectedRoute>
-            }
-          >
+          {/* Customer Portal — browse, cart, and checkout work without login */}
+          <Route path="/customer" element={<CustomerLayout />}>
             <Route index element={<CustomerHome />} />
             <Route path="explore" element={<CustomerExplore />} />
             <Route path="sweets" element={<CustomerSweets />} />
@@ -152,16 +153,51 @@ const App = () => (
             <Route path="category/:id" element={<CustomerCategoryProducts />} />
             <Route path="cart" element={<CustomerCart />} />
             <Route path="checkout" element={<CustomerCheckout />} />
-            <Route path="orders" element={<CustomerOrderHistory />} />
-            <Route path="order/:id/track" element={<CustomerOrderTrack />} />
-            <Route path="order/:id" element={<CustomerOrderTracking />} />
-            <Route path="profile" element={<CustomerProfile />} />
-            <Route path="profile/edit" element={<CustomerEditProfile />} />
-            <Route path="profile/addresses" element={<CustomerSavedAddresses />} />
             <Route path="about" element={<CustomerAboutUs />} />
             <Route path="terms" element={<CustomerTerms />} />
             <Route path="privacy" element={<CustomerPrivacy />} />
-            <Route path="notifications" element={<CustomerNotifications />} />
+            <Route path="order/:id/track" element={<CustomerOrderTrack />} />
+            <Route path="order/:id" element={<CustomerOrderTracking />} />
+            <Route
+              path="orders"
+              element={
+                <CustomerProtectedRoute>
+                  <CustomerOrderHistory />
+                </CustomerProtectedRoute>
+              }
+            />
+            <Route
+              path="profile"
+              element={
+                <CustomerProtectedRoute>
+                  <CustomerProfile />
+                </CustomerProtectedRoute>
+              }
+            />
+            <Route
+              path="profile/edit"
+              element={
+                <CustomerProtectedRoute>
+                  <CustomerEditProfile />
+                </CustomerProtectedRoute>
+              }
+            />
+            <Route
+              path="profile/addresses"
+              element={
+                <CustomerProtectedRoute>
+                  <CustomerSavedAddresses />
+                </CustomerProtectedRoute>
+              }
+            />
+            <Route
+              path="notifications"
+              element={
+                <CustomerProtectedRoute>
+                  <CustomerNotifications />
+                </CustomerProtectedRoute>
+              }
+            />
           </Route>
 
           {/* Delivery Portal */}

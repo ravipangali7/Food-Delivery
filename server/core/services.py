@@ -89,15 +89,12 @@ def _send_order_status_sms(order: Order, title: str, body: str) -> None:
             logger.warning("Order status SMS to store failed (%s): %s", order.pk, err)
 
 
-def compute_delivery_fee(
+def delivery_distance_km(
     *,
     delivery_lat: Decimal | None,
     delivery_lon: Decimal | None,
-) -> tuple[Decimal, Decimal]:
-    """
-    Returns (delivery_fee, distance_km).
-    If store or delivery coordinates missing, distance and fee are 0.
-    """
+) -> Decimal:
+    """Great-circle distance from store to delivery pin (km), or 0 when coords missing."""
     store = get_store_settings()
     if (
         store is None
@@ -106,11 +103,52 @@ def compute_delivery_fee(
         or delivery_lat is None
         or delivery_lon is None
     ):
-        return Decimal("0.00"), Decimal("0.00")
-    km = Decimal(str(round(haversine_km(delivery_lat, delivery_lon, store.latitude, store.longitude), 3)))
-    per = store.delivery_charge_per_km or Decimal("0.00")
+        return Decimal("0.000")
+    return Decimal(
+        str(round(haversine_km(delivery_lat, delivery_lon, store.latitude, store.longitude), 3))
+    )
+
+
+def compute_delivery_fee(
+    *,
+    delivery_lat: Decimal | None,
+    delivery_lon: Decimal | None,
+) -> tuple[Decimal, Decimal]:
+    """
+    Returns (delivery_fee, distance_km).
+    Fee = distance_km × delivery_charge_per_km (NPR).
+    If store or delivery coordinates missing, distance and fee are 0.
+    """
+    km = delivery_distance_km(delivery_lat=delivery_lat, delivery_lon=delivery_lon)
+    if km <= 0:
+        return Decimal("0.00"), km
+    store = get_store_settings()
+    per = (store.delivery_charge_per_km if store else None) or Decimal("0.00")
     fee = (km * per).quantize(Decimal("0.01"))
     return fee, km
+
+
+def validate_delivery_radius(
+    *,
+    delivery_lat: Decimal | None,
+    delivery_lon: Decimal | None,
+) -> None:
+    """Reject checkout when delivery pin is beyond the store short delivery radius."""
+    store = get_store_settings()
+    max_km = (store.delivery_under_km if store else None) or Decimal("0.00")
+    if max_km <= 0:
+        return
+    if (
+        store is None
+        or store.latitude is None
+        or store.longitude is None
+        or delivery_lat is None
+        or delivery_lon is None
+    ):
+        return
+    km = delivery_distance_km(delivery_lat=delivery_lat, delivery_lon=delivery_lon)
+    if km > max_km:
+        raise ValueError("You are out of delivery radius")
 
 
 def recalculate_cart_totals(cart: Cart) -> None:
@@ -418,36 +456,31 @@ def review_order_cancellation_request(
     return req
 
 
-@transaction.atomic
-def place_order_from_cart(
-    *,
-    user: User,
-    address: str,
-    delivery_latitude: Decimal | None = None,
-    delivery_longitude: Decimal | None = None,
-    special_instructions: str | None = None,
-    pre_order_date_time: datetime | None = None,
-) -> Order:
-    """
-    Create Order + OrderItems from user's cart; clear cart; notification.
-    """
-    cart = Cart.objects.select_for_update().filter(user=user).first()
-    if cart is None or not cart.items.exists():
-        raise ValueError("Cart is empty")
+def _new_guest_access_token() -> str:
+    import secrets
 
-    items = list(cart.items.select_related("product").select_for_update())
-    has_preorder = any(ci.is_preorder for ci in items)
+    return secrets.token_urlsafe(32)
+
+
+def _validate_preorder_schedule(
+    line_snapshots: list[tuple[Product, int, Decimal, str, bool]],
+    pre_order_date_time: datetime | None,
+) -> datetime | None:
+    has_preorder = any(line_is_preorder for *_rest, line_is_preorder in line_snapshots)
     if has_preorder:
         if pre_order_date_time is None:
             raise ValueError("Choose a date and time for your pre-order.")
         if pre_order_date_time <= timezone.now():
             raise ValueError("Pre-order date and time must be in the future.")
-    else:
-        pre_order_date_time = None
+        return pre_order_date_time
+    return None
 
+
+def _line_snapshots_from_cart_items(
+    items: list,
+) -> tuple[Decimal, list[tuple[Product, int, Decimal, str, bool]]]:
     subtotal = Decimal("0.00")
     line_snapshots: list[tuple[Product, int, Decimal, str, bool]] = []
-
     for ci in items:
         p = ci.product
         if p.deleted_at is not None or not p.is_available:
@@ -460,6 +493,59 @@ def place_order_from_cart(
         line_total = (unit * ci.quantity).quantize(Decimal("0.01"))
         subtotal += line_total
         line_snapshots.append((p, ci.quantity, unit, ci.notes or "", ci.is_preorder))
+    return subtotal, line_snapshots
+
+
+def _line_snapshots_from_guest_lines(
+    guest_lines: list[dict],
+) -> tuple[Decimal, list[tuple[Product, int, Decimal, str, bool]]]:
+    subtotal = Decimal("0.00")
+    line_snapshots: list[tuple[Product, int, Decimal, str, bool]] = []
+    for row in guest_lines:
+        p = Product.objects.filter(pk=row["product_id"]).first()
+        if p is None or p.deleted_at is not None or not p.is_available:
+            raise ValueError("One or more products are not available")
+        qty = row["quantity"]
+        is_preorder = bool(row.get("is_preorder"))
+        if is_preorder and not p.is_sweet:
+            raise ValueError(f"Product '{p.name}' cannot be on a pre-order line")
+        if not is_preorder and p.stock_quantity < qty:
+            raise ValueError(f"Insufficient stock for '{p.name}'")
+        unit = p.effective_price
+        line_total = (unit * qty).quantize(Decimal("0.01"))
+        subtotal += line_total
+        line_snapshots.append((p, qty, unit, row.get("notes") or "", is_preorder))
+    return subtotal, line_snapshots
+
+
+@transaction.atomic
+def place_order_from_lines(
+    *,
+    user: User | None,
+    line_snapshots: list[tuple[Product, int, Decimal, str, bool]],
+    address: str,
+    delivery_latitude: Decimal | None = None,
+    delivery_longitude: Decimal | None = None,
+    special_instructions: str | None = None,
+    pre_order_date_time: datetime | None = None,
+    guest_name: str | None = None,
+    guest_phone: str | None = None,
+) -> Order:
+    """Create Order + OrderItems from validated line snapshots."""
+    if not line_snapshots:
+        raise ValueError("Cart is empty")
+
+    validate_delivery_radius(
+        delivery_lat=delivery_latitude,
+        delivery_lon=delivery_longitude,
+    )
+
+    pre_order_date_time = _validate_preorder_schedule(line_snapshots, pre_order_date_time)
+    subtotal = sum(
+        (unit * qty).quantize(Decimal("0.01"))
+        for _p, qty, unit, _notes, _pre in line_snapshots
+    )
+    has_preorder = pre_order_date_time is not None
 
     delivery_fee, _ = compute_delivery_fee(
         delivery_lat=delivery_latitude,
@@ -470,6 +556,9 @@ def place_order_from_cart(
 
     order = Order(
         user=user,
+        guest_access_token=_new_guest_access_token() if user is None else None,
+        guest_name=(guest_name or "").strip() if user is None else "",
+        guest_phone=(guest_phone or "").strip() if user is None else "",
         status=Order.Status.PENDING,
         subtotal=subtotal,
         delivery_fee=delivery_fee,
@@ -498,15 +587,75 @@ def place_order_from_cart(
         if not line_is_preorder:
             Product.objects.filter(pk=p.pk).update(stock_quantity=p.stock_quantity - qty)
 
-    cart.items.all().delete()
-    recalculate_cart_totals(cart)
-
-    create_order_notifications(
-        order,
-        Notification.Type.ORDER_PLACED,
-        title="Order placed",
-        body=f"Your order {order.order_number} has been received.",
-        user_ids=[user.pk],
-    )
+    if user is not None:
+        create_order_notifications(
+            order,
+            Notification.Type.ORDER_PLACED,
+            title="Order placed",
+            body=f"Your order {order.order_number} has been received.",
+            user_ids=[user.pk],
+        )
 
     return order
+
+
+@transaction.atomic
+def place_order_from_cart(
+    *,
+    user: User,
+    address: str,
+    delivery_latitude: Decimal | None = None,
+    delivery_longitude: Decimal | None = None,
+    special_instructions: str | None = None,
+    pre_order_date_time: datetime | None = None,
+) -> Order:
+    """
+    Create Order + OrderItems from user's cart; clear cart; notification.
+    """
+    cart = Cart.objects.select_for_update().filter(user=user).first()
+    if cart is None or not cart.items.exists():
+        raise ValueError("Cart is empty")
+
+    items = list(cart.items.select_related("product").select_for_update())
+    _subtotal, line_snapshots = _line_snapshots_from_cart_items(items)
+    order = place_order_from_lines(
+        user=user,
+        line_snapshots=line_snapshots,
+        address=address,
+        delivery_latitude=delivery_latitude,
+        delivery_longitude=delivery_longitude,
+        special_instructions=special_instructions,
+        pre_order_date_time=pre_order_date_time,
+    )
+    cart.items.all().delete()
+    recalculate_cart_totals(cart)
+    return order
+
+
+@transaction.atomic
+def place_guest_order(
+    *,
+    guest_lines: list[dict],
+    address: str,
+    delivery_latitude: Decimal | None = None,
+    delivery_longitude: Decimal | None = None,
+    special_instructions: str | None = None,
+    pre_order_date_time: datetime | None = None,
+    guest_name: str | None = None,
+    guest_phone: str | None = None,
+) -> Order:
+    """Place an order without a logged-in customer account."""
+    if not guest_lines:
+        raise ValueError("Cart is empty")
+    _subtotal, line_snapshots = _line_snapshots_from_guest_lines(guest_lines)
+    return place_order_from_lines(
+        user=None,
+        line_snapshots=line_snapshots,
+        address=address,
+        delivery_latitude=delivery_latitude,
+        delivery_longitude=delivery_longitude,
+        special_instructions=special_instructions,
+        pre_order_date_time=pre_order_date_time,
+        guest_name=guest_name,
+        guest_phone=guest_phone,
+    )

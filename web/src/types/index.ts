@@ -87,6 +87,8 @@ export interface SuperSetting {
   /** Plain text; shown on customer Privacy when set. */
   privacy_policy?: string | null;
   delivery_charge_per_km: number;
+  /** Max delivery distance (km) from store; 0 = no limit. Fee is distance × per-km rate. */
+  delivery_under_km: number;
   is_open: boolean;
   android_file?: string | null;
   google_playstore_link?: string | null;
@@ -274,7 +276,9 @@ export interface PendingCancellationRequest {
 export interface Order {
   id: number;
   order_number: string;
-  user_id: number;
+  user_id?: number | null;
+  /** Present for guest orders; required to view order details without login. */
+  guest_access_token?: string | null;
   delivery_boy_id?: number;
   status: OrderStatus;
   subtotal: number;

@@ -255,6 +255,7 @@ class StoreSettingsPanelForm(forms.ModelForm):
             "terms_and_conditions",
             "privacy_policy",
             "delivery_charge_per_km",
+            "delivery_under_km",
             "is_open",
             "android_file",
             "google_playstore_link",

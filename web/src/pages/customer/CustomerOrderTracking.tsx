@@ -12,6 +12,7 @@ import { OrderStatusBadge } from '@/components/shared/StatusBadge';
 import { ArrowLeft, Phone } from 'lucide-react';
 import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { getGuestOrderAccess, orderApiPath } from '@/lib/guestOrderAccess';
 import OrderTrackingMap from '@/components/tracking/OrderTrackingMap';
 import LiveTrackingStats from '@/components/tracking/LiveTrackingStats';
 import { useLiveOrderTracking } from '@/hooks/useLiveOrderTracking';
@@ -37,11 +38,13 @@ export default function CustomerOrderTracking() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
   const oid = id ? Number(id) : undefined;
+  const guestToken = oid ? getGuestOrderAccess(oid) : null;
+  const canLoadOrder = !!id && (!!token || !!guestToken);
 
   const { data: order, isLoading } = useQuery({
-    queryKey: ['order', id, token],
-    queryFn: () => getJson<Order>(`/api/orders/${id}/`, token),
-    enabled: !!token && !!id,
+    queryKey: ['order', id, token, guestToken],
+    queryFn: () => getJson<Order>(orderApiPath(id!, guestToken), token),
+    enabled: canLoadOrder,
   });
 
   const trackingEnabled =
@@ -50,6 +53,7 @@ export default function CustomerOrderTracking() {
   const { data: tracking, isLoading: trackingLoading } = useLiveOrderTracking({
     orderId: oid,
     token,
+    guestToken,
     enabled: trackingEnabled,
   });
 
@@ -73,11 +77,12 @@ export default function CustomerOrderTracking() {
     },
   });
 
-  if (!token) {
+  if (!canLoadOrder) {
     return (
-      <div className="p-8 text-center">
-        <Link to="/login" className="text-amber-600">
-          Sign in
+      <div className="p-8 text-center text-muted-foreground">
+        <p>Order not found or access expired.</p>
+        <Link to="/customer" className="text-amber-600 mt-2 inline-block">
+          Back to home
         </Link>
       </div>
     );
@@ -251,7 +256,7 @@ export default function CustomerOrderTracking() {
           </div>
         )}
 
-        {order.status === 'pending' && !order.pending_cancellation_request && (
+        {token && order.user_id && order.status === 'pending' && !order.pending_cancellation_request && (
           <div className="rounded-xl border border-red-100 bg-card p-4 space-y-3">
             <label htmlFor="cancel-reason" className="block text-sm font-semibold text-foreground">
               Cancel this order

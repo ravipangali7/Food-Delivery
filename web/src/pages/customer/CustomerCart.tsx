@@ -1,69 +1,46 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2, Minus, Plus, ShoppingCart } from 'lucide-react';
-import { deleteJson, getJson, postJson } from '@/lib/api';
 import { formatCurrency, num, unitLabel } from '@/lib/formatting';
+import { useCart } from '@/hooks/useCart';
+import { useQuery } from '@tanstack/react-query';
+import { getJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Cart, CartItem, SuperSetting } from '@/types';
+import {
+  isCheckoutPersonalDetailsValid,
+  phoneDigitsOnly,
+  readGuestCheckoutDetails,
+  writeGuestCheckoutDetails,
+} from '@/lib/guestCheckoutDetails';
+import type { CartItem, SuperSetting } from '@/types';
 
 export default function CustomerCart() {
-  const { token } = useAuth();
-  const queryClient = useQueryClient();
-  const { data: cart, isLoading } = useQuery({
-    queryKey: ['cart', token],
-    queryFn: () => getJson<Cart>('/api/cart/', token),
-    enabled: !!token,
-  });
+  const { user } = useAuth();
+  const { cart, isLoading, setLineQuantity, clearAll } = useCart();
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      setCustomerName(user.name?.trim() ?? '');
+      setCustomerPhone(user.phone ?? '');
+      return;
+    }
+    const stored = readGuestCheckoutDetails();
+    setCustomerName(stored?.name ?? '');
+    setCustomerPhone(stored?.phone ?? '');
+  }, [user]);
+
+  const personalDetailsReady = isCheckoutPersonalDetailsValid(customerName, customerPhone);
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => getJson<SuperSetting>('/api/settings/', null),
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['cart'] });
-
-  const updateQty = useMutation({
-    mutationFn: async ({ item, quantity }: { item: CartItem; quantity: number }) => {
-      if (!token) throw new Error('no token');
-      if (quantity < 1) {
-        await deleteJson<Cart>(`/api/cart/items/${item.id}/`, token);
-        return;
-      }
-      const body: { product_id: number; quantity: number; notes?: string; is_preorder?: boolean } = {
-        product_id: item.product_id,
-        quantity,
-        notes: item.notes,
-      };
-      if (item.is_preorder) body.is_preorder = true;
-      await postJson<Cart, typeof body>('/api/cart/items/', body, token);
-    },
-    onSuccess: invalidate,
-  });
-
-  const clearCart = useMutation({
-    mutationFn: async () => {
-      if (!token || !cart?.items?.length) return;
-      for (const item of cart.items) {
-        await deleteJson<Cart>(`/api/cart/items/${item.id}/`, token);
-      }
-    },
-    onSuccess: invalidate,
-  });
-
   const items = cart?.items ?? [];
   const subtotal = num(cart?.subtotal);
   const total = num(cart?.total);
-
-  if (!token) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[70vh] px-8 text-center">
-        <p className="text-muted-foreground">Sign in to view your cart.</p>
-        <Link to="/login" className="mt-4 px-6 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm">
-          Sign in
-        </Link>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Loading cart…</div>;
@@ -91,7 +68,7 @@ export default function CustomerCart() {
         <h1 className="font-display font-bold text-lg">My Cart</h1>
         <button
           type="button"
-          onClick={() => clearCart.mutate()}
+          onClick={() => clearAll.mutate()}
           className="text-red-500 text-xs flex items-center gap-1"
         >
           <Trash2 size={14} /> Clear All
@@ -119,7 +96,13 @@ export default function CustomerCart() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => updateQty.mutate({ item, quantity: 0 })}
+                    onClick={() =>
+                      setLineQuantity.mutate({
+                        item,
+                        quantity: 0,
+                        product: item.product,
+                      })
+                    }
                     className="text-red-400 hover:text-red-600"
                   >
                     <Trash2 size={14} />
@@ -138,7 +121,13 @@ export default function CustomerCart() {
                   <div className="flex items-center gap-1.5 border border-border rounded-full px-0.5">
                     <button
                       type="button"
-                      onClick={() => updateQty.mutate({ item, quantity: item.quantity - 1 })}
+                      onClick={() =>
+                        setLineQuantity.mutate({
+                          item,
+                          quantity: item.quantity - 1,
+                          product: item.product,
+                        })
+                      }
                       className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-muted"
                     >
                       <Minus size={12} />
@@ -146,7 +135,13 @@ export default function CustomerCart() {
                     <span className="text-xs font-semibold w-4 text-center">{item.quantity}</span>
                     <button
                       type="button"
-                      onClick={() => updateQty.mutate({ item, quantity: item.quantity + 1 })}
+                      onClick={() =>
+                        setLineQuantity.mutate({
+                          item,
+                          quantity: item.quantity + 1,
+                          product: item.product,
+                        })
+                      }
                       className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-muted"
                     >
                       <Plus size={12} />
@@ -158,6 +153,66 @@ export default function CustomerCart() {
             </div>
           );
         })}
+
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <h2 className="font-semibold text-sm">Your details</h2>
+          <p className="text-xs text-muted-foreground">
+            {user
+              ? 'Filled from your account. Update them in your profile if needed.'
+              : 'Required for delivery and order updates.'}
+          </p>
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-muted-foreground" htmlFor="cart-customer-name">
+              Full name
+            </label>
+            <input
+              id="cart-customer-name"
+              type="text"
+              value={customerName}
+              onChange={e => {
+                const name = e.target.value;
+                setCustomerName(name);
+                if (!user) {
+                  writeGuestCheckoutDetails({ name, phone: customerPhone });
+                }
+              }}
+              readOnly={!!user}
+              placeholder="Your full name"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground disabled:opacity-80"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-muted-foreground" htmlFor="cart-customer-phone">
+              Phone number
+            </label>
+            <input
+              id="cart-customer-phone"
+              type="tel"
+              inputMode="tel"
+              value={customerPhone}
+              onChange={e => {
+                const phone = phoneDigitsOnly(e.target.value);
+                setCustomerPhone(phone);
+                if (!user) {
+                  writeGuestCheckoutDetails({ name: customerName, phone });
+                }
+              }}
+              readOnly={!!user}
+              placeholder="98XXXXXXXX"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground disabled:opacity-80"
+            />
+          </div>
+          {!personalDetailsReady && (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Enter your full name and a valid phone number to continue to checkout.
+            </p>
+          )}
+          {user ? (
+            <Link to="/customer/profile/edit?returnTo=/customer/cart" className="text-xs text-amber-700 underline">
+              Edit in profile
+            </Link>
+          ) : null}
+        </div>
 
         <div className="bg-card rounded-xl border border-border p-4 space-y-2">
           <div className="flex justify-between text-sm">
@@ -179,15 +234,24 @@ export default function CustomerCart() {
 
       <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[430px] p-4 bg-card border-t border-border space-y-2">
         <p className="text-[11px] text-center text-muted-foreground px-1">
-          At checkout, a delivery map pin is required. Your profile pin loads as the default; you can search or move the pin
-          before placing the order.
+          At checkout, a delivery map pin is required. Sign in to save a default pin on your profile, or set one on the
+          map at checkout.
         </p>
-        <Link
-          to="/customer/checkout"
-          className="block w-full py-3.5 bg-amber-500 text-white text-center font-semibold rounded-full text-sm hover:bg-amber-600"
-        >
-          Proceed to Checkout
-        </Link>
+        {personalDetailsReady ? (
+          <Link
+            to="/customer/checkout"
+            className="block w-full py-3.5 bg-amber-500 text-white text-center font-semibold rounded-full text-sm hover:bg-amber-600"
+          >
+            Proceed to Checkout
+          </Link>
+        ) : (
+          <span
+            className="block w-full py-3.5 bg-amber-500/50 text-white text-center font-semibold rounded-full text-sm cursor-not-allowed"
+            aria-disabled="true"
+          >
+            Proceed to Checkout
+          </span>
+        )}
       </div>
     </div>
   );

@@ -35,7 +35,37 @@ def can_manage_order_status(user, order) -> bool:
 
 def can_submit_order_cancellation_request(user, order) -> bool:
     """Customer-owned order still pending; actual cancel goes through superuser approval."""
+    if order.user_id is None:
+        return False
     return user.id == order.user_id and order.status == Order.Status.PENDING
+
+
+def guest_token_matches_order(order: Order, token: str | None) -> bool:
+    if order.user_id is not None or not order.guest_access_token:
+        return False
+    return bool(token) and token == order.guest_access_token
+
+
+def resolve_order_for_request(request, pk: int) -> Order | None:
+    """Return order if the request may read it (auth user, staff, or guest token)."""
+    from django.shortcuts import get_object_or_404
+
+    order = get_object_or_404(
+        Order.objects.select_related("user", "delivery_boy").prefetch_related("items__product__images"),
+        pk=pk,
+    )
+    user = getattr(request, "user", None)
+    if user and user.is_authenticated:
+        if user.is_staff:
+            return order
+        if getattr(user, "is_delivery_boy", False) and order.delivery_boy_id == user.id:
+            return order
+        if order.user_id == user.id:
+            return order
+    token = request.query_params.get("guest_token") or request.headers.get("X-Guest-Order-Token")
+    if guest_token_matches_order(order, token):
+        return order
+    return None
 
 
 class IsSuperuser(IsAuthenticated):
@@ -52,11 +82,15 @@ class IsStaffUser(IsAuthenticated):
         )
 
 
-def can_view_order_tracking(user, order) -> bool:
-    """Customer, assigned delivery partner, or staff may view live tracking."""
+def can_view_order_tracking(user, order, *, guest_token: str | None = None) -> bool:
+    """Customer, assigned delivery partner, staff, or guest token holder may view tracking."""
+    if guest_token_matches_order(order, guest_token):
+        return True
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
     if user.is_staff:
         return True
-    if order.user_id == user.id:
+    if order.user_id and order.user_id == user.id:
         return True
     if getattr(user, "is_delivery_boy", False) and order.delivery_boy_id == user.id:
         return True

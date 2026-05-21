@@ -1,5 +1,5 @@
 /**
- * Mirrors `server/core/services.py` haversine_km + compute_delivery_fee
+ * Mirrors `server/core/services.py` distance + fee (km × charge per km)
  * for checkout UI preview (server is authoritative on place order).
  */
 
@@ -37,6 +37,13 @@ export function previewDeliveryFeeNpr(
     return { fee: 0, distanceKm: 0 };
   }
   const km = Math.round(haversineKm(deliveryLat, deliveryLon, storeLat, storeLon) * 1000) / 1000;
-  const fee = Math.round(km * chargePerKm * 100) / 100;
+  const per = chargePerKm || 0;
+  const fee = Math.round(km * per * 100) / 100;
   return { fee, distanceKm: km };
+}
+
+/** True when a configured short radius exists and the pin is beyond it. */
+export function isOutOfDeliveryRadius(distanceKm: number, underKmRadius: number): boolean {
+  const under = underKmRadius || 0;
+  return under > 0 && distanceKm > under;
 }

@@ -1,21 +1,20 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { formatCurrency, getEffectivePrice, num, unitLabel } from '@/lib/formatting';
 import { ArrowLeft, Share2, Heart, Minus, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import StoreClosedBanner from '@/components/customer/StoreClosedBanner';
-import { getJson, postJson } from '@/lib/api';
+import { getJson } from '@/lib/api';
 import { isProductFavorited, toggleFavoriteProductId } from '@/lib/favoriteProducts';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/hooks/useCart';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
-import type { Cart, Product } from '@/types';
+import type { Product } from '@/types';
 
 export default function CustomerProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { token } = useAuth();
-  const queryClient = useQueryClient();
+  const { addProduct } = useCart();
   const menusOpen = useStoreMenusOpen();
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState('');
@@ -27,35 +26,20 @@ export default function CustomerProductDetail() {
     enabled: !!id,
   });
 
-  const { data: cart } = useQuery({
-    queryKey: ['cart', token],
-    queryFn: () => getJson<Cart>('/api/cart/', token),
-    enabled: !!token,
-  });
-
   const mutateCart = useMutation({
     mutationFn: async (mode: 'regular' | 'preorder') => {
-      if (!token || !product) throw new Error('Login required');
+      if (!product) throw new Error('Product not loaded');
       if (mode === 'regular' && product.stock_quantity < 1) {
         throw new Error('This item is out of stock for immediate cart orders.');
       }
-      const line = cart?.items?.find(i => i.product_id === product.id);
-      const quantity = (line?.quantity ?? 0) + qty;
-      const body: {
-        product_id: number;
-        quantity: number;
-        notes?: string;
-        is_preorder?: boolean;
-      } = {
-        product_id: product.id,
-        quantity,
+      await addProduct.mutateAsync({
+        product,
+        quantity: qty,
         notes: notes || undefined,
-      };
-      if (mode === 'preorder') body.is_preorder = true;
-      await postJson<Cart, typeof body>('/api/cart/items/', body, token);
+        is_preorder: mode === 'preorder',
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
       setQty(1);
       setNotes('');
       navigate('/customer/cart');
@@ -256,15 +240,15 @@ export default function CustomerProductDetail() {
             <div className="flex gap-2 w-full">
               <button
                 type="button"
-                disabled={product.stock_quantity === 0 || !token || mutateCart.isPending}
+                disabled={product.stock_quantity === 0 || mutateCart.isPending}
                 onClick={() => mutateCart.mutate('regular')}
                 className="flex-1 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {!token ? 'Sign in' : 'Add to cart'}
+                Add to cart
               </button>
               <button
                 type="button"
-                disabled={!token || mutateCart.isPending}
+                disabled={mutateCart.isPending}
                 onClick={() => mutateCart.mutate('preorder')}
                 className="flex-1 py-3 border border-violet-400 text-violet-900 font-semibold rounded-full text-sm bg-violet-50 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -294,11 +278,11 @@ export default function CustomerProductDetail() {
             </div>
             <button
               type="button"
-              disabled={product.stock_quantity === 0 || !token || mutateCart.isPending}
+              disabled={product.stock_quantity === 0 || mutateCart.isPending}
               onClick={() => mutateCart.mutate('regular')}
               className="flex-1 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {!token ? 'Sign in to add' : 'Add to Cart'}
+              Add to Cart
             </button>
           </div>
         )}
