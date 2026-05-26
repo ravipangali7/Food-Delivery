@@ -4,12 +4,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Staff sign in</title>
+  <title>Staff sign in · Shyam's</title>
+  <link rel="icon" type="image/png" href="{% static 'panel/logo.png' %}">
   <link rel="stylesheet" href="{% static 'panel/panel.css' %}">
 </head>
 <body class="panel-body">
   <div class="login-page">
     <div class="login-card">
+      <div class="panel-brand">
+        <img src="{% static 'panel/logo.png' %}" alt="Shyam's">
+      </div>
       <h1>Staff sign in</h1>
       {% include "panel/_messages.html" %}
       <form method="post" action="">

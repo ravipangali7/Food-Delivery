@@ -4,13 +4,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Admin{% endblock %} · Store</title>
+  <title>{% block title %}Admin{% endblock %} · Shyam's</title>
+  <link rel="icon" type="image/png" href="{% static 'panel/logo.png' %}">
   <link rel="stylesheet" href="{% static 'panel/panel.css' %}">
 </head>
 <body class="panel-body">
   <div class="panel-shell">
     <aside class="panel-sidebar">
-      <div class="panel-brand">Store admin</div>
+      <div class="panel-brand">
+        <img src="{% static 'panel/logo.png' %}" alt="Shyam's">
+        <span>Admin</span>
+      </div>
       <nav class="panel-nav" aria-label="Main">
         <a href="{% url 'panel_product_list' %}" class="{% if active_nav == 'products' %}active{% endif %}">Products</a>
         <a href="{% url 'panel_category_list' %}" class="{% if active_nav == 'categories' %}active{% endif %}">Categories</a>

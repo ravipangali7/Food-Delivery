@@ -249,11 +249,14 @@ LOGOUT_REDIRECT_URL = '/admin/login/'
 
 # Jazzmin (django-jazzmin) — admin theme
 JAZZMIN_SETTINGS = {
-    'site_title': 'Shyam Sweets Admin',
-    'site_header': 'Shyam Sweets',
-    'site_brand': 'Shyam Sweets',
+    'site_title': "Shyam's Admin",
+    'site_header': "Shyam's",
+    'site_brand': "Shyam's",
+    'site_logo': 'brand/logo.png',
+    'site_icon': 'brand/logo.png',
     'welcome_sign': 'Food delivery control panel',
-    'copyright': 'Shyam Sweets',
+    'copyright': "Shyam's",
+    'custom_css': 'brand/jazzmin.css',
     'search_model': ['core.User', 'core.Order', 'core.Product', 'core.OTPVerification'],
     'topmenu_links': [
         {'name': 'Dashboard', 'url': 'admin:index', 'permissions': ['auth.view_user']},
@@ -285,4 +288,14 @@ JAZZMIN_SETTINGS = {
         'core.Order',
         'core.Notification',
     ],
+}
+
+JAZZMIN_UI_TWEAKS = {
+    'theme': 'default',
+    'dark_mode_theme': 'darkly',
+    'navbar': 'navbar-danger',
+    'sidebar': 'sidebar-dark-danger',
+    'accent': 'accent-warning',
+    'brand_colour': 'navbar-danger',
+    'footer_fixed': False,
 }

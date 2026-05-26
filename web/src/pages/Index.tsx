@@ -6,7 +6,7 @@ const PlaceholderIndex = () => {
   // The inline background color is intentionally not part of the design system.
   return (
     <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+      <img src="/logo.png" alt="Shyam's Sweets" className="h-24 w-auto brand-logo mx-auto" />
     </div>
   );
 };

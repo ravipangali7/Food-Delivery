@@ -6,24 +6,20 @@ import 'package:flutter/services.dart';
 
 import 'screens/no_internet_screen.dart';
 import 'screens/webview_screen.dart';
+import 'theme/brand_colors.dart';
 
 /// Root app widget: theme and connectivity-aware shell (WebView vs offline).
 class ShyamSweetsApp extends StatelessWidget {
   const ShyamSweetsApp({super.key});
 
-  static const Color _brandSeed = Color(0xFFB8860B);
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Shyam Sweets',
+      title: "Shyam's",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: _brandSeed,
-          brightness: Brightness.light,
-        ),
+        colorScheme: BrandColors.lightScheme,
         dialogTheme: DialogThemeData(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),

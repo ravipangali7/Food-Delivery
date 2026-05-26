@@ -32,7 +32,7 @@ class NoInternetScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                   child: Image.asset(
                     'assets/logo.png',
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),

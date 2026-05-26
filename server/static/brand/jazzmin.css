@@ -1,0 +1,47 @@
+/* Shyam's — Jazzmin / Django admin brand overrides */
+:root {
+  --shyam-red: #e31e24;
+  --shyam-yellow: #ffc72c;
+  --shyam-red-dark: #8b1216;
+}
+
+.main-header.navbar,
+.navbar-danger {
+  background-color: var(--shyam-red) !important;
+}
+
+.main-sidebar.sidebar-dark-danger,
+.sidebar-dark-danger .nav-sidebar > .nav-item > .nav-link.active {
+  background-color: var(--shyam-red-dark) !important;
+}
+
+.sidebar-dark-danger .nav-sidebar > .nav-item > .nav-link.active {
+  color: var(--shyam-yellow) !important;
+}
+
+.btn-primary,
+.bg-primary {
+  background-color: var(--shyam-red) !important;
+  border-color: var(--shyam-red) !important;
+}
+
+.btn-primary:hover {
+  background-color: #c4191f !important;
+  border-color: #c4191f !important;
+}
+
+a {
+  color: var(--shyam-red);
+}
+
+.brand-link .brand-image {
+  max-height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
+.login-logo img {
+  max-height: 72px;
+  width: auto;
+  object-fit: contain;
+}

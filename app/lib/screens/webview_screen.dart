@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../services/auth_token_storage.dart';
+import '../theme/brand_colors.dart';
 
 /// Must match [TOKEN_KEY] in `web/src/contexts/AuthContext.tsx`.
 const String _kWebAuthLocalStorageKey = 'fd_auth_token';
@@ -204,7 +205,7 @@ class WebViewScreenState extends State<WebViewScreen>
     if (_useNativePullRefresh) {
       _pullToRefreshController = PullToRefreshController(
         settings: PullToRefreshSettings(
-          color: const Color(0xFFB8860B),
+          color: BrandColors.red,
           backgroundColor: Colors.white10,
         ),
         onRefresh: _onPullToRefresh,

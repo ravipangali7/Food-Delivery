@@ -1,4 +1,7 @@
-/** Bundled Shyam's logo; mirrored at `app/assets/logo.png` for Flutter. */
+/**
+ * Bundled Shyam's logo (`web/public/logo.png`).
+ * Also copied to: `app/assets/logo.png`, `server/static/panel/logo.png`, `server/static/brand/logo.png`.
+ */
 export const DEFAULT_STORE_LOGO_URL = '/logo.png';
 
 /** Prefer API-provided store logo; otherwise the bundled default. */
