@@ -9,6 +9,8 @@ import { Search, Download, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { deleteJson, getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { OrderBillIconButton } from '@/components/admin/order-invoice/OrderBillIconButton';
+import { useOrderInvoice } from '@/components/admin/order-invoice/useOrderInvoice';
 import type { Order, OrderStatus } from '@/types';
 
 function OrderListStatusEditor({ order }: { order: Order }) {
@@ -101,9 +103,21 @@ function matchesTab(order: Order, tab: string): boolean {
 export default function AdminOrdersList() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
+  const { busy: invoiceBusy, downloadPdf } = useOrderInvoice();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('status') || 'all';
   const [search, setSearch] = useState('');
+
+  const handleDownloadInvoice = async (order: Order) => {
+    const toastId = toast.loading('Generating invoice PDF…');
+    try {
+      await downloadPdf(order);
+      toast.success('Invoice downloaded', { id: toastId });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not generate invoice';
+      toast.error(msg, { id: toastId });
+    }
+  };
 
   const deleteMut = useMutation({
     mutationFn: (orderId: number) => deleteJson(`/api/orders/${orderId}/`, token),
@@ -258,6 +272,11 @@ export default function AdminOrdersList() {
                     >
                       <Pencil size={16} />
                     </Link>
+                    <OrderBillIconButton
+                      order={order}
+                      disabled={invoiceBusy}
+                      onDownload={handleDownloadInvoice}
+                    />
                     <button
                       type="button"
                       title="Delete order permanently"

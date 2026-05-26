@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Bike, Save, User } from 'lucide-react';
 import { getJson, patchJson, postJson } from '@/lib/api';
+import { phoneDigitsOnly } from '@/lib/guestCheckoutDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -72,12 +73,17 @@ export default function AdminUserForm() {
   }, [id, searchParams, pathname]);
 
   const listPath = form.is_delivery_boy ? '/admin/delivery-boys' : '/admin/customers';
+  const phoneDigits = phoneDigitsOnly(form.phone);
+  const canSave =
+    form.name.trim().length > 0 &&
+    phoneDigits.length >= 7 &&
+    (isEdit || form.password.length > 0);
 
   const saveMut = useMutation({
     mutationFn: async () => {
       const body: Record<string, unknown> = {
-        name: form.name,
-        phone: form.phone,
+        name: form.name.trim(),
+        phone: phoneDigits,
         email: form.email || '',
         address: form.address || '',
         is_active: form.is_active,
@@ -139,12 +145,20 @@ export default function AdminUserForm() {
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-[#1a1a1a]">Phone *</label>
                 <input
+                  type="tel"
                   value={form.phone}
-                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  onChange={e =>
+                    setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 15) }))
+                  }
                   disabled={isEdit}
                   className={cn(inputClass, 'disabled:cursor-not-allowed disabled:opacity-60')}
                   autoComplete="tel"
+                  placeholder="98XXXXXXXX"
+                  maxLength={15}
                 />
+                {!isEdit && (
+                  <p className="mt-1 text-xs text-muted-foreground">Digits only, 7–15 characters.</p>
+                )}
               </div>
             </div>
             <div>
@@ -238,7 +252,7 @@ export default function AdminUserForm() {
           <button
             type="button"
             onClick={() => saveMut.mutate()}
-            disabled={saveMut.isPending || !form.name || !form.phone}
+            disabled={saveMut.isPending || !canSave}
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-medium text-primary-foreground shadow-sm transition-opacity disabled:opacity-50"
           >
             <Save className="h-4 w-4" />

@@ -1,14 +1,26 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { deleteJson, getJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import type { Unit } from '@/types';
 
 export default function AdminUnitsList() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<Unit | null>(null);
 
   const { data: units = [], isLoading } = useQuery({
     queryKey: ['admin-units', token],
@@ -19,6 +31,7 @@ export default function AdminUnitsList() {
   const deleteMut = useMutation({
     mutationFn: (id: number) => deleteJson(`/api/admin/units/${id}/`, token),
     onSuccess: () => {
+      setDeleteTarget(null);
       queryClient.invalidateQueries({ queryKey: ['admin-units'] });
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       toast.success('Unit removed');
@@ -78,10 +91,7 @@ export default function AdminUnitsList() {
                         type="button"
                         title="Delete"
                         className="inline-flex p-1.5 rounded-md text-muted-foreground hover:bg-red-50 hover:text-destructive"
-                        onClick={() => {
-                          if (!window.confirm(`Delete unit “${u.name}”?`)) return;
-                          deleteMut.mutate(u.id);
-                        }}
+                        onClick={() => setDeleteTarget(u)}
                         disabled={deleteMut.isPending}
                       >
                         <Trash2 size={16} />
@@ -97,6 +107,40 @@ export default function AdminUnitsList() {
           )}
         </div>
       )}
+
+      <AlertDialog open={deleteTarget != null} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete unit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget ? (
+                <>
+                  This removes <span className="font-medium text-foreground">“{deleteTarget.name}”</span> from
+                  your units list. You cannot delete a unit that is still assigned to a product.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMut.isPending || !deleteTarget}
+              onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
+            >
+              {deleteMut.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2 inline" />
+                  Deleting…
+                </>
+              ) : (
+                'Delete unit'
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

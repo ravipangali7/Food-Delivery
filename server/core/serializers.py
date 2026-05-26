@@ -207,6 +207,14 @@ class UserAdminWriteSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSe
             "profile_photo",
         )
 
+    def validate_phone(self, value: str) -> str:
+        from .utils.phone import normalize_phone
+
+        digits = normalize_phone(value)
+        if len(digits) < 7 or len(digits) > 15:
+            raise serializers.ValidationError("Enter a valid phone number (7–15 digits).")
+        return digits
+
     def create(self, validated_data):
         pwd = validated_data.pop("password", None)
         user = User(**validated_data)

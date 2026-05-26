@@ -5,6 +5,7 @@ import { OrderStatusBadge } from '@/components/shared/StatusBadge';
 import { validStatusTransitions } from '@/lib/colors';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Phone, MapPin, User } from 'lucide-react';
+import { OrderInvoiceActions } from '@/components/admin/order-invoice/OrderInvoiceActions';
 import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { PreorderScheduleSummary } from '@/components/admin/PreorderScheduleSummary';
@@ -107,7 +108,8 @@ export default function AdminOrderDetail() {
           <h1 className="text-2xl font-display font-bold text-foreground">Order {order.order_number}</h1>
           <p className="text-sm text-muted-foreground">Placed: {formatDateTime(order.created_at)}</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-col sm:flex-row items-end sm:items-center gap-3">
+          <OrderInvoiceActions order={order} />
           <OrderStatusBadge status={order.status} />
         </div>
       </div>
@@ -217,7 +219,7 @@ export default function AdminOrderDetail() {
                 <tr className="bg-muted text-muted-foreground text-xs uppercase">
                   <th className="text-left px-4 py-3">Product</th>
                   <th className="text-right px-4 py-3">Qty</th>
-                  <th className="text-right px-4 py-3">Unit</th>
+                  <th className="text-right px-4 py-3">Price</th>
                   <th className="text-right px-4 py-3">Total</th>
                 </tr>
               </thead>

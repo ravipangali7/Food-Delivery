@@ -346,12 +346,18 @@ def admin_parent_category_detail(request, pk):
         ]
         return Response(data)
     if request.method == "DELETE":
-        if obj.subcategories.exists():
+        try:
+            obj.delete()
+        except ProtectedError:
             return Response(
-                {"detail": "Remove or reassign all subcategories before deleting this parent category."},
+                {
+                    "detail": (
+                        "Cannot delete this parent category because one or more "
+                        "subcategories still have products. Reassign or remove those products first."
+                    ),
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     ser = ParentCategoryAdminSerializer(
         obj, data=request.data, partial=True, context={"request": request}
