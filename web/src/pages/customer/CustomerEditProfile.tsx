@@ -231,7 +231,7 @@ export default function CustomerEditProfile() {
           <input
             value={name}
             onChange={e => setName(e.target.value)}
-            className="w-full border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+            className="w-full border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
           />
         </div>
 
@@ -251,7 +251,7 @@ export default function CustomerEditProfile() {
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+            className="w-full border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
             autoComplete="email"
           />
         </div>
@@ -266,7 +266,7 @@ export default function CustomerEditProfile() {
             value={address}
             onChange={e => setAddress(e.target.value)}
             rows={3}
-            className="w-full border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+            className="w-full border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
             placeholder="Street, area, landmark…"
           />
           <div className="pt-1">
@@ -289,7 +289,7 @@ export default function CustomerEditProfile() {
             setError(null);
             save.mutate();
           }}
-          className="block w-full py-3.5 bg-amber-500 text-white text-center font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50"
+          className="block w-full py-3.5 bg-primary text-primary-foreground text-center font-semibold rounded-full text-sm hover:bg-primary/90 disabled:opacity-50"
         >
           {save.isPending ? 'Saving…' : 'Save changes'}
         </button>

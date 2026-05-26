@@ -166,7 +166,7 @@ export default function DeliveryOrderDetail() {
                   size="sm"
                   disabled={transition.isPending}
                   onClick={() => transition.mutate(ns)}
-                  className="flex-1 min-w-[120px] bg-primary hover:bg-amber-600 text-xs"
+                  className="flex-1 min-w-[120px] bg-primary hover:bg-primary/90 text-xs"
                 >
                   Mark {orderStatusLabels[ns] ?? ns}
                 </Button>

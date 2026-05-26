@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@700&family=Poppins:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,56 +7,62 @@
 @layer base {
   :root {
     --font-primary: 'Inter', 'Poppins', system-ui, sans-serif;
-    --font-display: 'Poppins', 'Inter', sans-serif;
+    --font-display: 'Libre Baskerville', 'Poppins', 'Inter', serif;
 
-    /* Primary Amber */
-    --background: 40 33% 99%;
-    --foreground: 20 14% 10%;
+    /* Shyam's brand — red #E31E24, yellow #FFC72C */
+    --brand-red: 358 76% 50%;
+    --brand-yellow: 43 100% 59%;
+    --brand-red-dark: 358 76% 22%;
+    --brand-red-light: 358 76% 97%;
+    --brand-yellow-light: 43 100% 96%;
+
+    --background: 43 40% 99%;
+    --foreground: 358 30% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 20 14% 10%;
+    --card-foreground: 358 30% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 20 14% 10%;
+    --popover-foreground: 358 30% 12%;
 
-    --primary: 38 92% 50%;
+    --primary: var(--brand-red);
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 33 100% 96%;
-    --secondary-foreground: 20 14% 10%;
+    --secondary: var(--brand-yellow-light);
+    --secondary-foreground: 358 30% 12%;
 
-    --muted: 40 20% 96%;
+    --muted: 43 25% 96%;
     --muted-foreground: 25 6% 45%;
 
-    --accent: 38 92% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: var(--brand-yellow);
+    --accent-foreground: 358 50% 18%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 16% 90%;
-    --input: 30 16% 90%;
-    --ring: 38 92% 50%;
+    --border: 43 20% 90%;
+    --input: 43 20% 90%;
+    --ring: var(--brand-red);
 
     --radius: 0.625rem;
 
     /* Status colors */
     --success: 142 71% 37%;
     --success-bg: 138 76% 97%;
-    --warning: 38 92% 50%;
-    --warning-bg: 48 100% 96%;
+    --warning: var(--brand-yellow);
+    --warning-bg: var(--brand-yellow-light);
     --info: 221 83% 53%;
     --info-bg: 214 100% 97%;
 
-    /* Sidebar */
-    --sidebar-background: 20 14% 10%;
+    /* Sidebar — dark brand red with yellow accents */
+    --sidebar-background: var(--brand-red-dark);
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 38 92% 50%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 20 6% 20%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-primary: var(--brand-yellow);
+    --sidebar-primary-foreground: 358 50% 18%;
+    --sidebar-accent: var(--brand-yellow);
+    --sidebar-accent-foreground: 358 50% 18%;
+    --sidebar-border: 358 50% 28%;
+    --sidebar-ring: var(--brand-yellow);
 
     /* Mobile nav */
     --mobile-nav-height: 64px;
@@ -103,5 +109,9 @@
 
   .mobile-container {
     @apply max-w-[430px] mx-auto min-h-screen relative;
+  }
+
+  .brand-logo {
+    @apply object-contain;
   }
 }

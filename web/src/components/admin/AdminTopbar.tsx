@@ -4,6 +4,7 @@ import { Bell, LogOut, Menu, User } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getJson, patchJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import BrandLogo from '@/components/BrandLogo';
 import { resolveStoreLogoUrl } from '@/lib/branding';
 import type { SuperSetting } from '@/types';
 import {
@@ -52,11 +53,7 @@ export default function AdminTopbar({ onToggleSidebar }: { onToggleSidebar: () =
       </button>
 
       <div className="flex items-center gap-2 min-w-0">
-        <img
-          src={resolveStoreLogoUrl(settings?.logo)}
-          alt=""
-          className="h-8 w-8 shrink-0 rounded-lg object-cover border border-border bg-muted"
-        />
+        <BrandLogo src={resolveStoreLogoUrl(settings?.logo)} size="sm" />
         <span className="font-display font-bold text-foreground hidden sm:block truncate">
           {settings?.name ?? 'Admin'}
         </span>

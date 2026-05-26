@@ -5,6 +5,7 @@ import { getJson } from '@/lib/api';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
 import NotificationBellLink from '@/components/NotificationBellLink';
 import CustomerCartLink from '@/components/customer/CustomerCartLink';
+import BrandLogo from '@/components/BrandLogo';
 import { resolveStoreLogoUrl } from '@/lib/branding';
 import type { SuperSetting } from '@/types';
 
@@ -62,20 +63,16 @@ export default function CustomerLayout() {
   const desktopLinkClass = (active: boolean) =>
     `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors border ${
       active
-        ? 'bg-amber-500/15 text-amber-800 border-amber-200/90'
-        : 'text-stone-600 hover:bg-stone-50 border-transparent'
+        ? 'bg-primary/10 text-primary border-primary/25'
+        : 'text-muted-foreground hover:bg-muted border-transparent'
     }`;
 
   return (
-    <div className="min-h-screen bg-stone-100">
+    <div className="min-h-screen bg-background">
       <aside className="hidden md:flex md:flex-col md:fixed md:left-0 md:top-0 md:z-50 md:h-screen md:w-[260px] md:border-r md:border-border md:bg-card md:shadow-sm">
         <div className="p-5 border-b border-border">
           <Link to="/customer" className="flex items-center gap-2.5">
-            <img
-              src={resolveStoreLogoUrl(settings?.logo)}
-              alt=""
-              className="h-9 w-9 shrink-0 rounded-xl border border-border bg-muted object-cover"
-            />
+            <BrandLogo src={resolveStoreLogoUrl(settings?.logo)} size="md" />
             <div>
               <span className="font-display font-bold text-lg text-foreground leading-tight block">{storeName}</span>
               <span className="text-[11px] text-muted-foreground">
@@ -112,7 +109,7 @@ export default function CustomerLayout() {
             return (
               <Link key={tab.path} to={tab.path} className={desktopLinkClass(active)}>
                 <div className="relative shrink-0">
-                  <Icon size={20} className={active ? 'text-amber-600' : 'text-stone-500'} />
+                  <Icon size={20} className={active ? 'text-primary' : 'text-muted-foreground'} />
                 </div>
                 {tab.label}
               </Link>
@@ -158,7 +155,7 @@ export default function CustomerLayout() {
             <Link
               key={tab.path}
               to={tab.path}
-              className={`flex flex-col items-center gap-0.5 min-w-[50px] ${active ? 'text-amber-500' : 'text-stone-400'}`}
+              className={`flex flex-col items-center gap-0.5 min-w-[50px] ${active ? 'text-primary' : 'text-muted-foreground'}`}
             >
               <div className="relative">
                 <Icon size={22} />

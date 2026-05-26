@@ -43,7 +43,7 @@ export default function CustomerExplore() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search products..."
-            className="w-full pl-10 pr-10 py-3 text-sm border border-border rounded-xl bg-stone-50 focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60"
+            className="w-full pl-10 pr-10 py-3 text-sm border border-border rounded-xl bg-stone-50 focus:ring-2 focus:ring-primary outline-none disabled:opacity-60"
             autoFocus={menusOpen}
             disabled={!menusOpen}
           />

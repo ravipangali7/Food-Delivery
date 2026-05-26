@@ -1,4 +1,4 @@
-/** Same asset as Flutter `assets/logo.png`; must exist at `web/public/logo.png`. */
+/** Bundled Shyam's logo; mirrored at `app/assets/logo.png` for Flutter. */
 export const DEFAULT_STORE_LOGO_URL = '/logo.png';
 
 /** Prefer API-provided store logo; otherwise the bundled default. */

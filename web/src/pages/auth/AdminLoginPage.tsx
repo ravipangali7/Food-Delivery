@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-950 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-red-dark to-[hsl(358_76%_12%)] px-4">
       <div className="w-full max-w-[400px] bg-card rounded-2xl shadow-lg p-8 space-y-6">
         <div className="text-center">
           <div className="mx-auto h-[4.5rem] w-[4.5rem] flex items-center justify-center">

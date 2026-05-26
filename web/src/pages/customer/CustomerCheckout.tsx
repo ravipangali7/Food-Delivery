@@ -366,7 +366,7 @@ export default function CustomerCheckout() {
             }
             placeOrder.mutate();
           }}
-          className="block w-full py-3.5 bg-amber-500 text-white text-center font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50"
+          className="block w-full py-3.5 bg-primary text-primary-foreground text-center font-semibold rounded-full text-sm hover:bg-primary/90 disabled:opacity-50"
         >
           {placeOrder.isPending ? 'Placing…' : `Place order — ${formatCurrency(totalPreview)}`}
         </button>

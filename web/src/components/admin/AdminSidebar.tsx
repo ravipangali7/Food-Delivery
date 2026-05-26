@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getJson } from '@/lib/api';
+import BrandLogo from '@/components/BrandLogo';
 import { resolveStoreLogoUrl } from '@/lib/branding';
 import { useAuth } from '@/contexts/AuthContext';
 import type { SuperSetting } from '@/types';
@@ -77,20 +78,20 @@ function UnitsNavBlock({ collapsed }: { collapsed: boolean }) {
   const subLinkClass = (active: boolean) =>
     `mx-2 rounded-lg flex items-center min-h-9 px-3 py-2 text-sm transition-colors border-l-4 pl-4 ${
       active
-        ? 'bg-amber-500/15 text-amber-400 border-amber-500'
-        : 'hover:bg-white/5 border-transparent text-stone-300'
+        ? 'bg-sidebar-primary/15 text-sidebar-primary border-sidebar-primary'
+        : 'hover:bg-white/5 border-transparent text-sidebar-foreground/70'
     }`;
 
   if (collapsed) {
     return (
-      <div className="mx-2 flex flex-col gap-0.5 border-t border-stone-800 pt-2 mt-2">
+      <div className="mx-2 flex flex-col gap-0.5 border-t border-sidebar-border pt-2 mt-2">
         <Link
           to="/admin/units"
           title="All Units"
           className={`rounded-lg flex items-center justify-center h-10 transition-colors border-l-4 ${
             unitsSectionActive
-              ? 'bg-amber-500/15 text-amber-400 border-amber-500'
-              : 'hover:bg-white/5 border-transparent text-stone-200'
+              ? 'bg-sidebar-primary/15 text-sidebar-primary border-sidebar-primary'
+              : 'hover:bg-white/5 border-transparent text-sidebar-foreground/80'
           }`}
         >
           <Ruler size={18} />
@@ -107,8 +108,8 @@ function UnitsNavBlock({ collapsed }: { collapsed: boolean }) {
         className={`mx-2 w-[calc(100%-16px)] rounded-lg flex items-center h-11 px-3 transition-colors border-l-4 text-left
           ${
             unitsSectionActive && !open
-              ? 'bg-amber-500/10 text-amber-400/90 border-amber-500/50'
-              : 'hover:bg-white/5 border-transparent text-stone-200'
+              ? 'bg-sidebar-primary/10 text-sidebar-primary/90 border-sidebar-primary/50'
+              : 'hover:bg-white/5 border-transparent text-sidebar-foreground/80'
           }`}
       >
         <Ruler size={18} className="shrink-0" />
@@ -153,20 +154,20 @@ function CategoriesNavBlock({ collapsed }: { collapsed: boolean }) {
   const subLinkClass = (active: boolean) =>
     `mx-2 rounded-lg flex items-center min-h-9 px-3 py-2 text-sm transition-colors border-l-4 pl-4 ${
       active
-        ? 'bg-amber-500/15 text-amber-400 border-amber-500'
-        : 'hover:bg-white/5 border-transparent text-stone-300'
+        ? 'bg-sidebar-primary/15 text-sidebar-primary border-sidebar-primary'
+        : 'hover:bg-white/5 border-transparent text-sidebar-foreground/70'
     }`;
 
   if (collapsed) {
     return (
-      <div className="mx-2 flex flex-col gap-0.5 border-t border-stone-800 pt-2 mt-2">
+      <div className="mx-2 flex flex-col gap-0.5 border-t border-sidebar-border pt-2 mt-2">
         <Link
           to="/admin/categories/all"
           title="All Categories"
           className={`rounded-lg flex items-center justify-center h-10 transition-colors border-l-4 ${
             allActive
-              ? 'bg-amber-500/15 text-amber-400 border-amber-500'
-              : 'hover:bg-white/5 border-transparent text-stone-200'
+              ? 'bg-sidebar-primary/15 text-sidebar-primary border-sidebar-primary'
+              : 'hover:bg-white/5 border-transparent text-sidebar-foreground/80'
           }`}
         >
           <LayoutList size={18} />
@@ -176,8 +177,8 @@ function CategoriesNavBlock({ collapsed }: { collapsed: boolean }) {
           title="Parent Categories"
           className={`rounded-lg flex items-center justify-center h-10 transition-colors border-l-4 ${
             parentsActive
-              ? 'bg-amber-500/15 text-amber-400 border-amber-500'
-              : 'hover:bg-white/5 border-transparent text-stone-200'
+              ? 'bg-sidebar-primary/15 text-sidebar-primary border-sidebar-primary'
+              : 'hover:bg-white/5 border-transparent text-sidebar-foreground/80'
           }`}
         >
           <Layers size={18} />
@@ -194,8 +195,8 @@ function CategoriesNavBlock({ collapsed }: { collapsed: boolean }) {
         className={`mx-2 w-[calc(100%-16px)] rounded-lg flex items-center h-11 px-3 transition-colors border-l-4 text-left
           ${
             groupLit && !open
-              ? 'bg-amber-500/10 text-amber-400/90 border-amber-500/50'
-              : 'hover:bg-white/5 border-transparent text-stone-200'
+              ? 'bg-sidebar-primary/10 text-sidebar-primary/90 border-sidebar-primary/50'
+              : 'hover:bg-white/5 border-transparent text-sidebar-foreground/80'
           }`}
       >
         <FolderTree size={18} className="shrink-0" />
@@ -294,19 +295,17 @@ export default function AdminSidebar({ collapsed, onToggle }: { collapsed: boole
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-full bg-stone-900 text-stone-100 z-50 transition-all duration-300 flex flex-col
+        className={`fixed top-0 left-0 h-full bg-sidebar text-sidebar-foreground z-50 transition-all duration-300 flex flex-col
         ${collapsed ? 'w-0 lg:w-[72px] overflow-hidden' : 'w-[260px]'}`}
       >
-        <div className="h-[72px] flex items-center px-4 border-b border-stone-800 shrink-0">
-          <img
-            src={resolveStoreLogoUrl(settings?.logo)}
-            alt=""
-            className="h-9 w-9 shrink-0 rounded-lg object-cover border border-stone-700 bg-stone-800"
-          />
+        <div className="h-[72px] flex items-center px-4 border-b border-sidebar-border shrink-0">
+          <BrandLogo src={resolveStoreLogoUrl(settings?.logo)} size="sm" />
           {!collapsed && (
-            <div className="ml-3">
-              <div className="font-bold text-amber-400 font-display">Shyam Sweets</div>
-              <div className="text-[10px] text-stone-500 uppercase tracking-widest">Admin Panel</div>
+            <div className="ml-3 min-w-0">
+              <div className="font-bold text-sidebar-primary font-display truncate">
+                {settings?.name ?? "Shyam's"}
+              </div>
+              <div className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">Admin Panel</div>
             </div>
           )}
         </div>
@@ -315,7 +314,7 @@ export default function AdminSidebar({ collapsed, onToggle }: { collapsed: boole
           {sidebarSections.map((section, si) => (
             <div key={si} className="mb-2">
               {section.label && !collapsed && (
-                <div className="px-4 py-2 text-[10px] uppercase tracking-widest text-stone-500 font-semibold">
+                <div className="px-4 py-2 text-[10px] uppercase tracking-widest text-sidebar-foreground/50 font-semibold">
                   {section.label}
                 </div>
               )}
@@ -331,8 +330,8 @@ export default function AdminSidebar({ collapsed, onToggle }: { collapsed: boole
                       className={`mx-2 rounded-lg flex items-center h-11 px-3 transition-colors border-l-4
                       ${
                         active
-                          ? 'bg-amber-500/15 text-amber-400 border-amber-500'
-                          : 'hover:bg-white/5 border-transparent text-stone-200'
+                          ? 'bg-sidebar-primary/15 text-sidebar-primary border-sidebar-primary'
+                          : 'hover:bg-white/5 border-transparent text-sidebar-foreground/80'
                       }
                       ${collapsed ? 'justify-center' : ''}`}
                     >

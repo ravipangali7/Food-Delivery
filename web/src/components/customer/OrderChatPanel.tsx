@@ -282,7 +282,7 @@ export default function OrderChatPanel({
               onClick={() => setReplyChannel('support')}
               className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
                 replyChannel === 'support'
-                  ? 'bg-amber-500 text-white border-amber-500'
+                  ? 'bg-primary text-primary-foreground border-amber-500'
                   : 'border-border text-muted-foreground hover:bg-muted'
               }`}
             >
@@ -293,7 +293,7 @@ export default function OrderChatPanel({
               onClick={() => setReplyChannel('delivery')}
               className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
                 replyChannel === 'delivery'
-                  ? 'bg-amber-500 text-white border-amber-500'
+                  ? 'bg-primary text-primary-foreground border-amber-500'
                   : 'border-border text-muted-foreground hover:bg-muted'
               }`}
             >
@@ -304,7 +304,7 @@ export default function OrderChatPanel({
               onClick={() => setReplyChannel('customer_rider')}
               className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
                 replyChannel === 'customer_rider'
-                  ? 'bg-amber-500 text-white border-amber-500'
+                  ? 'bg-primary text-primary-foreground border-amber-500'
                   : 'border-border text-muted-foreground hover:bg-muted'
               }`}
             >
@@ -315,7 +315,7 @@ export default function OrderChatPanel({
               onClick={() => setReplyChannel('rider_ops')}
               className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
                 replyChannel === 'rider_ops'
-                  ? 'bg-amber-500 text-white border-amber-500'
+                  ? 'bg-primary text-primary-foreground border-amber-500'
                   : 'border-border text-muted-foreground hover:bg-muted'
               }`}
             >
@@ -342,7 +342,7 @@ export default function OrderChatPanel({
             <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm transition-all ${
-                  mine ? 'bg-amber-500 text-white rounded-br-md' : 'bg-muted rounded-bl-md'
+                  mine ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted rounded-bl-md'
                 }`}
               >
                 {unified && (
@@ -385,12 +385,12 @@ export default function OrderChatPanel({
           value={draft}
           onChange={e => onDraftChange(e.target.value)}
           placeholder="Type a message…"
-          className="flex-1 min-w-0 rounded-full border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500 transition-shadow"
+          className="flex-1 min-w-0 rounded-full border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary transition-shadow"
         />
         <button
           type="submit"
           disabled={!draft.trim() || send.isPending}
-          className="shrink-0 w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center disabled:opacity-50 hover:bg-amber-600 transition-colors"
+          className="shrink-0 w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-50 hover:bg-primary/90 transition-colors"
           aria-label="Send"
         >
           <Send size={18} />

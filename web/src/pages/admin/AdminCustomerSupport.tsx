@@ -184,7 +184,7 @@ export default function AdminCustomerSupport() {
                     className={cn(
                       'border-b border-border transition-all',
                       active
-                        ? 'bg-amber-500/12 border-l-4 border-l-amber-500 pl-2 ring-1 ring-amber-500/35 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.15)]'
+                        ? 'bg-amber-500/12 border-l-4 border-l-amber-500 pl-2 ring-1 ring-primary/35 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.15)]'
                         : 'border-l-4 border-l-transparent',
                     )}
                   >

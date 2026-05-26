@@ -9,6 +9,7 @@ import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
 import { useCart } from '@/hooks/useCart';
 import { collectDescendantCategoryIds } from '@/lib/category-tree';
 import { formatCurrency, getEffectivePrice, num, unitLabel } from '@/lib/formatting';
+import BrandLogo from '@/components/BrandLogo';
 import { resolveStoreLogoUrl } from '@/lib/branding';
 import type { ParentCategory, Product, SuperSetting } from '@/types';
 
@@ -113,7 +114,7 @@ export default function CustomerHome() {
                       e.preventDefault();
                       adjustCartQty(product, 1, lineIsPreorder);
                     }}
-                    className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center"
+                    className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
                   >
                     <Plus size={14} />
                   </button>
@@ -127,7 +128,7 @@ export default function CustomerHome() {
                     e.preventDefault();
                     adjustCartQty(product, 1, false);
                   }}
-                  className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-semibold rounded-full hover:bg-amber-600 whitespace-nowrap"
+                  className="px-2.5 py-1 bg-primary text-primary-foreground text-[10px] font-semibold rounded-full hover:bg-primary/90 whitespace-nowrap"
                 >
                   Add to cart
                 </button>
@@ -149,7 +150,7 @@ export default function CustomerHome() {
                   e.preventDefault();
                   adjustCartQty(product, 1);
                 }}
-                className="px-3 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded-full hover:bg-amber-600"
+                className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-full hover:bg-primary/90"
               >
                 + Add
               </button>
@@ -174,13 +175,7 @@ export default function CustomerHome() {
     <div>
       <div className="sticky top-0 bg-card z-40 px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="h-10 w-10 rounded-xl border border-border bg-amber-50 overflow-hidden shrink-0 flex items-center justify-center">
-            <img
-              src={resolveStoreLogoUrl(settings?.logo)}
-              alt={storeName}
-              className="h-full w-full object-cover"
-            />
-          </div>
+          <BrandLogo src={resolveStoreLogoUrl(settings?.logo)} size="md" alt={storeName} />
           <div className="min-w-0">
             <span className="font-display font-bold text-foreground block truncate">{storeName}</span>
             {phoneLine ? (

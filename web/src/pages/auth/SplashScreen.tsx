@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import BrandLogo from '@/components/BrandLogo';
 import { DEFAULT_STORE_LOGO_URL } from '@/lib/branding';
 
 export default function SplashScreen() {
@@ -13,12 +14,11 @@ export default function SplashScreen() {
   }, [navigate]);
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600 transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center bg-primary transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
       <div className="animate-bounce mb-6">
-        <img src={DEFAULT_STORE_LOGO_URL} alt="" className="h-28 w-28 object-contain drop-shadow-md" />
+        <BrandLogo src={DEFAULT_STORE_LOGO_URL} size="splash" className="drop-shadow-lg" />
       </div>
-      <h1 className="text-4xl font-display font-bold text-white">Shyam Sweets</h1>
-      <p className="text-amber-100 mt-2 text-sm">Fresh Mithai, Delivered Fast</p>
+      <p className="text-accent mt-2 text-sm font-medium">Fresh Mithai, Delivered Fast</p>
       <div className="mt-8">
         <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
       </div>

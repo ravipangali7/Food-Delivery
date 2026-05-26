@@ -206,7 +206,7 @@ export default function CustomerProductDetail() {
             value={notes}
             onChange={e => setNotes(e.target.value)}
             placeholder="Add a note e.g. less sweet"
-            className="w-full border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+            className="w-full border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
             rows={2}
           />
         </div>
@@ -242,7 +242,7 @@ export default function CustomerProductDetail() {
                 type="button"
                 disabled={product.stock_quantity === 0 || mutateCart.isPending}
                 onClick={() => mutateCart.mutate('regular')}
-                className="flex-1 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-primary text-primary-foreground font-semibold rounded-full text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add to cart
               </button>
@@ -280,7 +280,7 @@ export default function CustomerProductDetail() {
               type="button"
               disabled={product.stock_quantity === 0 || mutateCart.isPending}
               onClick={() => mutateCart.mutate('regular')}
-              className="flex-1 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 bg-primary text-primary-foreground font-semibold rounded-full text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add to Cart
             </button>

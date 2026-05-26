@@ -54,7 +54,7 @@ export default function CustomerCart() {
         <p className="text-sm text-muted-foreground mt-1">Add some delicious items!</p>
         <Link
           to="/customer/explore"
-          className="mt-4 px-6 py-3 bg-amber-500 text-white font-semibold rounded-full text-sm"
+          className="mt-4 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-full text-sm"
         >
           Browse Menu
         </Link>
@@ -240,7 +240,7 @@ export default function CustomerCart() {
         {personalDetailsReady ? (
           <Link
             to="/customer/checkout"
-            className="block w-full py-3.5 bg-amber-500 text-white text-center font-semibold rounded-full text-sm hover:bg-amber-600"
+            className="block w-full py-3.5 bg-primary text-primary-foreground text-center font-semibold rounded-full text-sm hover:bg-primary/90"
           >
             Proceed to Checkout
           </Link>

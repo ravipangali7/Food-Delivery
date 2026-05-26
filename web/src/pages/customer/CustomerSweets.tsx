@@ -106,7 +106,7 @@ export default function CustomerSweets() {
                       e.preventDefault();
                       adjustCartQty(product, 1, lineIsPreorder);
                     }}
-                    className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center"
+                    className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
                   >
                     <Plus size={14} />
                   </button>
@@ -120,7 +120,7 @@ export default function CustomerSweets() {
                     e.preventDefault();
                     adjustCartQty(product, 1, false);
                   }}
-                  className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-semibold rounded-full hover:bg-amber-600 whitespace-nowrap"
+                  className="px-2.5 py-1 bg-primary text-primary-foreground text-[10px] font-semibold rounded-full hover:bg-primary/90 whitespace-nowrap"
                 >
                   Add to cart
                 </button>

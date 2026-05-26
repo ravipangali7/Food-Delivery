@@ -15,7 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'Poppins', 'system-ui', 'sans-serif'],
-        display: ['Poppins', 'Inter', 'sans-serif'],
+        display: ['Libre Baskerville', 'Poppins', 'Inter', 'serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -61,10 +61,25 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        brand: {
+          red: "hsl(var(--brand-red))",
+          yellow: "hsl(var(--brand-yellow))",
+          "red-dark": "hsl(var(--brand-red-dark))",
+          "red-light": "hsl(var(--brand-red-light))",
+          "yellow-light": "hsl(var(--brand-yellow-light))",
+        },
+        /* Legacy alias: maps old amber-* usages to brand yellow tints */
         amber: {
-          50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a', 300: '#fcd34d',
-          400: '#fbbf24', 500: '#f59e0b', 600: '#d97706', 700: '#b45309',
-          800: '#92400e', 900: '#78350f',
+          50: "hsl(var(--brand-yellow-light))",
+          100: "hsl(43 90% 92%)",
+          200: "hsl(43 85% 85%)",
+          300: "hsl(43 90% 75%)",
+          400: "hsl(var(--brand-yellow))",
+          500: "hsl(var(--brand-red))",
+          600: "hsl(358 76% 42%)",
+          700: "hsl(358 70% 35%)",
+          800: "hsl(358 60% 28%)",
+          900: "hsl(358 50% 20%)",
         },
         stone: {
           50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
@@ -94,7 +109,7 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "pulse-amber": {
+        "pulse-brand": {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.5" },
         },
@@ -102,7 +117,8 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-amber": "pulse-amber 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "pulse-brand": "pulse-brand 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "pulse-amber": "pulse-brand 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
     },
   },

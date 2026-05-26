@@ -137,7 +137,7 @@ export default function PhoneOtpAuth({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-amber-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background px-4">
       <div className="w-full max-w-[400px] bg-card rounded-2xl shadow-lg p-8 space-y-6">
         <div className="text-center">
           <div className="mx-auto h-[4.5rem] w-[4.5rem] flex items-center justify-center">
@@ -195,7 +195,7 @@ export default function PhoneOtpAuth({
             <Button
               onClick={handleSendOtp}
               disabled={!canSend || loading}
-              className="w-full h-12 text-base font-semibold bg-primary hover:bg-amber-600"
+              className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -259,7 +259,7 @@ export default function PhoneOtpAuth({
             <Button
               onClick={handleVerify}
               disabled={otp.trim().length < 4 || loading}
-              className="w-full h-12 text-base font-semibold bg-primary hover:bg-amber-600"
+              className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90"
             >
               {loading ? (
                 <span className="flex items-center gap-2">

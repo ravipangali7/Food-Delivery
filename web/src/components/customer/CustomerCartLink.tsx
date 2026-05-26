@@ -22,7 +22,7 @@ export default function CustomerCartLink() {
       <ShoppingCart size={20} />
       {badge != null ? (
         <span
-          className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-card"
+          className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center ring-2 ring-card"
           aria-hidden
         >
           {label}

@@ -89,7 +89,7 @@ export default function AdminProductView() {
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Link
             to={`/admin/products/${encodeURIComponent(product.slug)}/edit`}
-            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600"
+            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary/90"
           >
             <Pencil size={16} strokeWidth={2.5} />
             Edit

@@ -221,7 +221,7 @@ export default function DeliveryProfile() {
               type="button"
               onClick={() => save.mutate()}
               disabled={save.isPending}
-              className="w-full bg-primary hover:bg-amber-600"
+              className="w-full bg-primary hover:bg-primary/90"
             >
               {save.isPending ? 'Saving…' : 'Save Changes'}
             </Button>

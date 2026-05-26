@@ -54,7 +54,7 @@ type DashboardToday = {
 };
 
 const PIE_COLORS = ['#78716c', '#2563eb', '#7c3aed', '#d97706', '#f59e0b', '#16a34a', '#dc2626', '#9a3412'];
-const REVENUE_ORANGE = '#f97316';
+const REVENUE_BRAND = '#E31E24';
 const REVENUE_GRID = '#e5e7eb';
 
 export default function AdminDashboard() {
@@ -190,7 +190,7 @@ export default function AdminDashboard() {
                       className={cn(
                         'rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors',
                         revenueRange === d
-                          ? 'bg-orange-500 text-white shadow-sm'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'bg-muted/80 text-muted-foreground hover:bg-muted',
                       )}
                     >
@@ -209,8 +209,8 @@ export default function AdminDashboard() {
                     <AreaChart data={revenueChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="adminRevenueAreaFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={REVENUE_ORANGE} stopOpacity={0.35} />
-                          <stop offset="100%" stopColor={REVENUE_ORANGE} stopOpacity={0.04} />
+                          <stop offset="0%" stopColor={REVENUE_BRAND} stopOpacity={0.35} />
+                          <stop offset="100%" stopColor={REVENUE_BRAND} stopOpacity={0.04} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid
@@ -251,11 +251,11 @@ export default function AdminDashboard() {
                       <Area
                         type="monotone"
                         dataKey="revenue"
-                        stroke={REVENUE_ORANGE}
+                        stroke={REVENUE_BRAND}
                         strokeWidth={2}
                         fill="url(#adminRevenueAreaFill)"
                         dot={false}
-                        activeDot={{ r: 4, fill: REVENUE_ORANGE, stroke: '#fff', strokeWidth: 2 }}
+                        activeDot={{ r: 4, fill: REVENUE_BRAND, stroke: '#fff', strokeWidth: 2 }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
