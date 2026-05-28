@@ -11,10 +11,7 @@ import type { Order, OrderItem } from '@/types';
 const INVOICE_WIDTH_PX = 794;
 
 function itemThumbSrc(item: OrderItem, images: OrderInvoiceImageMap): string | undefined {
-  const embedded = images.items[item.id];
-  if (embedded) return embedded;
-  const url = item.product?.thumbnail_url || item.product?.images?.[0]?.image_url;
-  return url || undefined;
+  return images.items[item.id] ?? undefined;
 }
 
 function statusLabel(status: string): string {
@@ -71,9 +68,9 @@ export function OrderInvoiceContent({
                 justifyContent: 'center',
               }}
             >
-              {images.logo || store.logoUrl ? (
+              {images.logo ? (
                 <img
-                  src={images.logo || store.logoUrl}
+                  src={images.logo}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />

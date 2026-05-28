@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, getApiBase } from '@/lib/api';
 import { resolveStoreLogoUrl } from '@/lib/branding';
 import type { Order, OrderItem, SuperSetting } from '@/types';
 
@@ -42,23 +42,52 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/** Load remote image as data URL for PDF embedding (CORS-safe when server allows). */
-export async function loadImageAsDataUrl(url: string | undefined | null): Promise<string | null> {
-  const absolute = absoluteAssetUrl(url);
-  if (!absolute) return null;
+/** Candidate URLs to fetch (same-origin /media first when the SPA can proxy it). */
+export function invoiceImageFetchCandidates(url: string): string[] {
+  const out: string[] = [];
+  const add = (u: string) => {
+    if (u && !out.includes(u)) out.push(u);
+  };
 
-  if (absolute.startsWith('data:')) return absolute;
+  add(url);
 
   try {
-    const res = await fetch(absolute, { mode: 'cors', credentials: 'omit' });
-    if (res.ok) {
-      const blob = await res.blob();
-      return await blobToDataUrl(blob);
+    const parsed = new URL(url);
+    if (!parsed.pathname.startsWith('/media/')) return out;
+
+    if (typeof window !== 'undefined') {
+      const onPage = `${window.location.origin}${parsed.pathname}${parsed.search}`;
+      add(onPage);
+    }
+
+    const base = getApiBase();
+    if (base) {
+      const apiOrigin = new URL(base.includes('://') ? base : `http://${base}`).origin;
+      add(`${apiOrigin}${parsed.pathname}${parsed.search}`);
+    }
+
+    if (!base) {
+      add(`${parsed.pathname}${parsed.search}`);
     }
   } catch {
-    /* try img fallback */
+    /* ignore */
   }
 
+  return out;
+}
+
+async function fetchImageAsDataUrl(fetchUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(fetchUrl, { mode: 'cors', credentials: 'omit' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await blobToDataUrl(blob);
+  } catch {
+    return null;
+  }
+}
+
+function decodeImageToDataUrl(src: string): Promise<string | null> {
   return new Promise(resolve => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -79,8 +108,28 @@ export async function loadImageAsDataUrl(url: string | undefined | null): Promis
       }
     };
     img.onerror = () => resolve(null);
-    img.src = absolute;
+    img.src = src;
   });
+}
+
+/** Load remote image as data URL for PDF embedding (CORS-safe when server allows). */
+export async function loadImageAsDataUrl(url: string | undefined | null): Promise<string | null> {
+  const absolute = absoluteAssetUrl(url);
+  if (!absolute) return null;
+
+  if (absolute.startsWith('data:')) return absolute;
+
+  for (const candidate of invoiceImageFetchCandidates(absolute)) {
+    const fromFetch = await fetchImageAsDataUrl(candidate);
+    if (fromFetch) return fromFetch;
+  }
+
+  for (const candidate of invoiceImageFetchCandidates(absolute)) {
+    const fromImg = await decodeImageToDataUrl(candidate);
+    if (fromImg) return fromImg;
+  }
+
+  return null;
 }
 
 export function productThumbUrl(item: OrderItem): string | null {
@@ -119,6 +168,15 @@ export async function downloadInvoiceElementAsPdf(element: HTMLElement, filename
     allowTaint: false,
     backgroundColor: '#ffffff',
     logging: false,
+    imageTimeout: 15000,
+    onclone: doc => {
+      doc.querySelectorAll('img').forEach(node => {
+        const img = node as HTMLImageElement;
+        if (img.src.startsWith('data:')) return;
+        const raw = img.getAttribute('src');
+        if (raw?.startsWith('data:')) img.src = raw;
+      });
+    },
   });
 
   const imgData = canvas.toDataURL('image/jpeg', 0.95);

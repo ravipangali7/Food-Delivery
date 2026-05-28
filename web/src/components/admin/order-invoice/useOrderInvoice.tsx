@@ -38,7 +38,9 @@ export function useOrderInvoice() {
     if (!renderHostRef.current) {
       const el = document.createElement('div');
       el.setAttribute('aria-hidden', 'true');
-      el.style.cssText = 'position:fixed;left:-10000px;top:0;pointer-events:none;opacity:0;';
+      // Off-screen only (no opacity:0 — html2canvas may omit faded nodes).
+      el.style.cssText =
+        'position:fixed;left:-10000px;top:0;width:794px;pointer-events:none;z-index:-1;overflow:hidden;';
       document.body.appendChild(el);
       renderHostRef.current = el;
       reactRootRef.current = createRoot(el);

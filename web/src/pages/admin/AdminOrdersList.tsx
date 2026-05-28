@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { OrderBillIconButton } from '@/components/admin/order-invoice/OrderBillIconButton';
 import { useOrderInvoice } from '@/components/admin/order-invoice/useOrderInvoice';
 import type { Order, OrderStatus } from '@/types';
+import { ConfirmActionDialog } from '@/components/shared/ConfirmActionDialog';
 
 function OrderListStatusEditor({ order }: { order: Order }) {
   const { token } = useAuth();
@@ -107,6 +108,7 @@ export default function AdminOrdersList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('status') || 'all';
   const [search, setSearch] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
 
   const handleDownloadInvoice = async (order: Order) => {
     const toastId = toast.loading('Generating invoice PDF…');
@@ -282,16 +284,7 @@ export default function AdminOrdersList() {
                       title="Delete order permanently"
                       disabled={deleteMut.isPending}
                       className="inline-flex p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-40 disabled:pointer-events-none disabled:hover:text-muted-foreground"
-                      onClick={() => {
-                        if (
-                          !window.confirm(
-                            `Permanently delete order ${order.order_number}? This cannot be undone.`,
-                          )
-                        ) {
-                          return;
-                        }
-                        deleteMut.mutate(order.id);
-                      }}
+                      onClick={() => setDeleteTarget(order)}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -305,6 +298,25 @@ export default function AdminOrdersList() {
           <div className="text-center py-12 text-muted-foreground">No orders found</div>
         )}
       </div>
+      <ConfirmActionDialog
+        open={deleteTarget != null}
+        onOpenChange={open => !open && setDeleteTarget(null)}
+        title="Delete order?"
+        description={
+          deleteTarget
+            ? `Order ${deleteTarget.order_number} will be permanently deleted. This action cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete permanently"
+        pendingLabel="Deleting…"
+        isPending={deleteMut.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMut.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }

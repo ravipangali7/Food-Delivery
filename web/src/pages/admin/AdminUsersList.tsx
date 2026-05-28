@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { deleteJson, getJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { User } from '@/types';
+import { ConfirmActionDialog } from '@/components/shared/ConfirmActionDialog';
 
 function nameInitial(name: string): string {
   const t = name.trim();
@@ -21,6 +22,7 @@ function formatLatLng(lat?: number, lng?: number): string {
 
 export default function AdminUsersList({ type }: { type: 'customers' | 'delivery-boys' }) {
   const [search, setSearch] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const { token } = useAuth();
   const queryClient = useQueryClient();
 
@@ -51,15 +53,7 @@ export default function AdminUsersList({ type }: { type: 'customers' | 'delivery
     );
   }, [users, search]);
 
-  const onDelete = (u: User) => {
-    if (
-      !window.confirm(
-        `Permanently remove ${u.name} from the list? They can be re-added later if needed.`,
-      )
-    )
-      return;
-    deleteMut.mutate(u.id);
-  };
+  const onDelete = (u: User) => setDeleteTarget(u);
 
   if (!token) {
     return <div className="p-8 text-muted-foreground">Staff only.</div>;
@@ -204,6 +198,25 @@ export default function AdminUsersList({ type }: { type: 'customers' | 'delivery
           </table>
         </div>
       </div>
+      <ConfirmActionDialog
+        open={deleteTarget != null}
+        onOpenChange={open => !open && setDeleteTarget(null)}
+        title="Delete user?"
+        description={
+          deleteTarget
+            ? `“${deleteTarget.name}” will be permanently removed from the list. This action cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete permanently"
+        pendingLabel="Deleting…"
+        isPending={deleteMut.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMut.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }

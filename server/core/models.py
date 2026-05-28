@@ -654,7 +654,12 @@ class OrderItem(models.Model):
         Order, on_delete=models.CASCADE, related_name="items", verbose_name=_("order")
     )
     product = models.ForeignKey(
-        Product, on_delete=models.PROTECT, related_name="order_items", verbose_name=_("product")
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+        verbose_name=_("product"),
     )
     unit_price = models.DecimalField(_("unit price"), max_digits=10, decimal_places=2)
     quantity = models.PositiveSmallIntegerField(_("quantity"))

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ import { deleteJson, getJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Product } from '@/types';
 import { cn } from '@/lib/utils';
+import { ConfirmActionDialog } from '@/components/shared/ConfirmActionDialog';
 
 export default function AdminProductView() {
   const { slug } = useParams();
@@ -23,6 +24,7 @@ export default function AdminProductView() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
   const slugEncoded = slug ? encodeURIComponent(slug) : '';
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const deleteMut = useMutation({
     mutationFn: () => deleteJson(`/api/admin/products/${slugEncoded}/`, token),
@@ -99,16 +101,7 @@ export default function AdminProductView() {
             title={product.deleted_at ? 'Already removed' : 'Remove from catalog'}
             disabled={!!product.deleted_at || deleteMut.isPending}
             className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-sm hover:bg-muted hover:text-destructive disabled:pointer-events-none disabled:opacity-40"
-            onClick={() => {
-              if (
-                !window.confirm(
-                  `Remove “${product.name}” from the catalog? Customers will no longer see it.`,
-                )
-              ) {
-                return;
-              }
-              deleteMut.mutate();
-            }}
+            onClick={() => setConfirmOpen(true)}
           >
             <Trash2 size={16} />
             Delete
@@ -190,6 +183,16 @@ export default function AdminProductView() {
           {product.short_description?.trim() ? product.short_description : '—'}
         </p>
       </div>
+      <ConfirmActionDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Delete product?"
+        description={`“${product.name}” will be removed from the catalog. Customers will no longer see it. This cannot be undone.`}
+        confirmLabel="Delete permanently"
+        pendingLabel="Deleting…"
+        isPending={deleteMut.isPending}
+        onConfirm={() => deleteMut.mutate()}
+      />
     </div>
   );
 }

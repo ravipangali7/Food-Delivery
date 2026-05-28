@@ -1,14 +1,30 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Check, Eye, Folder, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Eye, Folder, Loader2, Pencil, Trash2, X } from 'lucide-react';
 import { deleteJson, getJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import type { Category, ParentCategory } from '@/types';
 import { CollectionViewToggle } from '@/components/shared/CollectionViewToggle';
 import { useCollectionViewMode } from '@/hooks/useCollectionViewMode';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+
+type DeleteTarget = {
+  id: number;
+  kind: 'parent' | 'sub';
+  name: string;
+};
 type TreeNode = ParentCategory & { children?: Category[] };
 
 const LIST_INDENT_PX = 18;
@@ -25,6 +41,7 @@ function subtreeProductCount(c: TreeNode): number {
 export default function AdminCategoriesList() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [viewMode, setViewMode] = useCollectionViewMode(VIEW_STORAGE_KEY, 'grid');
   const { pathname } = useLocation();
   const variant = pathname.endsWith('/parents') ? 'parents' : 'all';
@@ -68,23 +85,17 @@ export default function AdminCategoriesList() {
       return deleteJson(path, token);
     },
     onSuccess: () => {
+      setDeleteTarget(null);
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
       queryClient.invalidateQueries({ queryKey: ['admin-categories-flat'] });
       queryClient.invalidateQueries({ queryKey: ['admin-parent-categories-flat'] });
-      toast.success('Deleted');
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      toast.success('Category deleted');
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Could not delete');
     },
   });
-
-  const handleDelete = (c: TreeNode | Category, kind: 'parent' | 'sub') => {
-    const label = kind === 'parent' ? 'parent category' : 'subcategory';
-    if (!window.confirm(`Delete ${label} “${c.name}”?`)) {
-      return;
-    }
-    deleteMut.mutate({ id: c.id, kind });
-  };
 
   if (!token) {
     return <div className="p-8 text-muted-foreground">Staff only.</div>;
@@ -282,7 +293,13 @@ export default function AdminCategoriesList() {
                           title="Delete"
                           className="inline-flex rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-40"
                           disabled={deleteMut.isPending}
-                          onClick={() => handleDelete(c, isParent ? 'parent' : 'sub')}
+                          onClick={() =>
+                            setDeleteTarget({
+                              id: c.id,
+                              kind: isParent ? 'parent' : 'sub',
+                              name: c.name,
+                            })
+                          }
                         >
                           <Trash2 size={16} className="text-destructive" />
                         </button>
@@ -403,7 +420,13 @@ export default function AdminCategoriesList() {
                         title="Delete"
                         className="inline-flex rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-40"
                         disabled={deleteMut.isPending}
-                        onClick={() => handleDelete(c, isParent ? 'parent' : 'sub')}
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: c.id,
+                            kind: isParent ? 'parent' : 'sub',
+                            name: c.name,
+                          })
+                        }
                       >
                         <Trash2 size={16} className="text-destructive" />
                       </button>
@@ -415,6 +438,55 @@ export default function AdminCategoriesList() {
           </ul>
         </div>
       )}
+
+      <AlertDialog open={deleteTarget != null} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
+          <div className="border-b border-border bg-destructive/5 px-6 py-5">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <Trash2 className="h-5 w-5" aria-hidden />
+            </div>
+            <AlertDialogHeader className="space-y-1.5 text-center sm:text-center">
+              <AlertDialogTitle className="text-xl">
+                {deleteTarget?.kind === 'parent' ? 'Delete parent category?' : 'Delete subcategory?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-base leading-relaxed">
+                {deleteTarget ? (
+                  <>
+                    <span className="font-medium text-foreground">“{deleteTarget.name}”</span> will be
+                    permanently removed
+                    {deleteTarget.kind === 'parent'
+                      ? ', including all subcategories and their products.'
+                      : ', including all products in this subcategory.'}{' '}
+                    This cannot be undone.
+                  </>
+                ) : null}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter className="gap-2 px-6 py-4 sm:flex-row sm:justify-end">
+            <AlertDialogCancel disabled={deleteMut.isPending} className="mt-0">
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMut.isPending || !deleteTarget}
+              onClick={() =>
+                deleteTarget && deleteMut.mutate({ id: deleteTarget.id, kind: deleteTarget.kind })
+              }
+            >
+              {deleteMut.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                'Delete permanently'
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

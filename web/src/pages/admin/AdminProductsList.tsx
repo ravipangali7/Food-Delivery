@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { deleteJson, getJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Product } from '@/types';
+import { ConfirmActionDialog } from '@/components/shared/ConfirmActionDialog';
 
 const VIEW_STORAGE_KEY = 'admin-products-view';
 const PRODUCTS_RESTORE_KEY = 'admin-products-restore';
@@ -57,6 +58,7 @@ function useProductsViewMode(): [ViewMode, (v: ViewMode) => void] {
 export default function AdminProductsList() {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useProductsViewMode();
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const { token } = useAuth();
   const queryClient = useQueryClient();
 
@@ -121,14 +123,7 @@ export default function AdminProductsList() {
     });
   }, [products, search]);
 
-  const onDelete = (p: Product) => {
-    if (
-      !window.confirm(`Remove “${p.name}” from the catalog? Customers will no longer see it.`)
-    ) {
-      return;
-    }
-    deleteMut.mutate(p.slug);
-  };
+  const onDelete = (p: Product) => setDeleteTarget(p);
 
   if (!token) {
     return <div className="p-8 text-muted-foreground">Staff only.</div>;
@@ -346,6 +341,25 @@ export default function AdminProductsList() {
           {search.trim() ? 'No products match your search.' : 'No products yet.'}
         </p>
       )}
+      <ConfirmActionDialog
+        open={deleteTarget != null}
+        onOpenChange={open => !open && setDeleteTarget(null)}
+        title="Delete product?"
+        description={
+          deleteTarget
+            ? `“${deleteTarget.name}” will be removed from the catalog. Customers will no longer see it. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete permanently"
+        pendingLabel="Deleting…"
+        isPending={deleteMut.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMut.mutate(deleteTarget.slug, {
+            onSuccess: () => setDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }

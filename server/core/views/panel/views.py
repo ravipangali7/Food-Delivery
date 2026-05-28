@@ -6,7 +6,6 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.db.models import ProtectedError
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -268,15 +267,11 @@ class CategoryDeleteView(StaffRequiredMixin, DeleteView):
     context_object_name = "category"
 
     def post(self, request, *args, **kwargs):
+        from ..admin import crud_views
+
         self.object = self.get_object()
-        try:
-            self.object.delete()
-            messages.success(request, "Category deleted.")
-        except ProtectedError:
-            messages.error(
-                request,
-                "Cannot delete this category while products are linked to it. Reassign or remove those products first.",
-            )
+        crud_views._delete_category_with_products(self.object)
+        messages.success(request, "Category deleted.")
         return redirect(reverse("panel_category_list"))
 
     def get_context_data(self, **kwargs):

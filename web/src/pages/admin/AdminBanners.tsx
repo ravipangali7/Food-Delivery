@@ -5,6 +5,7 @@ import { ExternalLink, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { deleteJson, getJson, patchFormData, patchJson, postFormData } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AdminBanner } from '@/types';
+import { ConfirmActionDialog } from '@/components/shared/ConfirmActionDialog';
 
 type EditorMode = { kind: 'new' } | { kind: 'edit'; banner: AdminBanner } | null;
 
@@ -26,6 +27,7 @@ export default function AdminBanners() {
   const [formActive, setFormActive] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminBanner | null>(null);
 
   const { data: banners = [], isLoading } = useQuery({
     queryKey: ['admin-banners', token],
@@ -298,10 +300,7 @@ export default function AdminBanners() {
                         type="button"
                         title="Delete"
                         className="inline-flex p-1.5 rounded-md text-muted-foreground hover:bg-red-50 hover:text-destructive"
-                        onClick={() => {
-                          if (!window.confirm('Delete this banner?')) return;
-                          deleteMut.mutate(b.id);
-                        }}
+                        onClick={() => setDeleteTarget(b)}
                         disabled={deleteMut.isPending}
                       >
                         <Trash2 size={16} />
@@ -317,6 +316,25 @@ export default function AdminBanners() {
           )}
         </div>
       )}
+      <ConfirmActionDialog
+        open={deleteTarget != null}
+        onOpenChange={open => !open && setDeleteTarget(null)}
+        title="Delete banner?"
+        description={
+          deleteTarget
+            ? `Banner #${deleteTarget.id} will be permanently deleted from the storefront banners list. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete permanently"
+        pendingLabel="Deleting…"
+        isPending={deleteMut.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMut.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }

@@ -5,9 +5,9 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.db.models import Count, Max, Prefetch, Q, Sum
 from django.db.models.functions import TruncDate
-from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -16,6 +16,7 @@ from rest_framework.response import Response
 
 from ...models import (
     Banner,
+    CartItem,
     Category,
     Notification,
     NotificationUser,
@@ -318,6 +319,32 @@ def admin_parent_category_list_create(request):
     )
 
 
+@transaction.atomic
+def _purge_products_for_category_ids(category_ids: list[int]) -> None:
+    if not category_ids:
+        return
+    product_ids = list(
+        Product.objects.filter(category_id__in=category_ids).values_list("pk", flat=True)
+    )
+    if not product_ids:
+        return
+    CartItem.objects.filter(product_id__in=product_ids).delete()
+    Product.objects.filter(pk__in=product_ids).delete()
+
+
+@transaction.atomic
+def _delete_category_with_products(category: Category) -> None:
+    _purge_products_for_category_ids([category.pk])
+    category.delete()
+
+
+@transaction.atomic
+def _delete_parent_category_with_products(parent: ParentCategory) -> None:
+    sub_ids = list(parent.subcategories.values_list("pk", flat=True))
+    _purge_products_for_category_ids(sub_ids)
+    parent.delete()
+
+
 @api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsStaffUser])
 def admin_parent_category_detail(request, pk):
@@ -346,18 +373,7 @@ def admin_parent_category_detail(request, pk):
         ]
         return Response(data)
     if request.method == "DELETE":
-        try:
-            obj.delete()
-        except ProtectedError:
-            return Response(
-                {
-                    "detail": (
-                        "Cannot delete this parent category because one or more "
-                        "subcategories still have products. Reassign or remove those products first."
-                    ),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        _delete_parent_category_with_products(obj)
         return Response(status=status.HTTP_204_NO_CONTENT)
     ser = ParentCategoryAdminSerializer(
         obj, data=request.data, partial=True, context={"request": request}
@@ -408,13 +424,7 @@ def admin_category_detail(request, pk):
     if request.method == "GET":
         return Response(CategoryAdminSerializer(obj, context={"request": request}).data)
     if request.method == "DELETE":
-        try:
-            obj.delete()
-        except ProtectedError:
-            return Response(
-                {"detail": "Cannot delete a category that still has products."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        _delete_category_with_products(obj)
         return Response(status=status.HTTP_204_NO_CONTENT)
     ser = CategoryAdminSerializer(
         obj, data=request.data, partial=True, context={"request": request}
@@ -571,12 +581,19 @@ def admin_unit_detail(request, pk):
     if request.method == "GET":
         return Response(UnitAdminSerializer(obj).data)
     if request.method == "DELETE":
-        if obj.products.filter(deleted_at__isnull=True).exists():
+        # Product.unit is PROTECT; any linked product (even soft-deleted) blocks deletion.
+        if obj.products.exists():
             return Response(
                 {"detail": "Cannot delete a unit that is assigned to products."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        obj.delete()
+        try:
+            obj.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": "Cannot delete a unit that is assigned to products."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
     ser = UnitAdminSerializer(obj, data=request.data, partial=True)
     ser.is_valid(raise_exception=True)
