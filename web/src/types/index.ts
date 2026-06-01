@@ -170,6 +170,28 @@ export interface Category {
 
 export type DiscountType = 'flat' | 'percentage';
 
+export interface ProductVariant {
+  id: number;
+  label?: string;
+  display_label?: string;
+  unit: Unit;
+  price: number;
+  effective_price?: number | string;
+  stock_quantity: number;
+  is_available?: boolean;
+  sort_order?: number;
+}
+
+/** Customer-facing selectable unit/price option on a product detail page. */
+export interface ProductPurchaseOption {
+  variant_id: number | null;
+  label: string;
+  unit: Unit;
+  price: number | string;
+  effective_price: number | string;
+  stock_quantity: number;
+}
+
 export interface Product {
   id: number;
   category_id: number;
@@ -200,6 +222,9 @@ export interface Product {
   /** Admin list API denormalized label */
   category_name?: string;
   images?: ProductImage[];
+  variants?: ProductVariant[];
+  has_variants?: boolean;
+  purchase_options?: ProductPurchaseOption[];
 }
 
 export interface ProductImage {
@@ -225,6 +250,7 @@ export interface CartItem {
   id: number;
   cart_id: number;
   product_id: number;
+  variant_id?: number | null;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -234,6 +260,7 @@ export interface CartItem {
   created_at: string;
   updated_at: string;
   product?: Product;
+  variant?: ProductVariant | null;
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready_for_delivery' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'failed';
@@ -341,12 +368,14 @@ export interface OrderItem {
   id: number;
   order_id: number;
   product_id: number;
+  variant_id?: number | null;
   unit_price: number;
   quantity: number;
   total_price: number;
   notes?: string;
   created_at: string;
   product?: Product;
+  variant?: ProductVariant | null;
 }
 
 export type NotificationType = 'order_placed' | 'order_confirmed' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'promo';

@@ -11,7 +11,7 @@ import {
   type GuestCartLine,
 } from '@/lib/guestCart';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Cart, CartItem, Product } from '@/types';
+import type { Cart, CartItem, Product, ProductVariant } from '@/types';
 
 export function useCart() {
   const { token } = useAuth();
@@ -53,15 +53,22 @@ export function useCart() {
       quantity,
       notes,
       is_preorder,
+      variant_id,
+      variant,
+      unit_price,
     }: {
       product: Product;
       quantity: number;
       notes?: string;
       is_preorder?: boolean;
+      variant_id?: number | null;
+      variant?: ProductVariant | null;
+      unit_price?: number;
     }) => {
       if (token) {
         const body: {
           product_id: number;
+          variant_id?: number | null;
           quantity: number;
           notes?: string;
           is_preorder?: boolean;
@@ -70,17 +77,21 @@ export function useCart() {
           quantity,
           notes: notes || undefined,
         };
+        if (variant_id != null) body.variant_id = variant_id;
         if (is_preorder) body.is_preorder = true;
         await postJson<Cart, typeof body>('/api/cart/items/', body, token);
         return;
       }
       const lines = readGuestCart();
       const existing = lines.find(
-        l => l.product_id === product.id && Boolean(l.is_preorder) === Boolean(is_preorder),
+        l =>
+          l.product_id === product.id &&
+          (l.variant_id ?? null) === (variant_id ?? null) &&
+          Boolean(l.is_preorder) === Boolean(is_preorder),
       );
       const nextQty = (existing?.quantity ?? 0) + quantity;
       writeGuestCart(
-        upsertGuestLine(lines, product, nextQty, { notes, is_preorder }),
+        upsertGuestLine(lines, product, nextQty, { notes, is_preorder, variant_id, variant, unit_price }),
       );
       bumpGuest();
     },
@@ -104,6 +115,7 @@ export function useCart() {
         }
         const body: {
           product_id: number;
+          variant_id?: number | null;
           quantity: number;
           notes?: string;
           is_preorder?: boolean;
@@ -112,6 +124,7 @@ export function useCart() {
           quantity,
           notes: item.notes,
         };
+        if (item.variant_id != null) body.variant_id = item.variant_id;
         if (item.is_preorder) body.is_preorder = true;
         await postJson<Cart, typeof body>('/api/cart/items/', body, token);
         return;
@@ -123,6 +136,9 @@ export function useCart() {
         lines = upsertGuestLine(lines, product, quantity, {
           notes: item.notes,
           is_preorder: item.is_preorder,
+          variant_id: item.variant_id ?? null,
+          variant: item.variant ?? null,
+          unit_price: item.unit_price,
         });
       }
       writeGuestCart(lines);

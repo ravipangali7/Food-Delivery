@@ -25,11 +25,35 @@ export function storeFromSettings(settings: SuperSetting | undefined): OrderInvo
   };
 }
 
+/** Extract ``/media/...`` path from a URL or relative string. */
+export function mediaPathFromUrl(url: string): string | null {
+  const t = url.trim();
+  if (t.startsWith('/media/')) return t;
+  try {
+    const p = new URL(t).pathname;
+    return p.startsWith('/media/') ? p : null;
+  } catch {
+    return null;
+  }
+}
+
 export function absoluteAssetUrl(url: string | undefined | null): string | null {
   if (!url?.trim()) return null;
   const t = url.trim();
   if (t.startsWith('http://') || t.startsWith('https://') || t.startsWith('data:')) return t;
-  if (t.startsWith('/')) return apiUrl(t);
+  if (t.startsWith('/')) {
+    if (typeof window !== 'undefined') {
+      // Uploaded files live on the API; bundled SPA assets (e.g. /logo.png) on the storefront host.
+      if (t.startsWith('/media/') || t.startsWith('/api/')) {
+        return apiUrl(t);
+      }
+      return `${window.location.origin}${t}`;
+    }
+    if (t.startsWith('/media/')) {
+      return apiUrl(t);
+    }
+    return t;
+  }
   return apiUrl(`/${t}`);
 }
 
@@ -69,6 +93,12 @@ export function invoiceImageFetchCandidates(url: string): string[] {
     if (!base) {
       add(`${parsed.pathname}${parsed.search}`);
     }
+
+    add(`${parsed.pathname}${parsed.search}`);
+
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && parsed.protocol === 'http:') {
+      add(`https://${parsed.host}${parsed.pathname}${parsed.search}`);
+    }
   } catch {
     /* ignore */
   }
@@ -76,11 +106,35 @@ export function invoiceImageFetchCandidates(url: string): string[] {
   return out;
 }
 
-async function fetchImageAsDataUrl(fetchUrl: string): Promise<string | null> {
+/** Staff API proxy — avoids missing CORS on raw ``/media/`` static files. */
+async function fetchMediaViaAdminProxy(
+  mediaPath: string,
+  authToken: string,
+): Promise<string | null> {
   try {
-    const res = await fetch(fetchUrl, { mode: 'cors', credentials: 'omit' });
+    const res = await fetch(apiUrl(`/api/admin/media/?path=${encodeURIComponent(mediaPath)}`), {
+      headers: {
+        Authorization: `Token ${authToken}`,
+        Accept: 'image/*,*/*',
+      },
+    });
+    if (!res.ok) return null;
+    return await blobToDataUrl(await res.blob());
+  } catch {
+    return null;
+  }
+}
+
+async function fetchImageAsDataUrl(fetchUrl: string, authToken?: string | null): Promise<string | null> {
+  try {
+    const headers = authToken ? { Authorization: `Token ${authToken}` } : undefined;
+    const res = await fetch(fetchUrl, {
+      credentials: 'include',
+      headers,
+    });
     if (!res.ok) return null;
     const blob = await res.blob();
+    if (!blob.type.startsWith('image/') && blob.size < 32) return null;
     return await blobToDataUrl(blob);
   } catch {
     return null;
@@ -112,21 +166,34 @@ function decodeImageToDataUrl(src: string): Promise<string | null> {
   });
 }
 
-/** Load remote image as data URL for PDF embedding (CORS-safe when server allows). */
-export async function loadImageAsDataUrl(url: string | undefined | null): Promise<string | null> {
+/** Load remote image as data URL for PDF embedding. */
+export async function loadImageAsDataUrl(
+  url: string | undefined | null,
+  options?: { authToken?: string | null },
+): Promise<string | null> {
   const absolute = absoluteAssetUrl(url);
   if (!absolute) return null;
 
   if (absolute.startsWith('data:')) return absolute;
 
+  const mediaPath = mediaPathFromUrl(absolute);
+  if (mediaPath && options?.authToken) {
+    const viaProxy = await fetchMediaViaAdminProxy(mediaPath, options.authToken);
+    if (viaProxy) return viaProxy;
+  }
+
   for (const candidate of invoiceImageFetchCandidates(absolute)) {
-    const fromFetch = await fetchImageAsDataUrl(candidate);
+    const fromFetch = await fetchImageAsDataUrl(candidate, options?.authToken);
     if (fromFetch) return fromFetch;
   }
 
   for (const candidate of invoiceImageFetchCandidates(absolute)) {
     const fromImg = await decodeImageToDataUrl(candidate);
     if (fromImg) return fromImg;
+  }
+
+  if (mediaPath && options?.authToken) {
+    return fetchMediaViaAdminProxy(mediaPath, options.authToken);
   }
 
   return null;
@@ -141,10 +208,11 @@ export function productThumbUrl(item: OrderItem): string | null {
 export async function preloadOrderInvoiceImages(
   store: OrderInvoiceStore,
   items: OrderItem[],
+  options?: { authToken?: string | null },
 ): Promise<OrderInvoiceImageMap> {
   const [logo, ...itemUrls] = await Promise.all([
-    loadImageAsDataUrl(store.logoUrl),
-    ...items.map(it => loadImageAsDataUrl(productThumbUrl(it))),
+    loadImageAsDataUrl(store.logoUrl, options),
+    ...items.map(it => loadImageAsDataUrl(productThumbUrl(it), options)),
   ]);
 
   const itemMap: Record<number, string | null> = {};
@@ -155,26 +223,59 @@ export async function preloadOrderInvoiceImages(
   return { logo, items: itemMap };
 }
 
+/** Force every ``<img>`` in the invoice to use an inline data URL before capture. */
+export async function embedInvoiceImagesInElement(
+  root: HTMLElement,
+  options?: { authToken?: string | null },
+): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll('img'));
+  await Promise.all(
+    imgs.map(async img => {
+      const raw = img.getAttribute('src') || img.src || '';
+      if (raw.startsWith('data:')) {
+        img.src = raw;
+        img.removeAttribute('crossorigin');
+        return;
+      }
+      if (!raw) return;
+      const data = await loadImageAsDataUrl(raw, options);
+      if (data) {
+        img.src = data;
+        img.removeAttribute('crossorigin');
+      }
+    }),
+  );
+}
+
 export function invoicePdfFilename(orderNumber: string): string {
   const safe = orderNumber.replace(/[^\w.-]+/g, '_');
   return `invoice-${safe}.pdf`;
 }
 
 /** Capture a rendered invoice DOM node and download as A4 PDF. */
-export async function downloadInvoiceElementAsPdf(element: HTMLElement, filename: string): Promise<void> {
+export async function downloadInvoiceElementAsPdf(
+  element: HTMLElement,
+  filename: string,
+  options?: { authToken?: string | null },
+): Promise<void> {
+  await embedInvoiceImagesInElement(element, options);
+  await waitForImagesInElement(element);
+
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
     allowTaint: false,
     backgroundColor: '#ffffff',
     logging: false,
-    imageTimeout: 15000,
+    imageTimeout: 20000,
     onclone: doc => {
       doc.querySelectorAll('img').forEach(node => {
         const img = node as HTMLImageElement;
-        if (img.src.startsWith('data:')) return;
-        const raw = img.getAttribute('src');
-        if (raw?.startsWith('data:')) img.src = raw;
+        const raw = img.getAttribute('src') || '';
+        if (raw.startsWith('data:')) {
+          img.src = raw;
+          img.removeAttribute('crossorigin');
+        }
       });
     },
   });
@@ -204,7 +305,7 @@ export async function downloadInvoiceElementAsPdf(element: HTMLElement, filename
 }
 
 /** Wait for all images inside a node to finish loading (or fail). */
-export function waitForImagesInElement(root: HTMLElement, timeoutMs = 12000): Promise<void> {
+export function waitForImagesInElement(root: HTMLElement, timeoutMs = 15000): Promise<void> {
   const imgs = Array.from(root.querySelectorAll('img'));
   if (imgs.length === 0) return Promise.resolve();
 
@@ -220,7 +321,7 @@ export function waitForImagesInElement(root: HTMLElement, timeoutMs = 12000): Pr
     };
     const timer = window.setTimeout(finish, timeoutMs);
     imgs.forEach(img => {
-      if (img.complete) return;
+      if (img.complete && img.naturalWidth > 0) return;
       pending += 1;
       img.addEventListener('load', done, { once: true });
       img.addEventListener('error', done, { once: true });

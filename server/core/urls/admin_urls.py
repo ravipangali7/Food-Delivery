@@ -5,6 +5,7 @@ from django.urls import path
 from ..views.admin import crud_views, x_views
 
 urlpatterns = [
+    path("admin/media/", x_views.admin_media_file),
     path("orders/<int:pk>/assign-delivery/", x_views.order_assign_delivery),
     path(
         "admin/order-cancellation-requests/<int:pk>/review/",

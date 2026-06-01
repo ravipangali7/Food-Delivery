@@ -8,7 +8,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
-from django.utils import timezone
 from django.views import View
 from django.views.generic import (
     CreateView,
@@ -152,8 +151,10 @@ class ProductDeleteView(StaffRequiredMixin, DeleteView):
         return Product.objects.filter(deleted_at__isnull=True)
 
     def form_valid(self, form):
-        Product.objects.filter(pk=self.object.pk).update(deleted_at=timezone.now())
-        messages.success(self.request, "Product removed from the catalog.")
+        from ..admin import crud_views
+
+        crud_views._hard_delete_product(self.object)
+        messages.success(self.request, "Product permanently removed from the catalog.")
         return redirect(self.get_success_url())
 
     def get_success_url(self):
@@ -426,8 +427,14 @@ class DeliveryBoyDeleteView(StaffRequiredMixin, DeleteView):
         return User.objects.filter(is_delivery_boy=True, deleted_at__isnull=True)
 
     def form_valid(self, form):
-        User.objects.filter(pk=self.object.pk).update(deleted_at=timezone.now())
-        messages.success(self.request, "Delivery partner deactivated (soft-deleted).")
+        from ..admin import crud_views
+
+        try:
+            crud_views._hard_delete_user(self.object)
+        except ValueError as exc:
+            messages.error(self.request, str(exc))
+            return redirect(reverse("panel_delivery_boy_list"))
+        messages.success(self.request, "Delivery partner permanently removed.")
         return redirect(self.get_success_url())
 
     def get_success_url(self):

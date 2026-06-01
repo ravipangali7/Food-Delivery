@@ -1,3 +1,4 @@
+import json
 import uuid
 from decimal import Decimal
 from urllib.parse import urlparse, urlunparse
@@ -5,6 +6,7 @@ from urllib.parse import urlparse, urlunparse
 from django.conf import settings
 from django.core.files.storage import default_storage
 from rest_framework import serializers
+from rest_framework.utils import html
 
 from . import services
 from .models import (
@@ -22,6 +24,7 @@ from .models import (
     ParentCategory,
     Product,
     ProductImage,
+    ProductVariant,
     SuperSetting,
     Unit,
     User,
@@ -353,12 +356,48 @@ class UnitMiniSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "sort_order")
 
 
+class ProductVariantSerializer(serializers.ModelSerializer):
+    unit = UnitMiniSerializer(read_only=True)
+    effective_price = serializers.SerializerMethodField()
+    display_label = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = ProductVariant
+        fields = (
+            "id",
+            "label",
+            "display_label",
+            "unit",
+            "price",
+            "effective_price",
+            "stock_quantity",
+            "is_available",
+            "sort_order",
+        )
+        read_only_fields = fields
+
+    def get_effective_price(self, obj: ProductVariant) -> str:
+        return str(obj.effective_price)
+
+
+class ProductPurchaseOptionSerializer(serializers.Serializer):
+    variant_id = serializers.IntegerField(allow_null=True)
+    label = serializers.CharField()
+    unit = UnitMiniSerializer()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    effective_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    stock_quantity = serializers.IntegerField()
+
+
 class ProductSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
     normalize_media_fields = ("thumbnail_url",)
 
     category_id = serializers.PrimaryKeyRelatedField(source="category", queryset=Category.objects.all())
     effective_price = serializers.SerializerMethodField()
     unit = UnitMiniSerializer(read_only=True)
+    variants = ProductVariantSerializer(many=True, read_only=True)
+    purchase_options = serializers.SerializerMethodField()
+    has_variants = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -385,19 +424,58 @@ class ProductSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerialize
             "updated_at",
             "deleted_at",
             "images",
+            "variants",
+            "has_variants",
+            "purchase_options",
         )
-        read_only_fields = ("created_at", "updated_at", "images", "effective_price")
+        read_only_fields = ("created_at", "updated_at", "images", "effective_price", "variants", "has_variants", "purchase_options")
 
     images = ProductImageSerializer(many=True, read_only=True)
 
     def get_effective_price(self, obj: Product) -> str:
         return str(obj.effective_price)
 
+    def get_has_variants(self, obj: Product) -> bool:
+        variants = self._prefetched_variants(obj)
+        return len(variants) > 0
+
+    def get_purchase_options(self, obj: Product) -> list[dict]:
+        variants = [v for v in self._prefetched_variants(obj) if v.is_available]
+        if not variants:
+            return []
+        options: list[dict] = []
+        for variant in variants:
+            options.append(
+                {
+                    "variant_id": variant.pk,
+                    "label": variant.display_label,
+                    "unit": UnitMiniSerializer(variant.unit).data,
+                    "price": variant.price,
+                    "effective_price": variant.effective_price,
+                    "stock_quantity": variant.stock_quantity,
+                }
+            )
+        return options if len(options) > 1 else []
+
+    def _prefetched_variants(self, obj: Product) -> list[ProductVariant]:
+        cache = getattr(obj, "_prefetched_objects_cache", None)
+        if cache and "variants" in cache:
+            return list(cache["variants"])
+        return list(obj.variants.order_by("sort_order", "id"))
+
 
 class CartItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
         queryset=Product.objects.all(), source="product", write_only=True
+    )
+    variant = ProductVariantSerializer(read_only=True)
+    variant_id = serializers.PrimaryKeyRelatedField(
+        queryset=ProductVariant.objects.all(),
+        source="variant",
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
 
     class Meta:
@@ -407,6 +485,8 @@ class CartItemSerializer(serializers.ModelSerializer):
             "cart_id",
             "product_id",
             "product",
+            "variant_id",
+            "variant",
             "quantity",
             "unit_price",
             "total_price",
@@ -423,6 +503,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "product",
+            "variant",
             "is_preorder",
         )
 
@@ -438,6 +519,7 @@ class CartSerializer(serializers.ModelSerializer):
 
 class CartItemWriteSerializer(serializers.Serializer):
     product_id = serializers.IntegerField()
+    variant_id = serializers.IntegerField(required=False, allow_null=True)
     quantity = serializers.IntegerField(min_value=1)
     notes = serializers.CharField(required=False, allow_blank=True, max_length=255)
     is_preorder = serializers.BooleanField(required=False, default=False)
@@ -445,6 +527,7 @@ class CartItemWriteSerializer(serializers.Serializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
+    variant = ProductVariantSerializer(read_only=True)
 
     class Meta:
         model = OrderItem
@@ -453,6 +536,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "order_id",
             "product_id",
             "product",
+            "variant_id",
+            "variant",
             "unit_price",
             "quantity",
             "total_price",
@@ -648,6 +733,7 @@ class OrderAssignDeliverySerializer(serializers.Serializer):
 
 class CheckoutGuestLineSerializer(serializers.Serializer):
     product_id = serializers.IntegerField()
+    variant_id = serializers.IntegerField(required=False, allow_null=True)
     quantity = serializers.IntegerField(min_value=1)
     notes = serializers.CharField(required=False, allow_blank=True, max_length=255)
     is_preorder = serializers.BooleanField(required=False, default=False)
@@ -918,6 +1004,33 @@ class UnitAdminSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
 
+class ProductVariantAdminSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False, allow_null=True)
+    unit_id = serializers.PrimaryKeyRelatedField(source="unit", queryset=Unit.objects.all())
+    unit = UnitMiniSerializer(read_only=True)
+    effective_price = serializers.SerializerMethodField(read_only=True)
+    display_label = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = ProductVariant
+        fields = (
+            "id",
+            "label",
+            "display_label",
+            "unit_id",
+            "unit",
+            "price",
+            "effective_price",
+            "stock_quantity",
+            "is_available",
+            "sort_order",
+        )
+        read_only_fields = ("unit", "effective_price", "display_label")
+
+    def get_effective_price(self, obj: ProductVariant) -> str:
+        return str(obj.effective_price)
+
+
 class ProductAdminSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
     normalize_media_fields = ("thumbnail_url",)
     category_id = serializers.PrimaryKeyRelatedField(source="category", queryset=Category.objects.all())
@@ -928,6 +1041,7 @@ class ProductAdminSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSeri
     unit = UnitMiniSerializer(read_only=True)
     effective_price = serializers.SerializerMethodField(read_only=True)
     thumbnail_file = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    variants = ProductVariantAdminSerializer(many=True, required=False)
 
     class Meta:
         model = Product
@@ -957,6 +1071,7 @@ class ProductAdminSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSeri
             "updated_at",
             "deleted_at",
             "images",
+            "variants",
         )
         read_only_fields = ("created_at", "updated_at", "images", "effective_price", "unit", "category_name")
 
@@ -965,20 +1080,51 @@ class ProductAdminSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSeri
     def get_effective_price(self, obj: Product) -> str:
         return str(obj.effective_price)
 
+    def to_internal_value(self, data):
+        if hasattr(data, "get"):
+            raw_variants = data.get("variants")
+            if isinstance(raw_variants, str) and raw_variants.strip():
+                parsed = json.loads(raw_variants)
+                # Multipart uses QueryDict; DRF skips nested lists unless we use a plain dict.
+                if html.is_html_input(data):
+                    data = {key: data.get(key) for key in data}
+                elif hasattr(data, "copy"):
+                    data = data.copy()
+                else:
+                    data = dict(data)
+                data["variants"] = parsed
+        return super().to_internal_value(data)
+
     def validate(self, attrs):
         inst = self.instance
-        if inst is None and attrs.get("unit") is None:
-            raise serializers.ValidationError({"unit_id": "This field is required."})
-        dtype = attrs.get("discount_type", getattr(inst, "discount_type", None) if inst else Product.DiscountType.FLAT)
-        if dtype is None:
-            dtype = Product.DiscountType.FLAT
-        val = attrs.get("discount_value", None)
-        if inst is not None and "discount_value" not in attrs and self.partial:
-            val = inst.discount_value
-        if val is not None and val > 0:
-            if dtype == Product.DiscountType.PERCENTAGE and val > 100:
-                raise serializers.ValidationError({"discount_value": "Percentage must be between 0 and 100."})
+        variants = attrs.get("variants")
+        if inst is None:
+            if not variants:
+                raise serializers.ValidationError({"variants": "Add at least one variant."})
+        elif variants is not None and len(variants) == 0:
+            raise serializers.ValidationError({"variants": "Add at least one variant."})
+        if variants:
+            for idx, row in enumerate(variants):
+                if row.get("unit") is None:
+                    raise serializers.ValidationError({f"variants[{idx}].unit_id": "This field is required."})
+                if row.get("price") in (None, ""):
+                    raise serializers.ValidationError({f"variants[{idx}].price": "This field is required."})
         return attrs
+
+    def _apply_variant_mode_product_fields(
+        self, validated_data: dict, variants_data: list[dict] | None
+    ) -> None:
+        """When variants are used, mirror the first variant onto the product row for catalog fallbacks."""
+        if not variants_data:
+            return
+        first = sorted(
+            variants_data,
+            key=lambda row: (row.get("sort_order", 0), row.get("id") or 0),
+        )[0]
+        validated_data["unit"] = first["unit"]
+        validated_data["price"] = first["price"]
+        validated_data["stock_quantity"] = first.get("stock_quantity", 0)
+        validated_data["discount_value"] = None
 
     def _save_thumbnail_from_upload(self, instance: Product, thumbnail_file) -> None:
         ext = "png"
@@ -993,18 +1139,56 @@ class ProductAdminSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSeri
         instance.thumbnail_url = _absolute_media_url(request, rel)
         instance.save(update_fields=["thumbnail_url", "updated_at"])
 
+    def _sync_variants(self, instance: Product, variants_data: list[dict] | None) -> None:
+        if variants_data is None:
+            return
+        keep_ids: list[int] = []
+        for row in variants_data:
+            row_id = row.get("id")
+            payload = {
+                "label": row.get("label") or "",
+                "unit": row["unit"],
+                "price": row["price"],
+                "stock_quantity": row.get("stock_quantity", 0),
+                "is_available": row.get("is_available", True),
+                "sort_order": row.get("sort_order", 0),
+            }
+            if row_id:
+                variant = instance.variants.filter(pk=row_id).first()
+                if variant is None:
+                    continue
+                for field, value in payload.items():
+                    setattr(variant, field, value)
+                variant.save()
+                keep_ids.append(variant.pk)
+            else:
+                variant = ProductVariant.objects.create(product=instance, **payload)
+                keep_ids.append(variant.pk)
+        instance.variants.exclude(pk__in=keep_ids).delete()
+
     def create(self, validated_data):
+        variants_data = validated_data.pop("variants", None)
         thumbnail_file = validated_data.pop("thumbnail_file", None)
+        if not variants_data:
+            raise serializers.ValidationError({"variants": "Add at least one variant."})
+        self._apply_variant_mode_product_fields(validated_data, variants_data)
         instance = super().create(validated_data)
         if thumbnail_file:
             self._save_thumbnail_from_upload(instance, thumbnail_file)
+        self._sync_variants(instance, variants_data)
         return instance
 
     def update(self, instance, validated_data):
+        variants_data = validated_data.pop("variants", None)
         thumbnail_file = validated_data.pop("thumbnail_file", None)
+        if variants_data is not None:
+            if len(variants_data) == 0:
+                raise serializers.ValidationError({"variants": "Add at least one variant."})
+            self._apply_variant_mode_product_fields(validated_data, variants_data)
         instance = super().update(instance, validated_data)
         if thumbnail_file:
             self._save_thumbnail_from_upload(instance, thumbnail_file)
+        self._sync_variants(instance, variants_data)
         return instance
 
 
@@ -1285,3 +1469,27 @@ class AdminPasswordLoginSerializer(serializers.Serializer):
         if len(digits) < 7 or len(digits) > 15:
             raise serializers.ValidationError("Enter a valid phone number.")
         return digits
+
+
+class CustomerPasswordLoginSerializer(AdminPasswordLoginSerializer):
+    """Customer SPA login: phone + password."""
+
+
+class CustomerRegisterSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=15)
+    name = serializers.CharField(max_length=100, trim_whitespace=True)
+    password = serializers.CharField(write_only=True, min_length=6, trim_whitespace=False)
+
+    def validate_phone(self, value: str) -> str:
+        from .utils.phone import normalize_phone
+
+        digits = normalize_phone(value)
+        if len(digits) < 7 or len(digits) > 15:
+            raise serializers.ValidationError("Enter a valid phone number.")
+        return digits
+
+    def validate_name(self, value: str) -> str:
+        name = (value or "").strip()
+        if len(name) < 2:
+            raise serializers.ValidationError("Enter your full name.")
+        return name

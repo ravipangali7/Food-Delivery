@@ -5,7 +5,7 @@
   <h1>Remove delivery partner</h1>
 </div>
 <div class="panel-card panel-form">
-  <p>Deactivate <strong>{{ delivery_boy.name }}</strong>? They will be soft-deleted and cannot sign in until restored via database.</p>
+  <p>Permanently delete <strong>{{ delivery_boy.name }}</strong>? Their account will be removed and they will no longer be able to sign in. This cannot be undone.</p>
   <form method="post">
     {% csrf_token %}
     <div class="panel-actions">

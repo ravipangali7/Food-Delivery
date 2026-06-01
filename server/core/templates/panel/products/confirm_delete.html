@@ -5,7 +5,7 @@
   <h1>Delete product</h1>
 </div>
 <div class="panel-card panel-form">
-  <p>Remove <strong>{{ product.name }}</strong> from the catalog? It will be hidden from customers (soft delete).</p>
+  <p>Permanently delete <strong>{{ product.name }}</strong> from the catalog? Customers will no longer see it. This cannot be undone.</p>
   <form method="post">
     {% csrf_token %}
     <div class="panel-actions">

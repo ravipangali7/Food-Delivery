@@ -71,6 +71,7 @@ import DeliveryEarnings from "./pages/delivery/DeliveryEarnings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CustomerProtectedRoute from "./components/CustomerProtectedRoute";
+import CustomerAppGate from "./components/customer/CustomerAppGate";
 import { LegacyAdminUsersRedirect } from "./components/admin/LegacyAdminRedirects";
 
 const App = () => (
@@ -144,7 +145,14 @@ const App = () => (
           </Route>
 
           {/* Customer Portal — browse, cart, and checkout work without login */}
-          <Route path="/customer" element={<CustomerLayout />}>
+          <Route
+            path="/customer"
+            element={
+              <CustomerAppGate>
+                <CustomerLayout />
+              </CustomerAppGate>
+            }
+          >
             <Route index element={<CustomerHome />} />
             <Route path="explore" element={<CustomerExplore />} />
             <Route path="sweets" element={<CustomerSweets />} />

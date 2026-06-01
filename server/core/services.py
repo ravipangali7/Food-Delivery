@@ -25,6 +25,7 @@ from .models import (
     OrderCancellationRequest,
     OrderItem,
     Product,
+    ProductVariant,
     SuperSetting,
     User,
 )
@@ -160,6 +161,52 @@ def recalculate_cart_totals(cart: Cart) -> None:
     cart.save(update_fields=["subtotal", "total", "updated_at"])
 
 
+def resolve_product_variant(
+    product: Product,
+    variant_id: int | None,
+) -> ProductVariant | None:
+    if variant_id is None:
+        if product.has_variants:
+            sole = (
+                product.variants.filter(is_available=True)
+                .select_related("unit")
+                .order_by("sort_order", "id")
+            )
+            if sole.count() == 1:
+                return sole.first()
+            raise ValueError("Please select a variant")
+        return None
+    variant = (
+        ProductVariant.objects.filter(pk=variant_id, product_id=product.pk, is_available=True)
+        .select_related("unit")
+        .first()
+    )
+    if variant is None:
+        raise ValueError("Selected variant is not available")
+    return variant
+
+
+def line_unit_price(product: Product, variant: ProductVariant | None) -> Decimal:
+    if variant is not None:
+        return variant.effective_price
+    return product.effective_price
+
+
+def line_stock_quantity(product: Product, variant: ProductVariant | None) -> int:
+    if variant is not None:
+        return variant.stock_quantity
+    return product.stock_quantity
+
+
+def deduct_line_stock(product: Product, variant: ProductVariant | None, quantity: int) -> None:
+    if variant is not None:
+        ProductVariant.objects.filter(pk=variant.pk).update(
+            stock_quantity=variant.stock_quantity - quantity
+        )
+        return
+    Product.objects.filter(pk=product.pk).update(stock_quantity=product.stock_quantity - quantity)
+
+
 def upsert_cart_line(
     cart: Cart,
     product: Product,
@@ -167,10 +214,11 @@ def upsert_cart_line(
     notes: str | None = None,
     *,
     is_preorder: bool = False,
+    variant: ProductVariant | None = None,
 ) -> CartItem:
     """
-    Merge line per UniqueConstraint (cart, product); prices from Product.effective_price.
-    Pre-order lines (sweets only) skip live stock checks; date/time is collected at checkout.
+    Merge line per UniqueConstraint (cart, product, variant, is_preorder);
+    prices from the selected variant or product default.
     """
     if quantity < 1:
         raise ValueError("quantity must be at least 1")
@@ -180,21 +228,26 @@ def upsert_cart_line(
         raise ValueError("Product is not available for purchase")
     if is_preorder and not product.is_sweet:
         raise ValueError("Only sweet items can be pre-ordered")
-    if not is_preorder and product.stock_quantity < quantity:
+    if product.has_variants and variant is None:
+        raise ValueError("Please select a variant")
+    if variant is not None and variant.product_id != product.pk:
+        raise ValueError("Selected variant does not belong to this product")
+    if not is_preorder and line_stock_quantity(product, variant) < quantity:
         raise ValueError("Insufficient stock")
 
-    unit = product.effective_price
+    unit = line_unit_price(product, variant)
     total = (unit * quantity).quantize(Decimal("0.01"))
 
     item, created = CartItem.objects.get_or_create(
         cart=cart,
         product=product,
+        variant=variant,
+        is_preorder=is_preorder,
         defaults={
             "quantity": quantity,
             "unit_price": unit,
             "total_price": total,
             "notes": notes or "",
-            "is_preorder": is_preorder,
         },
     )
     if not created:
@@ -324,6 +377,8 @@ def apply_order_status_change(
     """
     Enforce transition rules; set delivered_at / cancelled_at; optional notifications.
     """
+    if order.status == new_status:
+        return order
     if not is_valid_status_transition(order.status, new_status):
         raise ValueError(f"Cannot transition from {order.status} to {new_status}")
 
@@ -463,7 +518,7 @@ def _new_guest_access_token() -> str:
 
 
 def _validate_preorder_schedule(
-    line_snapshots: list[tuple[Product, int, Decimal, str, bool]],
+    line_snapshots: list[tuple[Product, ProductVariant | None, int, Decimal, str, bool]],
     pre_order_date_time: datetime | None,
 ) -> datetime | None:
     has_preorder = any(line_is_preorder for *_rest, line_is_preorder in line_snapshots)
@@ -478,43 +533,45 @@ def _validate_preorder_schedule(
 
 def _line_snapshots_from_cart_items(
     items: list,
-) -> tuple[Decimal, list[tuple[Product, int, Decimal, str, bool]]]:
+) -> tuple[Decimal, list[tuple[Product, ProductVariant | None, int, Decimal, str, bool]]]:
     subtotal = Decimal("0.00")
-    line_snapshots: list[tuple[Product, int, Decimal, str, bool]] = []
+    line_snapshots: list[tuple[Product, ProductVariant | None, int, Decimal, str, bool]] = []
     for ci in items:
         p = ci.product
+        variant = getattr(ci, "variant", None)
         if p.deleted_at is not None or not p.is_available:
             raise ValueError(f"Product '{p.name}' is not available")
         if ci.is_preorder and not p.is_sweet:
             raise ValueError(f"Product '{p.name}' cannot be on a pre-order line")
-        if not ci.is_preorder and p.stock_quantity < ci.quantity:
+        if not ci.is_preorder and line_stock_quantity(p, variant) < ci.quantity:
             raise ValueError(f"Insufficient stock for '{p.name}'")
-        unit = p.effective_price
+        unit = line_unit_price(p, variant)
         line_total = (unit * ci.quantity).quantize(Decimal("0.01"))
         subtotal += line_total
-        line_snapshots.append((p, ci.quantity, unit, ci.notes or "", ci.is_preorder))
+        line_snapshots.append((p, variant, ci.quantity, unit, ci.notes or "", ci.is_preorder))
     return subtotal, line_snapshots
 
 
 def _line_snapshots_from_guest_lines(
     guest_lines: list[dict],
-) -> tuple[Decimal, list[tuple[Product, int, Decimal, str, bool]]]:
+) -> tuple[Decimal, list[tuple[Product, ProductVariant | None, int, Decimal, str, bool]]]:
     subtotal = Decimal("0.00")
-    line_snapshots: list[tuple[Product, int, Decimal, str, bool]] = []
+    line_snapshots: list[tuple[Product, ProductVariant | None, int, Decimal, str, bool]] = []
     for row in guest_lines:
         p = Product.objects.filter(pk=row["product_id"]).first()
         if p is None or p.deleted_at is not None or not p.is_available:
             raise ValueError("One or more products are not available")
+        variant = resolve_product_variant(p, row.get("variant_id"))
         qty = row["quantity"]
         is_preorder = bool(row.get("is_preorder"))
         if is_preorder and not p.is_sweet:
             raise ValueError(f"Product '{p.name}' cannot be on a pre-order line")
-        if not is_preorder and p.stock_quantity < qty:
+        if not is_preorder and line_stock_quantity(p, variant) < qty:
             raise ValueError(f"Insufficient stock for '{p.name}'")
-        unit = p.effective_price
+        unit = line_unit_price(p, variant)
         line_total = (unit * qty).quantize(Decimal("0.01"))
         subtotal += line_total
-        line_snapshots.append((p, qty, unit, row.get("notes") or "", is_preorder))
+        line_snapshots.append((p, variant, qty, unit, row.get("notes") or "", is_preorder))
     return subtotal, line_snapshots
 
 
@@ -522,7 +579,7 @@ def _line_snapshots_from_guest_lines(
 def place_order_from_lines(
     *,
     user: User | None,
-    line_snapshots: list[tuple[Product, int, Decimal, str, bool]],
+    line_snapshots: list[tuple[Product, ProductVariant | None, int, Decimal, str, bool]],
     address: str,
     delivery_latitude: Decimal | None = None,
     delivery_longitude: Decimal | None = None,
@@ -543,7 +600,7 @@ def place_order_from_lines(
     pre_order_date_time = _validate_preorder_schedule(line_snapshots, pre_order_date_time)
     subtotal = sum(
         (unit * qty).quantize(Decimal("0.01"))
-        for _p, qty, unit, _notes, _pre in line_snapshots
+        for _p, _variant, qty, unit, _notes, _pre in line_snapshots
     )
     has_preorder = pre_order_date_time is not None
 
@@ -575,17 +632,18 @@ def place_order_from_lines(
     )
     order.save()
 
-    for p, qty, unit, notes, line_is_preorder in line_snapshots:
+    for p, variant, qty, unit, notes, line_is_preorder in line_snapshots:
         OrderItem.objects.create(
             order=order,
             product=p,
+            variant=variant,
             unit_price=unit,
             quantity=qty,
             total_price=(unit * qty).quantize(Decimal("0.01")),
             notes=notes or None,
         )
         if not line_is_preorder:
-            Product.objects.filter(pk=p.pk).update(stock_quantity=p.stock_quantity - qty)
+            deduct_line_stock(p, variant, qty)
 
     if user is not None:
         create_order_notifications(
@@ -616,7 +674,7 @@ def place_order_from_cart(
     if cart is None or not cart.items.exists():
         raise ValueError("Cart is empty")
 
-    items = list(cart.items.select_related("product").select_for_update())
+    items = list(cart.items.select_related("product", "variant").select_for_update())
     _subtotal, line_snapshots = _line_snapshots_from_cart_items(items)
     order = place_order_from_lines(
         user=user,

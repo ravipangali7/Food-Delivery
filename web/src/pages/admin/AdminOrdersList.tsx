@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCurrency, timeAgo, num } from '@/lib/formatting';
 import { OrderStatusBadge } from '@/components/shared/StatusBadge';
 import { orderStatusLabels, validStatusTransitions } from '@/lib/colors';
+import { canTransitionOrderStatus } from '@/lib/orderLogic';
 import { PreorderScheduleSummary } from '@/components/admin/PreorderScheduleSummary';
 import { Search, Download, Eye, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,19 +28,33 @@ function OrderListStatusEditor({ order }: { order: Order }) {
   const transitionMut = useMutation({
     mutationFn: async () => {
       if (!token || !nextChoice) throw new Error('Select a new status');
+      const fresh = await getJson<Order>(`/api/orders/${order.id}/`, token);
+      if (fresh.status === nextChoice) return { order: fresh, changed: false as const };
+      if (!canTransitionOrderStatus(fresh.status, nextChoice)) {
+        throw new Error(
+          `Order is already ${orderStatusLabels[fresh.status] ?? fresh.status}. Choose a different status.`,
+        );
+      }
       const body: { status: OrderStatus; cancellation_reason?: string } = { status: nextChoice };
       if (nextChoice === 'cancelled') {
         const reason = window.prompt('Cancellation reason (optional):') ?? '';
         if (reason.trim()) body.cancellation_reason = reason.trim();
       }
-      return postJson<Order>(`/api/orders/${order.id}/transition/`, body, token);
+      const updated = await postJson<Order>(`/api/orders/${order.id}/transition/`, body, token);
+      return { order: updated, changed: true as const };
     },
-    onSuccess: () => {
+    onSuccess: result => {
       setNextChoice('');
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-summary', token] });
       queryClient.invalidateQueries({ queryKey: ['order', String(order.id)] });
-      toast.success('Status updated');
+      if (result.changed) {
+        toast.success('Status updated');
+      } else {
+        toast.info(
+          `Order is already ${orderStatusLabels[result.order.status] ?? result.order.status}`,
+        );
+      }
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : 'Could not update status';

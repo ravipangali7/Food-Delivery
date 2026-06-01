@@ -1,15 +1,27 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { formatCurrency, getEffectivePrice, num, unitLabel } from '@/lib/formatting';
+import {
+  formatCurrency,
+  getEffectivePrice,
+  getOptionEffectivePrice,
+  num,
+} from '@/lib/formatting';
 import { ArrowLeft, Share2, Heart, Minus, Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import StoreClosedBanner from '@/components/customer/StoreClosedBanner';
 import { getJson } from '@/lib/api';
 import { isProductFavorited, toggleFavoriteProductId } from '@/lib/favoriteProducts';
 import { useCart } from '@/hooks/useCart';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
-import type { Product } from '@/types';
+import type { Product, ProductPurchaseOption, ProductVariant } from '@/types';
+import ProductVariantPicker from '@/components/customer/ProductVariantPicker';
+import {
+  getProductPurchaseOptions,
+  getSoleVariant,
+  productHasVariantChoices,
+  variantDisplayLabel,
+} from '@/lib/productVariants';
 
 export default function CustomerProductDetail() {
   const { id } = useParams();
@@ -19,6 +31,7 @@ export default function CustomerProductDetail() {
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState('');
   const [favorited, setFavorited] = useState(false);
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', id],
@@ -26,10 +39,64 @@ export default function CustomerProductDetail() {
     enabled: !!id,
   });
 
+  const purchaseOptions = useMemo(
+    () => (product ? getProductPurchaseOptions(product) : []),
+    [product],
+  );
+  const hasOptions = product ? productHasVariantChoices(product) : false;
+  const soleVariant = useMemo(
+    (): ProductVariant | null => (product ? getSoleVariant(product) : null),
+    [product],
+  );
+
+  const selectedOption = useMemo((): ProductPurchaseOption | null => {
+    if (!product) return null;
+    if (!hasOptions) return null;
+    return (
+      purchaseOptions.find(opt => opt.variant_id === selectedVariantId) ??
+      purchaseOptions[0] ??
+      null
+    );
+  }, [product, hasOptions, purchaseOptions, selectedVariantId]);
+
+  useEffect(() => {
+    if (!hasOptions) {
+      setSelectedVariantId(null);
+      return;
+    }
+    setSelectedVariantId(prev => {
+      if (prev != null && purchaseOptions.some(opt => opt.variant_id === prev)) return prev;
+      return purchaseOptions[0]?.variant_id ?? null;
+    });
+  }, [hasOptions, purchaseOptions]);
+
+  const effective = selectedOption
+    ? getOptionEffectivePrice(selectedOption)
+    : soleVariant
+      ? getOptionEffectivePrice({ effective_price: soleVariant.effective_price, price: soleVariant.price })
+      : product
+        ? getEffectivePrice(product)
+        : 0;
+  const stockQuantity =
+    selectedOption?.stock_quantity ?? soleVariant?.stock_quantity ?? product?.stock_quantity ?? 0;
+  const selectedVariant = useMemo((): ProductVariant | null => {
+    if (selectedOption?.variant_id != null) {
+      return product?.variants?.find(v => v.id === selectedOption.variant_id) ?? null;
+    }
+    if (selectedVariantId != null) {
+      return product?.variants?.find(v => v.id === selectedVariantId) ?? null;
+    }
+    return soleVariant;
+  }, [product, selectedOption, selectedVariantId, soleVariant]);
+  const selectedUnitLabel = variantDisplayLabel(selectedVariant ?? soleVariant, product ?? undefined);
+
   const mutateCart = useMutation({
     mutationFn: async (mode: 'regular' | 'preorder') => {
       if (!product) throw new Error('Product not loaded');
-      if (mode === 'regular' && product.stock_quantity < 1) {
+      if (hasOptions && selectedOption == null) {
+        throw new Error('Choose a variant before adding to cart.');
+      }
+      if (mode === 'regular' && stockQuantity < 1) {
         throw new Error('This item is out of stock for immediate cart orders.');
       }
       await addProduct.mutateAsync({
@@ -37,6 +104,9 @@ export default function CustomerProductDetail() {
         quantity: qty,
         notes: notes || undefined,
         is_preorder: mode === 'preorder',
+        variant_id: selectedOption?.variant_id ?? soleVariant?.id ?? null,
+        variant: selectedVariant,
+        unit_price: effective,
       });
     },
     onSuccess: () => {
@@ -44,6 +114,7 @@ export default function CustomerProductDetail() {
       setNotes('');
       navigate('/customer/cart');
     },
+    onError: (err: Error) => toast.error(err.message || 'Could not update cart'),
   });
 
   useEffect(() => {
@@ -118,8 +189,7 @@ export default function CustomerProductDetail() {
     );
   }
 
-  const effective = getEffectivePrice(product);
-  const savings = Math.max(0, num(product.price) - effective) * qty;
+  const savings = Math.max(0, num(selectedOption?.price ?? product.price) - effective) * qty;
   const thumb = product.thumbnail_url || product.images?.[0]?.image_url;
 
   return (
@@ -165,32 +235,48 @@ export default function CustomerProductDetail() {
           )}
         </div>
         <h1 className="text-xl font-display font-bold">{product.name}</h1>
-        <div className="flex items-center gap-3">
-          {num(product.discount_value) > 0 ? (
-            <span className="text-muted-foreground line-through">{formatCurrency(num(product.price))}</span>
-          ) : null}
-          <span className="text-2xl font-bold text-amber-600">{formatCurrency(effective)}</span>
-          {savings > 0 && (
-            <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
-              Save {formatCurrency(savings)}
-            </span>
-          )}
-        </div>
+        {!hasOptions ? (
+          <div className="flex items-center gap-3">
+            {(() => {
+              const base = soleVariant ? num(soleVariant.price) : num(product.price);
+              return base > effective ? (
+                <span className="text-muted-foreground line-through">{formatCurrency(base)}</span>
+              ) : null;
+            })()}
+            <span className="text-2xl font-bold text-red-600">{formatCurrency(effective)}</span>
+            {savings > 0 && (
+              <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
+                Save {formatCurrency(savings)}
+              </span>
+            )}
+          </div>
+        ) : null}
+        {hasOptions ? (
+          <div>
+            <h3 className="font-semibold text-sm mb-2">Choose size</h3>
+            <ProductVariantPicker
+              options={purchaseOptions}
+              selectedVariantId={selectedVariantId}
+              onSelect={setSelectedVariantId}
+              className="max-w-sm"
+            />
+          </div>
+        ) : null}
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>Unit: {unitLabel(product)}</span>
+          <span>Unit: {selectedUnitLabel}</span>
           <span
             className={
-              product.stock_quantity > 5
+              stockQuantity > 5
                 ? 'text-green-600'
-                : product.stock_quantity > 0
+                : stockQuantity > 0
                   ? 'text-amber-600'
                   : 'text-red-600'
             }
           >
-            {product.stock_quantity > 5
-              ? `${product.stock_quantity} available`
-              : product.stock_quantity > 0
-                ? `Only ${product.stock_quantity} left`
+            {stockQuantity > 5
+              ? `${stockQuantity} available`
+              : stockQuantity > 0
+                ? `Only ${stockQuantity} left`
                 : 'Out of Stock'}
           </span>
         </div>
@@ -240,7 +326,7 @@ export default function CustomerProductDetail() {
             <div className="flex gap-2 w-full">
               <button
                 type="button"
-                disabled={product.stock_quantity === 0 || mutateCart.isPending}
+                disabled={stockQuantity === 0 || mutateCart.isPending}
                 onClick={() => mutateCart.mutate('regular')}
                 className="flex-1 py-3 bg-primary text-primary-foreground font-semibold rounded-full text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -278,7 +364,7 @@ export default function CustomerProductDetail() {
             </div>
             <button
               type="button"
-              disabled={product.stock_quantity === 0 || mutateCart.isPending}
+              disabled={stockQuantity === 0 || mutateCart.isPending}
               onClick={() => mutateCart.mutate('regular')}
               className="flex-1 py-3 bg-primary text-primary-foreground font-semibold rounded-full text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >

@@ -1,5 +1,5 @@
 import { num } from '@/lib/formatting';
-import type { Cart, CartItem, Product } from '@/types';
+import type { Cart, CartItem, Product, ProductVariant } from '@/types';
 
 const STORAGE_KEY = 'fd_guest_cart';
 
@@ -13,6 +13,7 @@ function notifyGuestCartChange(): void {
 
 export type GuestCartLine = {
   product_id: number;
+  variant_id?: number | null;
   quantity: number;
   notes?: string;
   is_preorder?: boolean;
@@ -21,6 +22,7 @@ export type GuestCartLine = {
     Product,
     'id' | 'name' | 'slug' | 'thumbnail_url' | 'images' | 'unit' | 'effective_price' | 'is_sweet'
   >;
+  variant?: ProductVariant;
 };
 
 export function readGuestCart(): GuestCartLine[] {
@@ -59,6 +61,7 @@ export function guestCartToCart(lines: GuestCartLine[]): Cart {
       id: -(index + 1),
       cart_id: 0,
       product_id: line.product_id,
+      variant_id: line.variant_id ?? null,
       quantity: qty,
       unit_price: unit,
       total_price: unit * qty,
@@ -67,6 +70,7 @@ export function guestCartToCart(lines: GuestCartLine[]): Cart {
       created_at: '',
       updated_at: '',
       product: line.product as Product | undefined,
+      variant: line.variant as ProductVariant | undefined,
     };
   });
   const subtotal = items.reduce((sum, i) => sum + num(i.total_price), 0);
@@ -85,14 +89,19 @@ export function upsertGuestLine(
   lines: GuestCartLine[],
   product: Product,
   quantity: number,
-  opts?: { notes?: string; is_preorder?: boolean },
+  opts?: { notes?: string; is_preorder?: boolean; variant_id?: number | null; unit_price?: number; variant?: ProductVariant | null },
 ): GuestCartLine[] {
-  const unit = num(product.effective_price ?? product.price);
+  const variantId = opts?.variant_id ?? null;
+  const unit = opts?.unit_price ?? num(product.effective_price ?? product.price);
   const idx = lines.findIndex(
-    l => l.product_id === product.id && Boolean(l.is_preorder) === Boolean(opts?.is_preorder),
+    l =>
+      l.product_id === product.id &&
+      (l.variant_id ?? null) === variantId &&
+      Boolean(l.is_preorder) === Boolean(opts?.is_preorder),
   );
   const next: GuestCartLine = {
     product_id: product.id,
+    variant_id: variantId,
     quantity,
     notes: opts?.notes,
     is_preorder: opts?.is_preorder,
@@ -103,10 +112,11 @@ export function upsertGuestLine(
       slug: product.slug,
       thumbnail_url: product.thumbnail_url,
       images: product.images,
-      unit: product.unit,
+      unit: opts?.variant?.unit ?? product.unit,
       effective_price: product.effective_price,
       is_sweet: product.is_sweet,
     },
+    variant: opts?.variant ?? undefined,
   };
   if (idx >= 0) {
     const copy = [...lines];
@@ -119,6 +129,7 @@ export function upsertGuestLine(
 export function guestLinesForCheckout(lines: GuestCartLine[]) {
   return lines.map(l => ({
     product_id: l.product_id,
+    variant_id: l.variant_id ?? null,
     quantity: l.quantity,
     notes: l.notes,
     is_preorder: l.is_preorder,

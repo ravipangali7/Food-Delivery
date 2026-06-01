@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { formatCurrency, getEffectivePrice, unitLabel } from '@/lib/formatting';
 import { ArrowLeft } from 'lucide-react';
+import CustomerProductCard from '@/components/customer/CustomerProductCard';
 import StoreClosedBanner from '@/components/customer/StoreClosedBanner';
 import { getJson } from '@/lib/api';
 import { useStoreMenusOpen } from '@/hooks/useStoreMenusOpen';
@@ -48,29 +48,9 @@ export default function CustomerCategoryProducts() {
         <div className="p-4 grid grid-cols-2 gap-3">
           {isLoading && <div className="col-span-2 text-center py-12 text-muted-foreground">Loading…</div>}
           {!isLoading &&
-            list.map(p => {
-              const thumb = p.thumbnail_url || p.images?.[0]?.image_url;
-              return (
-                <Link
-                  key={p.id}
-                  to={`/customer/product/${p.id}`}
-                  className="bg-card rounded-xl border border-border overflow-hidden shadow-sm"
-                >
-                  {thumb ? (
-                    <img src={thumb} alt={p.name} className="w-full h-[120px] object-cover" />
-                  ) : (
-                    <div className="w-full h-[120px] bg-amber-50 flex items-center justify-center text-2xl">🍬</div>
-                  )}
-                  <div className="p-2.5">
-                    <h3 className="font-semibold text-xs truncate">{p.name}</h3>
-                    <p className="text-[10px] text-muted-foreground">{unitLabel(p)}</p>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="font-bold text-amber-600 text-sm">{formatCurrency(getEffectivePrice(p))}</span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+            list.map(p => (
+              <CustomerProductCard key={p.id} product={p} layout="grid" />
+            ))}
           {!isLoading && list.length === 0 && (
             <div className="col-span-2 text-center py-12 text-muted-foreground">No products in this category</div>
           )}

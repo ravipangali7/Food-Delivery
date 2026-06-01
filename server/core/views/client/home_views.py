@@ -30,6 +30,7 @@ from ...models import (
     OrderChatReceipt,
     ParentCategory,
     Product,
+    ProductVariant,
     SuperSetting,
     User,
 )
@@ -72,12 +73,19 @@ from ..helpers import (
 
 
 def _product_queryset(request):
+    variant_qs = ProductVariant.objects.select_related("unit").order_by("sort_order", "id")
     if request.user.is_authenticated and request.user.is_staff:
-        return Product.objects.select_related("category", "unit").prefetch_related("images")
+        return Product.objects.select_related("category", "unit").prefetch_related(
+            "images",
+            Prefetch("variants", queryset=variant_qs),
+        )
     return (
         Product.objects.filter(deleted_at__isnull=True, is_available=True)
         .select_related("category", "unit")
-        .prefetch_related("images")
+        .prefetch_related(
+            "images",
+            Prefetch("variants", queryset=variant_qs.filter(is_available=True)),
+        )
     )
 
 
@@ -178,12 +186,14 @@ def cart_add_item(request):
     cart = get_or_create_cart(request.user)
     product = get_object_or_404(Product, pk=ser.validated_data["product_id"])
     try:
+        variant = services.resolve_product_variant(product, ser.validated_data.get("variant_id"))
         services.upsert_cart_line(
             cart,
             product,
             ser.validated_data["quantity"],
             notes=ser.validated_data.get("notes"),
             is_preorder=bool(ser.validated_data.get("is_preorder")),
+            variant=variant,
         )
     except ValueError as e:
         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -24,8 +24,10 @@ from ...models import (
     OrderChatMessage,
     OrderChatStaffReadState,
     OrderCancellationRequest,
+    OrderItem,
     ParentCategory,
     Product,
+    ProductVariant,
     SuperSetting,
     Unit,
     User,
@@ -261,7 +263,13 @@ def admin_product_list_create(request):
     qs = (
         Product.objects.filter(deleted_at__isnull=True)
         .select_related("category", "unit")
-        .prefetch_related("images")
+        .prefetch_related(
+            "images",
+            Prefetch(
+                "variants",
+                queryset=ProductVariant.objects.select_related("unit").order_by("sort_order", "id"),
+            ),
+        )
         .order_by("sort_order", "name")
     )
     if request.method == "GET":
@@ -276,13 +284,21 @@ def admin_product_list_create(request):
 @permission_classes([IsStaffUser])
 def admin_product_detail(request, slug):
     obj = get_object_or_404(
-        Product.objects.select_related("category", "unit").prefetch_related("images"),
+        Product.objects.filter(deleted_at__isnull=True)
+        .select_related("category", "unit")
+        .prefetch_related(
+            "images",
+            Prefetch(
+                "variants",
+                queryset=ProductVariant.objects.select_related("unit").order_by("sort_order", "id"),
+            ),
+        ),
         slug=slug,
     )
     if request.method == "GET":
         return Response(ProductAdminSerializer(obj, context={"request": request}).data)
     if request.method == "DELETE":
-        Product.objects.filter(pk=obj.pk).update(deleted_at=timezone.now())
+        _hard_delete_product(obj)
         return Response(status=status.HTTP_204_NO_CONTENT)
     ser = ProductAdminSerializer(obj, data=request.data, partial=True, context={"request": request})
     ser.is_valid(raise_exception=True)
@@ -320,16 +336,27 @@ def admin_parent_category_list_create(request):
 
 
 @transaction.atomic
+def _hard_delete_product(product: Product) -> None:
+    """Remove product and cart lines; order line items keep history with product=NULL."""
+    CartItem.objects.filter(product_id=product.pk).delete()
+    OrderItem.objects.filter(product_id=product.pk).update(product=None)
+    product.delete()
+
+
+@transaction.atomic
+def _hard_delete_user(user: User) -> None:
+    """Permanently remove a customer or delivery partner account."""
+    if user.is_staff or user.is_superuser:
+        raise ValueError("Staff and superuser accounts cannot be deleted from the admin portal.")
+    user.delete()
+
+
+@transaction.atomic
 def _purge_products_for_category_ids(category_ids: list[int]) -> None:
     if not category_ids:
         return
-    product_ids = list(
-        Product.objects.filter(category_id__in=category_ids).values_list("pk", flat=True)
-    )
-    if not product_ids:
-        return
-    CartItem.objects.filter(product_id__in=product_ids).delete()
-    Product.objects.filter(pk__in=product_ids).delete()
+    for product in Product.objects.filter(category_id__in=category_ids):
+        _hard_delete_product(product)
 
 
 @transaction.atomic
@@ -458,7 +485,10 @@ def admin_user_detail(request, pk):
     if request.method == "GET":
         return Response(UserAdminListSerializer(obj).data)
     if request.method == "DELETE":
-        User.objects.filter(pk=pk).update(deleted_at=timezone.now())
+        try:
+            _hard_delete_user(obj)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
     ser = UserAdminWriteSerializer(obj, data=request.data, partial=True)
     ser.is_valid(raise_exception=True)
@@ -581,8 +611,8 @@ def admin_unit_detail(request, pk):
     if request.method == "GET":
         return Response(UnitAdminSerializer(obj).data)
     if request.method == "DELETE":
-        # Product.unit is PROTECT; any linked product (even soft-deleted) blocks deletion.
-        if obj.products.exists():
+        # Product.unit is PROTECT; active catalog products block deletion.
+        if obj.products.filter(deleted_at__isnull=True).exists():
             return Response(
                 {"detail": "Cannot delete a unit that is assigned to products."},
                 status=status.HTTP_400_BAD_REQUEST,

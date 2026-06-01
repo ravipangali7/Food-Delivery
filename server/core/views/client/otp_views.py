@@ -19,6 +19,8 @@ from ...models import User
 from ...sms_service import send_otp_sms_checked
 from ...serializers import (
     AdminPasswordLoginSerializer,
+    CustomerPasswordLoginSerializer,
+    CustomerRegisterSerializer,
     FlutterPhoneAutoLoginSerializer,
     OtpSendSerializer,
     OtpVerifySerializer,
@@ -113,6 +115,56 @@ def verify_otp(request):
 
 def _user_is_admin_portal(user: User) -> bool:
     return bool(user.is_staff or user.is_superuser)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def customer_password_login(request):
+    """Customer SPA login: phone + password."""
+    ser = CustomerPasswordLoginSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    phone = ser.validated_data["phone"]
+    password = ser.validated_data["password"]
+    user = authenticate(request, username=phone, password=password)
+    if user is None or not user.is_active or user.deleted_at is not None:
+        return Response(
+            {"detail": "Invalid phone or password."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not user.has_usable_password():
+        return Response(
+            {"detail": "This account has no password yet. Please register or contact support."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({"token": token.key, "user": UserSerializer(user).data})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def customer_register(request):
+    """Customer SPA registration: name, phone, and password."""
+    ser = CustomerRegisterSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    phone = ser.validated_data["phone"]
+    name = ser.validated_data["name"]
+    password = ser.validated_data["password"]
+    if User.objects.filter(phone=phone, deleted_at__isnull=True).exists():
+        return Response(
+            {"detail": "An account with this phone already exists."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        user = User(phone=phone, name=name)
+        user.set_password(password)
+        user.save()
+    except IntegrityError:
+        return Response(
+            {"detail": "Could not create account. Try again."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({"token": token.key, "user": UserSerializer(user).data}, status=status.HTTP_201_CREATED)
 
 
 @api_view(["POST"])

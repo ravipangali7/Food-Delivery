@@ -152,6 +152,20 @@ class NotificationUserInline(admin.StackedInline):
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
+    def delete_model(self, request, obj):
+        from django.contrib import messages
+
+        from .views.admin import crud_views
+
+        try:
+            crud_views._hard_delete_user(obj)
+        except ValueError as exc:
+            messages.error(request, str(exc))
+
+    def delete_queryset(self, request, queryset):
+        for obj in queryset:
+            self.delete_model(request, obj)
+
     list_display = (
         "id",
         "list_profile_photo",
@@ -500,6 +514,15 @@ class UnitAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    def delete_model(self, request, obj):
+        from .views.admin import crud_views
+
+        crud_views._hard_delete_product(obj)
+
+    def delete_queryset(self, request, queryset):
+        for obj in queryset:
+            self.delete_model(request, obj)
+
     list_display = (
         "id",
         "list_thumb",
@@ -703,6 +726,8 @@ class OrderAdmin(admin.ModelAdmin):
     @admin.display(description=_("Customer"))
     def list_customer_thumb(self, obj: Order):
         u = obj.user
+        if not u:
+            return admin_img(None, size=40, alt=obj.guest_name or str(_("Guest")))
         return admin_img(getattr(u, "profile_photo", None), size=40, alt=u.name)
 
     @admin.display(description=_("Status"), ordering="status")
@@ -835,8 +860,10 @@ class OrderItemAdmin(admin.ModelAdmin):
 
     @admin.display(description=_("Product"))
     def list_product_thumb(self, obj: OrderItem):
-        thumb = getattr(obj.product, "thumbnail_url", None)
-        return admin_img(thumb, size=36, alt=obj.product.name)
+        product = obj.product
+        if not product:
+            return admin_img(None, size=36, alt=str(_("Deleted product")))
+        return admin_img(getattr(product, "thumbnail_url", None), size=36, alt=product.name)
 
     @admin.display(description=_("Unit"))
     def unit_price_display(self, obj: OrderItem):

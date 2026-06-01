@@ -148,7 +148,7 @@ export default function AdminLoginPage() {
         <p className="text-center text-xs text-muted-foreground">
           Customer or delivery login?{' '}
           <Link to="/login" className="text-primary font-medium hover:underline">
-            Phone OTP sign in
+            Customer sign in
           </Link>
         </p>
       </div>

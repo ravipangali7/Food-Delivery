@@ -2,50 +2,133 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { computeEffectivePreview, formatCurrency, generateSlug } from '@/lib/formatting';
-import { ArrowLeft } from 'lucide-react';
+import { generateSlug } from '@/lib/formatting';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { getJson, patchFormData, patchJson, postFormData, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import type { DiscountType, ParentCategory, Product, Unit } from '@/types';
+import type { DiscountType, ParentCategory, Product, ProductVariant, Unit } from '@/types';
 import { CategoryTreeSelect } from '@/components/admin/CategoryTreeSelect';
 
-function buildProductFormData(form: {
+type ProductFormState = {
   name: string;
   slug: string;
   category_id: string;
   description: string;
   short_description: string;
-  price: string;
+  sort_order: string;
   discount_type: DiscountType;
   discount_value: string;
-  unit_id: string;
-  stock_quantity: string;
-  sort_order: string;
   is_veg: boolean;
   is_sweet: boolean;
   is_featured: boolean;
   is_available: boolean;
-}): FormData {
+};
+
+function parseDiscountValue(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+type VariantDraft = {
+  id?: number;
+  label: string;
+  unit_id: string;
+  price: string;
+  stock_quantity: string;
+  sort_order: string;
+  is_available: boolean;
+};
+
+function emptyVariantDraft(sortOrder = '0'): VariantDraft {
+  return {
+    label: '',
+    unit_id: '',
+    price: '',
+    stock_quantity: '0',
+    sort_order: sortOrder,
+    is_available: true,
+  };
+}
+
+function buildVariantsPayload(variants: VariantDraft[]) {
+  return variants
+    .filter(v => v.unit_id && v.price)
+    .map(v => ({
+      ...(v.id ? { id: v.id } : {}),
+      label: v.label.trim(),
+      unit_id: Number(v.unit_id),
+      price: v.price,
+      stock_quantity: Number(v.stock_quantity || 0),
+      sort_order: Number(v.sort_order || 0),
+      is_available: v.is_available,
+    }));
+}
+
+function deriveBaseFieldsFromVariants(variants: VariantDraft[]) {
+  const payload = buildVariantsPayload(variants);
+  if (payload.length === 0) {
+    throw new Error('Add at least one variant with a unit and price.');
+  }
+  const first = payload[0];
+  return {
+    price: first.price,
+    unit_id: first.unit_id,
+    stock_quantity: first.stock_quantity,
+  };
+}
+
+function canSaveProduct(form: Pick<ProductFormState, 'name' | 'category_id'>, variants: VariantDraft[]) {
+  return Boolean(form.name && form.category_id && buildVariantsPayload(variants).length > 0);
+}
+
+function buildProductFormData(
+  form: ProductFormState,
+  baseFields: { price: string | number; unit_id: number; stock_quantity: number },
+  slugVal: string,
+): FormData {
   const fd = new FormData();
-  const slug = form.slug.trim() || generateSlug(form.name);
   fd.append('name', form.name);
-  fd.append('slug', slug);
+  fd.append('slug', slugVal);
   fd.append('category_id', form.category_id);
   fd.append('description', form.description || '');
   fd.append('short_description', form.short_description || '');
-  fd.append('price', form.price);
+  fd.append('price', String(baseFields.price));
   fd.append('discount_type', form.discount_type);
-  if (form.discount_value) {
-    fd.append('discount_value', form.discount_value);
-  }
-  fd.append('unit_id', form.unit_id);
-  fd.append('stock_quantity', form.stock_quantity);
+  const discountValue = parseDiscountValue(form.discount_value);
+  fd.append('discount_value', discountValue != null ? String(discountValue) : '');
+  fd.append('unit_id', String(baseFields.unit_id));
+  fd.append('stock_quantity', String(baseFields.stock_quantity));
   fd.append('sort_order', form.sort_order);
   fd.append('is_veg', form.is_veg ? '1' : '0');
   fd.append('is_sweet', form.is_sweet ? '1' : '0');
   fd.append('is_featured', form.is_featured ? '1' : '0');
   fd.append('is_available', form.is_available ? '1' : '0');
   return fd;
+}
+
+function variantsFromProduct(existing: Product): VariantDraft[] {
+  if (existing.variants && existing.variants.length > 0) {
+    return existing.variants.map((v: ProductVariant) => ({
+      id: v.id,
+      label: v.label ?? v.display_label ?? '',
+      unit_id: String(v.unit?.id ?? ''),
+      price: String(v.price),
+      stock_quantity: String(v.stock_quantity),
+      sort_order: String(v.sort_order ?? 0),
+      is_available: v.is_available ?? true,
+    }));
+  }
+  return [
+    {
+      ...emptyVariantDraft('0'),
+      unit_id: String(existing.unit_id ?? existing.unit?.id ?? ''),
+      price: String(existing.price),
+      stock_quantity: String(existing.stock_quantity),
+    },
+  ];
 }
 
 export default function AdminProductForm() {
@@ -74,18 +157,15 @@ export default function AdminProductForm() {
     enabled: !!token && !!slug,
   });
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ProductFormState>({
     name: '',
     slug: '',
     category_id: '',
     description: '',
     short_description: '',
-    price: '',
-    discount_type: 'flat' as DiscountType,
-    discount_value: '',
-    unit_id: '',
-    stock_quantity: '0',
     sort_order: '0',
+    discount_type: 'flat',
+    discount_value: '',
     is_veg: true,
     is_sweet: false,
     is_featured: false,
@@ -94,6 +174,7 @@ export default function AdminProductForm() {
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [variants, setVariants] = useState<VariantDraft[]>([emptyVariantDraft()]);
 
   useEffect(() => {
     if (!existing) return;
@@ -103,12 +184,12 @@ export default function AdminProductForm() {
       category_id: String(existing.category_id),
       description: existing.description || '',
       short_description: existing.short_description || '',
-      price: String(existing.price),
-      discount_type: existing.discount_type ?? 'flat',
-      discount_value: existing.discount_value != null ? String(existing.discount_value) : '',
-      unit_id: String(existing.unit_id ?? existing.unit?.id ?? ''),
-      stock_quantity: String(existing.stock_quantity),
       sort_order: String(existing.sort_order),
+      discount_type: existing.discount_type ?? 'flat',
+      discount_value:
+        existing.discount_value != null && Number(existing.discount_value) > 0
+          ? String(existing.discount_value)
+          : '',
       is_veg: existing.is_veg,
       is_sweet: Boolean(existing.is_sweet),
       is_featured: existing.is_featured,
@@ -116,6 +197,7 @@ export default function AdminProductForm() {
     });
     setImageFile(null);
     setPreviewUrl(existing.thumbnail_url || existing.images?.[0]?.image_url || null);
+    setVariants(variantsFromProduct(existing));
   }, [existing]);
 
   useEffect(() => {
@@ -142,9 +224,13 @@ export default function AdminProductForm() {
   const saveMut = useMutation({
     mutationFn: async () => {
       const slugVal = form.slug.trim() || generateSlug(form.name);
+      const variantsPayload = buildVariantsPayload(variants);
+      const baseFields = deriveBaseFieldsFromVariants(variants);
+
       if (imageFile) {
-        const fd = buildProductFormData({ ...form, slug: slugVal });
+        const fd = buildProductFormData(form, baseFields, slugVal);
         fd.append('thumbnail_file', imageFile);
+        fd.append('variants', JSON.stringify(variantsPayload));
         if (isEdit && slug) {
           return patchFormData<Product>(
             `/api/admin/products/${encodeURIComponent(slug)}/`,
@@ -161,16 +247,17 @@ export default function AdminProductForm() {
         category_id: Number(form.category_id),
         description: form.description || null,
         short_description: form.short_description || null,
-        price: form.price,
+        price: baseFields.price,
         discount_type: form.discount_type,
-        discount_value: form.discount_value ? form.discount_value : null,
-        unit_id: Number(form.unit_id),
-        stock_quantity: Number(form.stock_quantity),
+        discount_value: parseDiscountValue(form.discount_value),
+        unit_id: baseFields.unit_id,
+        stock_quantity: baseFields.stock_quantity,
         sort_order: Number(form.sort_order),
         is_veg: form.is_veg,
         is_sweet: form.is_sweet,
         is_featured: form.is_featured,
         is_available: form.is_available,
+        variants: variantsPayload,
       };
       if (isEdit && slug) {
         return patchJson<Product>(
@@ -191,7 +278,7 @@ export default function AdminProductForm() {
     },
   });
 
-  const handleChange = (field: string, value: string | boolean) => {
+  const handleChange = (field: keyof ProductFormState, value: string | boolean) => {
     setForm(prev => {
       const updated = { ...prev, [field]: value };
       if (field === 'name' && typeof value === 'string') {
@@ -201,11 +288,15 @@ export default function AdminProductForm() {
     });
   };
 
-  const effectivePrice = computeEffectivePreview(
-    Number(form.price || 0),
-    form.discount_type,
-    Number(form.discount_value || 0),
-  );
+  const removeVariant = (index: number) => {
+    setVariants(prev => {
+      if (prev.length <= 1) {
+        toast.error('A product must have at least one variant.');
+        return prev;
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   if (!token) {
     return <div className="p-8 text-muted-foreground">Staff only.</div>;
@@ -272,33 +363,17 @@ export default function AdminProductForm() {
             className="w-full border border-border rounded-lg p-3 text-sm"
           />
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold mb-1">Price *</label>
-            <input
-              type="number"
-              value={form.price}
-              onChange={e => handleChange('price', e.target.value)}
-              className="w-full border border-border rounded-lg p-3 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1">Unit *</label>
-            <select
-              value={form.unit_id}
-              onChange={e => handleChange('unit_id', e.target.value)}
-              className="w-full border border-border rounded-lg p-3 text-sm bg-card"
-            >
-              <option value="">Select unit</option>
-              {units.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="max-w-xs">
+          <label className="block text-xs font-semibold mb-1">Sort order</label>
+          <input
+            type="number"
+            value={form.sort_order}
+            onChange={e => handleChange('sort_order', e.target.value)}
+            className="w-full border border-border rounded-lg p-3 text-sm"
+          />
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
+
+        <div className="grid md:grid-cols-2 gap-4 max-w-2xl">
           <div>
             <label className="block text-xs font-semibold mb-1">Discount type</label>
             <select
@@ -306,48 +381,143 @@ export default function AdminProductForm() {
               onChange={e => handleChange('discount_type', e.target.value as DiscountType)}
               className="w-full border border-border rounded-lg p-3 text-sm bg-card"
             >
-              <option value="flat">Flat (NPR off)</option>
+              <option value="flat">Flat amount (NPR off)</option>
               <option value="percentage">Percentage (%)</option>
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold mb-1">
-              {form.discount_type === 'percentage' ? 'Discount (%)' : 'Discount (NPR)'}
+              Discount value
+              {form.discount_type === 'percentage' ? ' (0–100)' : ' (NPR)'}
             </label>
             <input
               type="number"
+              min="0"
+              max={form.discount_type === 'percentage' ? 100 : undefined}
+              step={form.discount_type === 'percentage' ? '0.01' : '1'}
               value={form.discount_value}
               onChange={e => handleChange('discount_value', e.target.value)}
-              min={0}
-              max={form.discount_type === 'percentage' ? 100 : undefined}
-              step={form.discount_type === 'percentage' ? 1 : 0.01}
+              placeholder="None"
               className="w-full border border-border rounded-lg p-3 text-sm"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Leave empty for no discount. Applies to all variants.
+            </p>
           </div>
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold mb-1">Stock *</label>
-            <input
-              type="number"
-              value={form.stock_quantity}
-              onChange={e => handleChange('stock_quantity', e.target.value)}
-              className="w-full border border-border rounded-lg p-3 text-sm"
-            />
+
+        <div className="border border-border rounded-lg p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold">Variants *</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Add one or more units with price and stock. Customers choose a variant on the product page.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVariants(prev => [...prev, emptyVariantDraft(String(prev.length))])}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-muted"
+            >
+              <Plus size={14} />
+              Add variant
+            </button>
           </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1">Sort order</label>
-            <input
-              type="number"
-              value={form.sort_order}
-              onChange={e => handleChange('sort_order', e.target.value)}
-              className="w-full border border-border rounded-lg p-3 text-sm"
-            />
+          <div className="space-y-3">
+            {variants.map((variant, index) => (
+              <div
+                key={variant.id ?? `new-${index}`}
+                className="grid md:grid-cols-6 gap-3 items-end border border-dashed border-border rounded-lg p-3"
+              >
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold mb-1">Label</label>
+                  <input
+                    value={variant.label}
+                    onChange={e =>
+                      setVariants(prev =>
+                        prev.map((row, i) => (i === index ? { ...row, label: e.target.value } : row)),
+                      )
+                    }
+                    placeholder="e.g. Family pack"
+                    className="w-full border border-border rounded-lg p-2.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Unit *</label>
+                  <select
+                    value={variant.unit_id}
+                    onChange={e =>
+                      setVariants(prev =>
+                        prev.map((row, i) => (i === index ? { ...row, unit_id: e.target.value } : row)),
+                      )
+                    }
+                    className="w-full border border-border rounded-lg p-2.5 text-sm bg-card"
+                  >
+                    <option value="">Select unit</option>
+                    {units.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Price *</label>
+                  <input
+                    type="number"
+                    value={variant.price}
+                    onChange={e =>
+                      setVariants(prev =>
+                        prev.map((row, i) => (i === index ? { ...row, price: e.target.value } : row)),
+                      )
+                    }
+                    className="w-full border border-border rounded-lg p-2.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Stock *</label>
+                  <input
+                    type="number"
+                    value={variant.stock_quantity}
+                    onChange={e =>
+                      setVariants(prev =>
+                        prev.map((row, i) =>
+                          i === index ? { ...row, stock_quantity: e.target.value } : row,
+                        ),
+                      )
+                    }
+                    className="w-full border border-border rounded-lg p-2.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={variant.is_available}
+                      onChange={e =>
+                        setVariants(prev =>
+                          prev.map((row, i) =>
+                            i === index ? { ...row, is_available: e.target.checked } : row,
+                          ),
+                        )
+                      }
+                    />
+                    Available
+                  </label>
+                  <button
+                    type="button"
+                    aria-label="Remove variant"
+                    onClick={() => removeVariant(index)}
+                    className="p-2 text-destructive hover:bg-destructive/10 rounded-lg ml-auto"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Preview effective: {formatCurrency(Math.max(0, effectivePrice))}
-        </p>
+
         <div className="space-y-3">
           <p className="text-xs font-semibold text-muted-foreground">Diet</p>
           <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Diet">
@@ -432,7 +602,7 @@ export default function AdminProductForm() {
         <button
           type="button"
           onClick={() => saveMut.mutate()}
-          disabled={saveMut.isPending || !form.name || !form.category_id || !form.unit_id}
+          disabled={saveMut.isPending || !canSaveProduct(form, variants)}
           className="px-6 py-2.5 text-sm bg-primary text-primary-foreground rounded-lg disabled:opacity-50"
         >
           {saveMut.isPending ? 'Saving…' : isEdit ? 'Update' : 'Create'}

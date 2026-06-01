@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { OrderInvoiceContent } from '@/components/admin/order-invoice/OrderInvoiceContent';
 import {
   downloadInvoiceElementAsPdf,
+  embedInvoiceImagesInElement,
   invoicePdfFilename,
   preloadOrderInvoiceImages,
   storeFromSettings,
@@ -14,6 +15,17 @@ import {
   type OrderInvoiceStore,
 } from '@/lib/orderInvoice';
 import type { Order, SuperSetting } from '@/types';
+
+function orderNeedsDetailFetch(order: Order): boolean {
+  const items = order.items ?? [];
+  if (items.length === 0) return true;
+  return items.some(it => !it.product);
+}
+
+async function resolveOrderForInvoice(order: Order, token: string | null): Promise<Order> {
+  if (!token || !orderNeedsDetailFetch(order)) return order;
+  return getJson<Order>(`/api/orders/${order.id}/`, token);
+}
 
 export function useOrderInvoice() {
   const { token } = useAuth();
@@ -38,7 +50,6 @@ export function useOrderInvoice() {
     if (!renderHostRef.current) {
       const el = document.createElement('div');
       el.setAttribute('aria-hidden', 'true');
-      // Off-screen only (no opacity:0 — html2canvas may omit faded nodes).
       el.style.cssText =
         'position:fixed;left:-10000px;top:0;width:794px;pointer-events:none;z-index:-1;overflow:hidden;';
       document.body.appendChild(el);
@@ -66,9 +77,9 @@ export function useOrderInvoice() {
   const prepareImages = useCallback(
     async (order: Order) => {
       const items = order.items ?? [];
-      return preloadOrderInvoiceImages(store, items);
+      return preloadOrderInvoiceImages(store, items, { authToken: token });
     },
-    [store],
+    [store, token],
   );
 
   const downloadPdf = useCallback(
@@ -77,17 +88,23 @@ export function useOrderInvoice() {
       busyRef.current = true;
       setBusy(true);
       try {
-        const images = await prepareImages(order);
-        const element = await renderOffscreen(order, images);
+        const fullOrder = await resolveOrderForInvoice(order, token);
+        const images = await prepareImages(fullOrder);
+        const element = await renderOffscreen(fullOrder, images);
+        await embedInvoiceImagesInElement(element, { authToken: token });
         await waitForImagesInElement(element);
-        await downloadInvoiceElementAsPdf(element, invoicePdfFilename(order.order_number));
+        await downloadInvoiceElementAsPdf(
+          element,
+          invoicePdfFilename(fullOrder.order_number),
+          { authToken: token },
+        );
       } finally {
         busyRef.current = false;
         setBusy(false);
         reactRootRef.current?.render(null);
       }
     },
-    [prepareImages],
+    [prepareImages, token],
   );
 
   const openPrintPreview = useCallback(
@@ -96,14 +113,15 @@ export function useOrderInvoice() {
       busyRef.current = true;
       setBusy(true);
       try {
-        const images = await prepareImages(order);
-        setPrintState({ order, images });
+        const fullOrder = await resolveOrderForInvoice(order, token);
+        const images = await prepareImages(fullOrder);
+        setPrintState({ order: fullOrder, images });
       } finally {
         busyRef.current = false;
         setBusy(false);
       }
     },
-    [prepareImages],
+    [prepareImages, token],
   );
 
   const closePrintPreview = useCallback(() => setPrintState(null), []);

@@ -2,10 +2,12 @@ import { useParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCurrency, formatDateTime, num, unitLabel } from '@/lib/formatting';
 import { OrderStatusBadge } from '@/components/shared/StatusBadge';
-import { validStatusTransitions } from '@/lib/colors';
+import { orderStatusLabels, validStatusTransitions } from '@/lib/colors';
+import { canTransitionOrderStatus } from '@/lib/orderLogic';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Phone, MapPin, User } from 'lucide-react';
 import { OrderInvoiceActions } from '@/components/admin/order-invoice/OrderInvoiceActions';
+import { toast } from 'sonner';
 import { getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { PreorderScheduleSummary } from '@/components/admin/PreorderScheduleSummary';
@@ -61,11 +63,32 @@ export default function AdminOrderDetail() {
   });
 
   const transitionMut = useMutation({
-    mutationFn: async (body: { status: OrderStatus; cancellation_reason?: string }) =>
-      postJson(`/api/orders/${id}/transition/`, body, token),
-    onSuccess: () => {
+    mutationFn: async (body: { status: OrderStatus; cancellation_reason?: string }) => {
+      if (!id || !token) throw new Error('Order not loaded');
+      const fresh = await getJson<Order>(`/api/orders/${id}/`, token);
+      if (fresh.status === body.status) return { order: fresh, changed: false as const };
+      if (!canTransitionOrderStatus(fresh.status, body.status)) {
+        throw new Error(
+          `Order is already ${orderStatusLabels[fresh.status] ?? fresh.status}. Choose a different status.`,
+        );
+      }
+      const updated = await postJson<Order>(`/api/orders/${id}/transition/`, body, token);
+      return { order: updated, changed: true as const };
+    },
+    onSuccess: result => {
       setSelectedStatus('');
       invalidate();
+      if (result.changed) {
+        toast.success('Status updated');
+      } else {
+        toast.info(
+          `Order is already ${orderStatusLabels[result.order.status] ?? result.order.status}`,
+        );
+      }
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Could not update status';
+      toast.error(msg);
     },
   });
 

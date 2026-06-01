@@ -1,4 +1,4 @@
-import PhoneOtpAuth from '@/components/auth/PhoneOtpAuth';
+import CustomerPasswordAuth from '@/components/auth/CustomerPasswordAuth';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { homeForUser } from './authPaths';
@@ -9,10 +9,10 @@ export default function LoginPage() {
     return <Navigate to={homeForUser(user)} replace />;
   }
   return (
-    <PhoneOtpAuth
+    <CustomerPasswordAuth
       mode="login"
       title="Welcome back"
-      subtitle="Sign in with your phone. We will send a one-time code."
+      subtitle="Sign in with your phone number and password."
       alternateHint="New here?"
       alternateLabel="Create an account"
       alternateTo="/register"

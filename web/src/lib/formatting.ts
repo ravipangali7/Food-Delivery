@@ -1,4 +1,4 @@
-import type { OrderPaymentStatus, Product } from '@/types';
+import type { OrderPaymentStatus, Product, ProductPurchaseOption } from '@/types';
 
 /** Display label for order payment collection status (COD). */
 export function orderPaymentStatusLabel(status: OrderPaymentStatus): string {
@@ -15,6 +15,20 @@ export function num(v: number | string | undefined | null): number {
 export function unitLabel(product: Pick<Product, 'unit'>): string {
   const u = product.unit;
   return u?.name ?? '';
+}
+
+export function unitLabelFromUnit(unit: Product['unit'] | undefined): string {
+  return unit?.name ?? '';
+}
+
+/** Effective price for a purchase option or variant row. */
+export function getOptionEffectivePrice(
+  option: Pick<ProductPurchaseOption, 'effective_price' | 'price'>,
+): number {
+  if (option.effective_price != null && option.effective_price !== '') {
+    return num(option.effective_price);
+  }
+  return num(option.price);
 }
 
 /** Parse API `effective_price` (may be string) and compute display price in NPR. */

@@ -114,4 +114,23 @@
   .brand-logo {
     @apply object-contain;
   }
+
+  .splash-progress-bar {
+    animation: splash-progress 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+}
+
+@keyframes splash-progress {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(180%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(320%);
+    opacity: 0.6;
+  }
 }

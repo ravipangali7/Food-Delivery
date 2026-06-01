@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import '../services/auth_token_storage.dart';
 import '../theme/brand_colors.dart';
+import '../widgets/brand_splash_overlay.dart';
 
 /// Must match [TOKEN_KEY] in `web/src/contexts/AuthContext.tsx`.
 const String _kWebAuthLocalStorageKey = 'fd_auth_token';
@@ -784,64 +785,14 @@ class WebViewScreenState extends State<WebViewScreen>
                         }
                       },
                     ),
-            if (showBootLoading) _buildWebBootLoading(theme),
+            if (showBootLoading) _buildWebBootLoading(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildWebBootLoading(ThemeData theme) {
-    final scheme = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            scheme.primaryContainer.withValues(alpha: 0.35),
-            scheme.surface,
-            scheme.secondaryContainer.withValues(alpha: 0.25),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Image.asset(
-                  'assets/logo.png',
-                  width: 88,
-                  height: 88,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: 36,
-                height: 36,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: scheme.primary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                _bootStatusLine,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Widget _buildWebBootLoading() {
+    return BrandSplashOverlay(statusLine: _bootStatusLine);
   }
 }

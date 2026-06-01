@@ -342,9 +342,7 @@ class Product(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    @property
-    def effective_price(self) -> Decimal:
-        base = self.price
+    def compute_effective_price(self, base: Decimal) -> Decimal:
         if self.discount_value is None or self.discount_value <= 0:
             return base
         if self.discount_type == self.DiscountType.PERCENTAGE:
@@ -356,6 +354,14 @@ class Product(models.Model):
         else:
             out = base - self.discount_value
         return out if out > 0 else Decimal("0.00")
+
+    @property
+    def effective_price(self) -> Decimal:
+        return self.compute_effective_price(self.price)
+
+    @property
+    def has_variants(self) -> bool:
+        return self.variants.exists()
 
 
 class ProductImage(models.Model):
@@ -379,6 +385,54 @@ class ProductImage(models.Model):
     def __str__(self) -> str:
         u = self.image_url or ""
         return f"{self.product_id}: {u[:48]}…" if len(u) > 48 else (u or f"Image #{self.pk}")
+
+
+class ProductVariant(models.Model):
+    """Alternate unit/price option for a product (e.g. 250g vs 1kg)."""
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="variants",
+        verbose_name=_("product"),
+    )
+    label = models.CharField(
+        _("label"),
+        max_length=100,
+        blank=True,
+        default="",
+        help_text=_("Optional display name, e.g. Family pack."),
+    )
+    unit = models.ForeignKey(
+        Unit,
+        on_delete=models.PROTECT,
+        related_name="product_variants",
+        verbose_name=_("unit"),
+    )
+    price = models.DecimalField(_("price (NPR)"), max_digits=10, decimal_places=2)
+    stock_quantity = models.PositiveIntegerField(_("stock quantity"), default=0)
+    is_available = models.BooleanField(_("available"), default=True)
+    sort_order = models.PositiveSmallIntegerField(_("sort order"), default=0)
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("updated at"), auto_now=True)
+
+    class Meta:
+        db_table = "product_variants"
+        verbose_name = _("product variant")
+        verbose_name_plural = _("product variants")
+        ordering = ["sort_order", "id"]
+
+    def __str__(self) -> str:
+        name = self.label.strip() or self.unit.name
+        return f"{self.product.name} — {name}"
+
+    @property
+    def effective_price(self) -> Decimal:
+        return self.product.compute_effective_price(self.price)
+
+    @property
+    def display_label(self) -> str:
+        return self.label.strip() or self.unit.name
 
 
 class Cart(models.Model):
@@ -413,6 +467,14 @@ class CartItem(models.Model):
     product = models.ForeignKey(
         Product, on_delete=models.PROTECT, related_name="cart_items", verbose_name=_("product")
     )
+    variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.PROTECT,
+        related_name="cart_items",
+        verbose_name=_("variant"),
+        null=True,
+        blank=True,
+    )
     quantity = models.PositiveSmallIntegerField(_("quantity"), default=1)
     unit_price = models.DecimalField(_("unit price"), max_digits=10, decimal_places=2)
     total_price = models.DecimalField(_("total price"), max_digits=10, decimal_places=2)
@@ -426,7 +488,10 @@ class CartItem(models.Model):
         verbose_name = _("cart item")
         verbose_name_plural = _("cart items")
         constraints = [
-            models.UniqueConstraint(fields=["cart", "product"], name="uq_cart_items_cart_product")
+            models.UniqueConstraint(
+                fields=["cart", "product", "variant", "is_preorder"],
+                name="uq_cart_items_cart_product_variant_preorder",
+            )
         ]
 
     def __str__(self) -> str:
@@ -660,6 +725,14 @@ class OrderItem(models.Model):
         blank=True,
         related_name="order_items",
         verbose_name=_("product"),
+    )
+    variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+        verbose_name=_("variant"),
     )
     unit_price = models.DecimalField(_("unit price"), max_digits=10, decimal_places=2)
     quantity = models.PositiveSmallIntegerField(_("quantity"))

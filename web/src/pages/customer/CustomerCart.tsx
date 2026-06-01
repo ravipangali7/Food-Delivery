@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trash2, Minus, Plus, ShoppingCart } from 'lucide-react';
-import { formatCurrency, num, unitLabel } from '@/lib/formatting';
+import { formatCurrency, num, unitLabel, unitLabelFromUnit } from '@/lib/formatting';
 import { useCart } from '@/hooks/useCart';
 import { useQuery } from '@tanstack/react-query';
 import { getJson } from '@/lib/api';
@@ -109,7 +109,13 @@ export default function CustomerCart() {
                   </button>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  {item.product ? unitLabel(item.product) : ''}
+                  {item.variant
+                    ? item.variant.display_label ||
+                      item.variant.label ||
+                      unitLabelFromUnit(item.variant.unit)
+                    : item.product
+                      ? unitLabel(item.product)
+                      : ''}
                 </p>
                 <p className="text-xs text-amber-600 font-semibold">
                   {formatCurrency(num(item.unit_price))} each
