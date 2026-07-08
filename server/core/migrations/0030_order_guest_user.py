@@ -1,4 +1,4 @@
-# Generated manually for guest checkout support
+# म्यानुअल सिर्जना: अतिथि checkout समर्थनका लागि
 
 import django.db.models.deletion
 from django.conf import settings

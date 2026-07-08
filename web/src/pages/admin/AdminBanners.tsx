@@ -141,7 +141,7 @@ export default function AdminBanners() {
           <h1 className="text-2xl font-display font-bold">Banners</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Promotional images on the customer home, explore, and sweets pages. Inactive banners stay hidden from
-            the storefront but remain here for editing — same data as Django admin under Core → Banners.
+            the storefront but remain here for editing — synced with the central banner records.
           </p>
         </div>
         <button

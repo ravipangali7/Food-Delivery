@@ -1,9 +1,22 @@
 import { num } from '@/lib/formatting';
 import type { Cart, CartItem, Product, ProductVariant } from '@/types';
 
-const STORAGE_KEY = 'fd_guest_cart';
+const STORAGE_KEY = 'ss_guest_cart';
+const LEGACY_STORAGE_KEY = 'fd_guest_cart';
 
-export const GUEST_CART_EVENT = 'fd_guest_cart_change';
+export const GUEST_CART_EVENT = 'ss_guest_cart_change';
+const LEGACY_GUEST_CART_EVENT = 'fd_guest_cart_change';
+
+function resolveStorageKey(): string {
+  if (typeof window === 'undefined') return STORAGE_KEY;
+  if (localStorage.getItem(STORAGE_KEY) !== null) return STORAGE_KEY;
+  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (legacy !== null) {
+    localStorage.setItem(STORAGE_KEY, legacy);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
+  return STORAGE_KEY;
+}
 
 function notifyGuestCartChange(): void {
   if (typeof window !== 'undefined') {
@@ -27,7 +40,7 @@ export type GuestCartLine = {
 
 export function readGuestCart(): GuestCartLine[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(resolveStorageKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
@@ -44,12 +57,13 @@ export function readGuestCart(): GuestCartLine[] {
 }
 
 export function writeGuestCart(lines: GuestCartLine[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+  localStorage.setItem(resolveStorageKey(), JSON.stringify(lines));
   notifyGuestCartChange();
 }
 
 export function clearGuestCart(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(resolveStorageKey());
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
   notifyGuestCartChange();
 }
 

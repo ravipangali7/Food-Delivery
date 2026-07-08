@@ -1,4 +1,4 @@
-"""Order chat: receipts, aggregate status, and optional offline notification hooks."""
+"""अर्डर chat: receipt, aggregate status, र वैकल्पिक offline notification hook।"""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def refresh_message_aggregate_status(message: OrderChatMessage) -> None:
-    """Recompute aggregate_status from receipts (non-sender)."""
+    """receipt (non-sender) बाट aggregate_status पुन: गणना।"""
     qs = message.receipts.exclude(user_id=message.sender_id)
     has_delivered = qs.filter(delivered_at__isnull=False).exists()
     has_read = qs.filter(read_at__isnull=False).exists()
@@ -81,7 +81,7 @@ def record_read(
 
 
 def can_user_ack_message(user: User, order: Order, msg: OrderChatMessage) -> bool:
-    """Non-sender may ack delivered/read if they participate in this thread."""
+    """पठाउने होइन भने thread मा सहभागीले delivered/read ack गर्न सक्छ।"""
     if msg.order_id != order.id:
         return False
     if msg.sender_id == user.id:
@@ -101,8 +101,8 @@ def can_user_ack_message(user: User, order: Order, msg: OrderChatMessage) -> boo
 
 def maybe_stub_offline_notification(order: Order, message: OrderChatMessage) -> None:
     """
-    Optional SMS/email when recipient may be offline (hook for Celery / providers).
-    Controlled by env CHAT_OFFLINE_NOTIFY=1 — logs only by default.
+    प्राप्तकर्ता offline हुन सक्छ भने वैकल्पिक SMS/email (Celery / provider hook)।
+    env CHAT_OFFLINE_NOTIFY=1 ले नियन्त्रण — पूर्वनिर्धारित log मात्र।
     """
     from django.conf import settings
 
@@ -122,8 +122,8 @@ def touch_presence(user_id: int) -> None:
 
 def mark_staff_order_read(order_id: int, staff_user_id: int) -> None:
     """
-    Move staff unread cursor to the latest non-staff message in the order.
-    This powers admin support inbox unread indicators.
+    staff unread cursor लाई order को नवीनतम non-staff सन्देशसम्म सार्नुहोस्।
+    admin support inbox unread badge का लागि।
     """
     if order_id <= 0 or staff_user_id <= 0:
         return

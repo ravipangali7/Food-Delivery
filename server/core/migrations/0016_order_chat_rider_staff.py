@@ -1,4 +1,4 @@
-# Generated manually for rider ↔ staff-only delivery coordination messages.
+# म्यानुअल सिर्जना: राइडर ↔ staff-only डेलिभरी समन्वय सन्देशका लागि।
 
 from django.db import migrations, models
 

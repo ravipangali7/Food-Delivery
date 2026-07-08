@@ -1,10 +1,9 @@
 """
-SMS delivery via Infelo Group (Bearer account key: ``INFELO_API_KEY`` / ``INFELO_SMS_API_KEY`` in settings).
+Infelo Group मार्फत SMS (settings मा Bearer account key: ``INFELO_API_KEY`` / ``INFELO_SMS_API_KEY``)।
 
-Uses public ``POST /api/v1/sms/send/`` per Infelo SMS API documentation.
+Infelo SMS API अनुसार सार्वजनिक ``POST /api/v1/sms/send/`` प्रयोग गर्छ।
 
-When the Infelo key is unset and ``DEBUG`` is true, OTP text is logged only so local
-development can proceed without sending real SMS.
+Infelo key नसेट र ``DEBUG`` true भए OTP पाठ log मात्र — वास्तविक SMS बिना स्थानीय विकास।
 """
 
 from __future__ import annotations
@@ -22,14 +21,14 @@ def infelo_sms_configured() -> bool:
 
 
 def send_otp_sms(phone: str, code: str, purpose: str) -> None:
-    """Send OTP to ``phone`` via Infelo, or log only in DEBUG when no API key is set."""
+    """``phone`` मा Infelo बाट OTP पठाउनुहोस्, वा API key नभए DEBUG मा log मात्र।"""
     ok, err, _meta = send_otp_sms_checked(phone=phone, code=code, purpose=purpose)
     if not ok:
         logger.error("OTP SMS failed for %s: %s", phone, err)
 
 
 def send_otp_sms_checked(*, phone: str, code: str, purpose: str) -> tuple[bool, str, dict]:
-    """Send OTP and return (ok, error_message, provider_meta)."""
+    """OTP पठाएर (ok, error_message, provider_meta) फर्काउनुहोस्।"""
     message = _build_message(code, purpose)
 
     if not infelo_sms_configured():
@@ -49,8 +48,8 @@ def _build_message(code: str, purpose: str) -> str:
 
 def send_chat_reply_sms(*, phone: str, body: str) -> tuple[bool, str]:
     """
-    Send a plain chat reply SMS.
-    Returns ``(success, error_message)``.
+    साधारण chat जवाफ SMS पठाउनुहोस्।
+    ``(success, error_message)`` फर्काउँछ।
     """
     text = (body or "").strip()
     if not text:
@@ -67,9 +66,9 @@ def send_chat_reply_sms(*, phone: str, body: str) -> tuple[bool, str]:
 
 def send_notification_sms(*, phone: str, title: str, body: str) -> tuple[bool, str]:
     """
-    Send an admin notification via SMS to ``phone``.
+    ``phone`` मा admin notification SMS पठाउनुहोस्।
 
-    Returns ``(success, error_message)`` where ``error_message`` is empty on success.
+    सफल भए ``error_message`` खाली भएको ``(success, error_message)`` फर्काउँछ।
     """
     text = f"{title}\n{body}".strip()
 

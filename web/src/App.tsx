@@ -3,13 +3,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-// Auth
+// प्रमाणीकरण — लगइन, दर्ता, स्प्ल्यास
 import SplashScreen from "./pages/auth/SplashScreen";
 import LoginPage from "./pages/auth/LoginPage";
 import AdminLoginPage from "./pages/auth/AdminLoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 
-// Admin
+// स्टाफ ड्यासबोर्ड — अर्डर, उत्पादन, प्रयोगकर्ता व्यवस्थापन
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminOrdersList from "./pages/admin/AdminOrdersList";
@@ -36,7 +36,7 @@ import AdminUnitsList from "./pages/admin/AdminUnitsList";
 import AdminUnitForm from "./pages/admin/AdminUnitForm";
 import AdminBanners from "./pages/admin/AdminBanners";
 
-// Customer
+// ग्राहक स्टोरफ्रन्ट — होम, कार्ट, चेकआउट, ट्र्याकिङ
 import CustomerLayout from "./components/customer/CustomerLayout";
 import CustomerHome from "./pages/customer/CustomerHome";
 import CustomerExplore from "./pages/customer/CustomerExplore";
@@ -57,7 +57,7 @@ import CustomerNotifications from "./pages/customer/CustomerNotifications";
 import CustomerCategoryProducts from "./pages/customer/CustomerCategoryProducts";
 import CustomerParentCategory from "./pages/customer/CustomerParentCategory";
 
-// Delivery
+// डेलिभरी राइडर पोर्टल — असाइन गरिएका अर्डर र ट्र्याकिङ
 import DeliveryLayout from "./components/delivery/DeliveryLayout";
 import DeliveryHome from "./pages/delivery/DeliveryHome";
 import DeliveryMap from "./pages/delivery/DeliveryMap";
@@ -85,13 +85,13 @@ const App = () => (
       }}
     >
       <Routes>
-          {/* Auth */}
+          {/* प्रमाणीकरण */}
           <Route path="/" element={<SplashScreen />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
 
-          {/* Admin Portal */}
+          {/* Admin पोर्टल */}
           <Route
             path="/admin"
             element={
@@ -144,7 +144,7 @@ const App = () => (
             <Route path="users/*" element={<LegacyAdminUsersRedirect />} />
           </Route>
 
-          {/* Customer Portal — browse, cart, and checkout work without login */}
+          {/* ग्राहक पोर्टल — browse, cart, checkout लगइन बिना चल्छ */}
           <Route
             path="/customer"
             element={
@@ -208,7 +208,7 @@ const App = () => (
             />
           </Route>
 
-          {/* Delivery Portal */}
+          {/* डेलिभरी पोर्टल */}
           <Route
             path="/delivery"
             element={

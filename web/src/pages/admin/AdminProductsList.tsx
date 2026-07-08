@@ -39,7 +39,7 @@ function useProductsViewMode(): [ViewMode, (v: ViewMode) => void] {
       const stored = localStorage.getItem(VIEW_STORAGE_KEY);
       if (stored === 'grid' || stored === 'list') return stored;
     } catch {
-      /* ignore */
+      /* बेवास्ता */
     }
     return 'grid';
   });
@@ -48,7 +48,7 @@ function useProductsViewMode(): [ViewMode, (v: ViewMode) => void] {
     try {
       localStorage.setItem(VIEW_STORAGE_KEY, view);
     } catch {
-      /* ignore */
+      /* बेवास्ता */
     }
   }, [view]);
 
@@ -69,7 +69,7 @@ export default function AdminProductsList() {
         JSON.stringify({ scrollY: window.scrollY, viewMode }),
       );
     } catch {
-      /* ignore */
+      /* बेवास्ता */
     }
   };
 
@@ -87,7 +87,7 @@ export default function AdminProductsList() {
         window.scrollTo(0, Number(scrollY) || 0);
       });
     } catch {
-      /* ignore */
+      /* बेवास्ता */
     }
   }, [setViewMode]);
 

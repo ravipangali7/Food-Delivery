@@ -37,7 +37,7 @@ export default function CustomerCheckout() {
   const { token, user } = useAuth();
   const { cart, isLoading, guestLines } = useCart();
 
-  /** Human-readable delivery line from map search or reverse-geocode (sent as order address). */
+  /** मानव-पठनीय डेलिभरी लाइन map search वा reverse-geocode बाट (अर्डर address को रूपमा पठाइन्छ)। */
   const [deliveryAddressLine, setDeliveryAddressLine] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');

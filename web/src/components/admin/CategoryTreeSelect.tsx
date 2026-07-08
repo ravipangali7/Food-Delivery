@@ -18,7 +18,7 @@ function selectionLabel(parents: ParentCategory[], categoryId: string): string {
   return '';
 }
 
-/** Flatten search results: only subcategories are selectable; include path when filtering. */
+/** खोज परिणाम समतल: उपश्रेणी मात्र छान्न सकिन्छ; filter गर्दा path समावेश। */
 function filteredSubcategories(parents: ParentCategory[], query: string): { id: number; label: string }[] {
   const term = query.trim().toLowerCase();
   if (!term) return [];

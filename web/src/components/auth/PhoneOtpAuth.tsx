@@ -49,9 +49,9 @@ export default function PhoneOtpAuth({
   const storeName = settings?.name?.trim() || 'Store';
 
   const [name, setName] = useState('');
-  /** Login only: if this phone is new, we send name on verify to create the account. */
+  /** Login मात्र: यो फोन नयाँ भए verify मा name पठाएर account बनाउँछौं। */
   const [nameForNewLogin, setNameForNewLogin] = useState('');
-  /** Set when backend already has a name for this phone — field is read-only. */
+  /** backend मा यो फोनको name पहिले नै छ भने सेट — फिल्ड read-only। */
   const [nameLockedFromBackend, setNameLockedFromBackend] = useState(false);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');

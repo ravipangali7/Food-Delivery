@@ -1,3 +1,3 @@
 from django.test import TestCase
 
-# Create your tests here.
+# यहाँ आफ्ना परीक्षणहरू लेख्नुहोस्।

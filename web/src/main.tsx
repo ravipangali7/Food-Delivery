@@ -6,7 +6,8 @@ import "./index.css";
 
 const queryClient = new QueryClient();
 
-createRoot(document.getElementById("root")!).render(
+// एप्लिकेसन प्रवेश बिन्दु — DOM mount र global providers सेटअप।
+createRoot(document.getElementById("app")!).render(
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <App />

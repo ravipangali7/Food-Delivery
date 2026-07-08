@@ -1,6 +1,6 @@
 /**
- * Mirrors `server/core/services.py` distance + fee (km × charge per km)
- * for checkout UI preview (server is authoritative on place order).
+ * `server/core/services.py` को दूरी + शुल्क (km × प्रति km शुल्क) mirror
+ * checkout UI preview का लागि (place order मा सर्भर अधिकारी)।
  */
 
 const EARTH_RADIUS_KM = 6371;
@@ -42,7 +42,7 @@ export function previewDeliveryFeeNpr(
   return { fee, distanceKm: km };
 }
 
-/** True when a configured short radius exists and the pin is beyond it. */
+/** कन्फिगर गरिएको छोटो radius छ र pin बाहिर छ भने true। */
 export function isOutOfDeliveryRadius(distanceKm: number, underKmRadius: number): boolean {
   const under = underKmRadius || 0;
   return under > 0 && distanceKm > under;

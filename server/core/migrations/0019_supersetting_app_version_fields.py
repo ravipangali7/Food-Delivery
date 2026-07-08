@@ -1,4 +1,4 @@
-# Generated manually for app version / store links.
+# म्यानुअल सिर्जना: app संस्करण / store लिङ्कका लागि।
 
 from django.db import migrations, models
 

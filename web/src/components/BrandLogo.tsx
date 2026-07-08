@@ -14,7 +14,7 @@ const sizeClass: Record<NonNullable<BrandLogoProps['size']>, string> = {
   splash: 'h-32 w-auto max-w-[280px]',
 };
 
-/** Store logo — object-contain preserves Shyam's wordmark aspect ratio. */
+/** पसल logo — object-contain ले Shyam's wordmark को aspect ratio जोगाउँछ। */
 export default function BrandLogo({ src, alt = "Shyam's", className, size = 'md' }: BrandLogoProps) {
   return (
     <img

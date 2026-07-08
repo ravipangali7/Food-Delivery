@@ -1,6 +1,6 @@
 // ============================================
-// Shyam's — Centralized Color Constants
-// Brand: red #E31E24, yellow #FFC72C
+// Shyam's — केन्द्रीकृत रङ स्थिरांक
+// ब्रान्ड: red #E31E24, yellow #FFC72C
 // ============================================
 
 export const colors = {
@@ -82,7 +82,7 @@ export const colors = {
   },
 } as const;
 
-// Order status labels
+// अर्डर स्थिति लेबलहरू
 export const orderStatusLabels: Record<string, string> = {
   pending: 'Pending',
   confirmed: 'Confirmed',
@@ -94,7 +94,7 @@ export const orderStatusLabels: Record<string, string> = {
   failed: 'Failed',
 };
 
-// Valid status transitions
+// मान्य स्थिति संक्रमणहरू
 export const validStatusTransitions: Record<string, string[]> = {
   pending: ['confirmed', 'cancelled'],
   confirmed: ['preparing', 'cancelled'],
@@ -106,7 +106,7 @@ export const validStatusTransitions: Record<string, string[]> = {
   cancelled: [],
 };
 
-/** Assigned delivery partner only — from Preparing onward (not pending/confirmed). */
+/** तोकिएको डेलिभरी साझेदार मात्र — Preparing देखि (pending/confirmed होइन)। */
 export const deliveryPartnerValidStatusTransitions: Record<string, string[]> = {
   pending: [],
   confirmed: [],
@@ -118,7 +118,7 @@ export const deliveryPartnerValidStatusTransitions: Record<string, string[]> = {
   cancelled: [],
 };
 
-// Notification types
+// सूचना प्रकारहरू
 export const notificationTypes = [
   'order_placed',
   'order_confirmed',

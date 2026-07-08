@@ -1,4 +1,4 @@
-"""WebSocket: live order tracking, order chat (typing, receipts), and staff inbox feed."""
+"""WebSocket: live order tracking, order chat (typing, receipt), र staff inbox feed।"""
 
 from __future__ import annotations
 
@@ -124,7 +124,7 @@ class OrderTrackingConsumer(AsyncWebsocketConsumer):
 
 
 class StaffInboxConsumer(AsyncWebsocketConsumer):
-    """Staff-only: live toast feed for new messages across all orders."""
+    """staff-only: सबै order मा नयाँ सन्देशको live toast feed।"""
 
     async def connect(self):
         qs = parse_qs(self.scope.get("query_string", b"").decode())

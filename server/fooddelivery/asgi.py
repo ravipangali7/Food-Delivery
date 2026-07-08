@@ -1,8 +1,8 @@
 """
-ASGI config for fooddelivery project.
+fooddelivery परियोजनाको ASGI कन्फिग।
 
-HTTP is served by Django; WebSockets power live order tracking.
-Run with: daphne fooddelivery.asgi:application
+HTTP Django ले सेवा गर्छ; WebSocket ले live order tracking चलाउँछ।
+चलाउने: daphne fooddelivery.asgi:application
 """
 
 import os
@@ -22,10 +22,10 @@ django_asgi_app = get_asgi_application()
 
 def _websocket_allowed_origins():
     """
-    Browser WebSocket Same-Origin Policy sends the *page* Origin (e.g. https://shyam-sweets.com),
-    not the API host. AllowedHostsOriginValidator compares that to ALLOWED_HOSTS entries, so
-    production often rejects WS when the API subdomain is the only allowed host. Align WS with
-    the same origins we already allow for CORS / CSRF.
+    ब्राउजर WebSocket Same-Origin Policy ले *पेज* Origin पठाउँछ (उदाहरण: https://shyam-sweets.com),
+    API host होइन। AllowedHostsOriginValidator ले त्यसलाई ALLOWED_HOSTS सँग तुलना गर्छ, त्यसैले
+    उत्पादनमा API subdomain मात्र allowed भए WS प्रायः reject हुन्छ। WS लाई CORS / CSRF मा
+    पहिले नै अनुमति दिइएका origin सँग मिलाउनुहोस्।
     """
     out: dict[str, None] = {}
     for origin in getattr(settings, "CORS_ALLOWED_ORIGINS", ()) or ():
@@ -43,7 +43,7 @@ def _websocket_allowed_origins():
         o = o.strip()
         if o:
             out[o] = None
-    # "*" only when Django allows any host (keeps dev parity with old validator behavior).
+    # "*" मात्र जब Django कुनै पनि host अनुमति दिन्छ (पुरानो validator व्यवहारसँग dev मिलाउन)।
     if "*" in (getattr(settings, "ALLOWED_HOSTS", None) or []):
         out.clear()
         out["*"] = None

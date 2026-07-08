@@ -1,0 +1,26 @@
+# shyam-sweets.com storefront — copied to dist/ on `npm run build`.
+# Upload web/dist/* to the site document root.
+
+<IfModule mod_headers.c>
+  Header always unset X-Powered-By
+  Header always unset Server
+  Header always unset X-AspNet-Version
+  Header always unset X-AspNetMvc-Version
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+ErrorDocument 404 /404.html
+ErrorDocument 500 /500.html
+ErrorDocument 503 /500.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

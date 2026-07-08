@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getJson } from '@/lib/api';
 import type { SuperSetting } from '@/types';
 
-/** When false, product browsing menus should be hidden. True while settings are still loading. */
+/** false भए उत्पादन browse मेनु लुकाउनुपर्छ। settings लोड हुँदासम्म true। */
 export function useStoreMenusOpen() {
   const { data: settings } = useQuery({
     queryKey: ['settings'],

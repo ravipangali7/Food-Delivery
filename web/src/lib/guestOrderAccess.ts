@@ -4,7 +4,7 @@ export function saveGuestOrderAccess(orderId: number, token: string): void {
   try {
     sessionStorage.setItem(`${PREFIX}${orderId}`, token);
   } catch {
-    /* ignore quota errors */
+    /* quota त्रुटि बेवास्ता */
   }
 }
 

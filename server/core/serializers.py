@@ -41,7 +41,7 @@ def _public_base_url() -> str:
 
 
 def _normalize_media_url(url: str | None) -> str | None:
-    """Rewrite http(s)://127.0.0.1 or localhost URLs when PUBLIC_BASE_URL is set (fixes stale DB values)."""
+    """PUBLIC_BASE_URL सेट भए http(s)://127.0.0.1 वा localhost URL पुन: लेख्नुहोस् (पुरानो DB मान ठीक गर्न)।"""
     if not url:
         return url
     base = _public_base_url()
@@ -73,7 +73,7 @@ def _absolute_media_url(request, relative_url: str) -> str:
 
 
 class NormalizeStoredMediaUrlMixin:
-    """Rewrite localhost / 127.0.0.1 in stored media URLs when PUBLIC_BASE_URL is set."""
+    """भण्डारण media URL मा localhost / 127.0.0.1 PUBLIC_BASE_URL सेट भए पुन: लेख्नुहोस्।"""
 
     normalize_media_fields: tuple[str, ...] = ()
 
@@ -125,7 +125,7 @@ class UserSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
 
 class UserMeUpdateSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
     normalize_media_fields = ("profile_photo",)
-    """PATCH `/api/auth/me/`; send `profile_photo_file` (multipart) to upload and set `profile_photo` URL."""
+    """PATCH `/api/auth/me/`; `profile_photo_file` (multipart) पठाएर upload र `profile_photo` URL सेट।"""
 
     profile_photo_file = serializers.ImageField(write_only=True, required=False, allow_null=True)
 
@@ -246,7 +246,7 @@ class UserPublicSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerial
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    """Subcategory (products reference these)."""
+    """उप-श्रेणी (product ले यिनलाई सन्दर्भ गर्छ)।"""
 
     image_url = serializers.SerializerMethodField()
     parent_id = serializers.IntegerField(read_only=True)
@@ -273,7 +273,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class ParentCategorySerializer(serializers.ModelSerializer):
-    """Parent category with nested subcategories for storefront lists."""
+    """storefront सूचीका लागि nested उप-श्रेणी सहित parent category।"""
 
     image_url = serializers.SerializerMethodField()
     children = serializers.SerializerMethodField()
@@ -304,7 +304,7 @@ class ParentCategorySerializer(serializers.ModelSerializer):
 
 
 class BannerSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer):
-    """Public storefront banner; `image` is an absolute URL string."""
+    """सार्वजनिक storefront banner; `image` absolute URL string।"""
 
     normalize_media_fields = ("image",)
     image = serializers.SerializerMethodField()
@@ -320,7 +320,7 @@ class BannerSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerializer
 
 
 class BannerAdminSerializer(serializers.ModelSerializer):
-    """Staff CRUD for homepage / explore / sweets carousel (`/api/admin/banners/`)."""
+    """homepage / explore / sweets carousel का staff CRUD (`/api/admin/banners/`)।"""
 
     image_url = serializers.SerializerMethodField()
     image = serializers.ImageField(write_only=True, required=False, allow_null=True)
@@ -915,7 +915,7 @@ def _save_supersetting_uploaded_file(request, uploaded, subdir: str, default_ext
 
 
 class SuperSettingUpdateSerializer(serializers.ModelSerializer):
-    """PATCH store settings; send `logo_file` (multipart) to upload and set `logo` URL."""
+    """PATCH store settings; `logo_file` (multipart) पठाएर upload र `logo` URL सेट।"""
 
     logo_file = serializers.ImageField(write_only=True, required=False, allow_null=True)
     android_file_upload = serializers.FileField(write_only=True, required=False, allow_null=True)
@@ -1085,7 +1085,7 @@ class ProductAdminSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSeri
             raw_variants = data.get("variants")
             if isinstance(raw_variants, str) and raw_variants.strip():
                 parsed = json.loads(raw_variants)
-                # Multipart uses QueryDict; DRF skips nested lists unless we use a plain dict.
+                # Multipart ले QueryDict प्रयोग; plain dict नभए DRF nested list छोड्छ।
                 if html.is_html_input(data):
                     data = {key: data.get(key) for key in data}
                 elif hasattr(data, "copy"):
@@ -1114,7 +1114,7 @@ class ProductAdminSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSeri
     def _apply_variant_mode_product_fields(
         self, validated_data: dict, variants_data: list[dict] | None
     ) -> None:
-        """When variants are used, mirror the first variant onto the product row for catalog fallbacks."""
+        """variant प्रयोग भए पहिलो variant लाई catalog fallback का लागि product row मा mirror।"""
         if not variants_data:
             return
         first = sorted(
@@ -1253,7 +1253,7 @@ class ParentCategoryAdminSerializer(serializers.ModelSerializer):
 
 
 class CategoryAdminSerializer(serializers.ModelSerializer):
-    """Subcategory (admin)."""
+    """उप-श्रेणी (admin)।"""
 
     kind = serializers.SerializerMethodField()
     parent_id = serializers.PrimaryKeyRelatedField(source="parent", queryset=ParentCategory.objects.all())
@@ -1321,7 +1321,7 @@ class NotificationBroadcastSerializer(serializers.Serializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    """Client-facing notification feed (no admin-only fields)."""
+    """ग्राहक-facing notification feed (admin-only field छैन)।"""
 
     read_at = serializers.SerializerMethodField()
 
@@ -1350,7 +1350,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 
 class NotificationRecipientSerializer(serializers.ModelSerializer):
-    """Admin: per-user delivery outcome."""
+    """admin: प्रति-प्रयोगकर्ता delivery परिणाम।"""
 
     user_name = serializers.CharField(source="user.name", read_only=True)
     user_phone = serializers.CharField(source="user.phone", read_only=True)
@@ -1369,7 +1369,7 @@ class NotificationRecipientSerializer(serializers.ModelSerializer):
 
 
 class NotificationAdminListSerializer(serializers.ModelSerializer):
-    """Staff: list/history with audience and delivery aggregates."""
+    """staff: audience र delivery aggregate सहित सूची/इतिहास।"""
 
     recipients_count = serializers.IntegerField(read_only=True, required=False)
     delivery_sent_count = serializers.IntegerField(read_only=True, required=False)
@@ -1396,7 +1396,7 @@ class NotificationAdminListSerializer(serializers.ModelSerializer):
 
 
 class NotificationAdminUpdateSerializer(serializers.ModelSerializer):
-    """Staff: update stored notification metadata (does not re-send)."""
+    """staff: भण्डारण notification metadata अपडेट (पुन: पठाउँदैन)।"""
 
     class Meta:
         model = Notification
@@ -1472,7 +1472,7 @@ class AdminPasswordLoginSerializer(serializers.Serializer):
 
 
 class CustomerPasswordLoginSerializer(AdminPasswordLoginSerializer):
-    """Customer SPA login: phone + password."""
+    """ग्राहक SPA लगइन: फोन + पासवर्ड।"""
 
 
 class CustomerRegisterSerializer(serializers.Serializer):

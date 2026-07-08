@@ -15,16 +15,16 @@ type Props = {
   token: string | null;
   currentUserId: number;
   partnerLabel: string;
-  /** `support`: customer ↔ staff. `delivery`: customer ↔ staff (coordination). `rider_ops`: rider ↔ staff only. `customer_rider`: customer ↔ assigned rider (+ staff). */
+  /** `support`: ग्राहक ↔ स्टाफ। `delivery`: ग्राहक ↔ स्टाफ (समन्वय)। `rider_ops`: राइडर ↔ स्टाफ मात्र। `customer_rider`: ग्राहक ↔ तोकिएको राइडर (+ स्टाफ)। */
   chatThread?: OrderChatThread;
-  /** WebSocket subscription; staff should use `all` with `wsIngestFilter` so every lane receives live updates. */
+  /** WebSocket सदस्यता; स्टाफले `all` र `wsIngestFilter` प्रयोग गर्नुपर्छ ताकि हरेक lane ले live update पाओस्। */
   wsThread?: OrderChatWsThread;
-  /** When staff use `wsThread="all"`, only messages matching this predicate update this panel. */
+  /** स्टाफले `wsThread="all"` प्रयोग गर्दा, यो predicate मिल्ने सन्देश मात्र यो panel अद्यावधिक गर्छ। */
   wsIngestFilter?: (msg: OrderChatMessage) => boolean;
-  /** Fetch GET thread=all (staff merged timeline). Overrides chatThread for loading. */
+  /** GET thread=all fetch (स्टाफ merged timeline)। लोडिङका लागि chatThread override गर्छ। */
   unified?: boolean;
   enabled?: boolean;
-  /** Toast + header pulse when a peer message arrives while the tab is in the background. Staff hub should set false (global inbox handles it). */
+  /** tab पृष्ठभूमिमा हुँदा peer सन्देश आए Toast + header pulse। Staff hub ले false राख्नुपर्छ (global inbox ले ह्यान्डल गर्छ)। */
   notifyPeerMessages?: boolean;
 };
 

@@ -11,7 +11,7 @@ const inactiveCls = 'border-border bg-card text-muted-foreground hover:bg-muted'
 export type CollectionViewToggleProps = {
   value: CollectionViewMode;
   onChange: (mode: CollectionViewMode) => void;
-  /** Accessible label for the control group */
+  /** नियन्त्रण समूहका लागि accessible label */
   label?: string;
   gridTitle?: string;
   listTitle?: string;
@@ -19,7 +19,7 @@ export type CollectionViewToggleProps = {
 };
 
 /**
- * Reusable grid / list switch for admin collection pages (categories, products, orders, …).
+ * admin collection पृष्ठहरू (categories, products, orders, …) का लागि पुन:प्रयोग योग्य grid / list switch।
  */
 export function CollectionViewToggle({
   value,

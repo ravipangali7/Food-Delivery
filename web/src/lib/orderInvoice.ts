@@ -25,7 +25,7 @@ export function storeFromSettings(settings: SuperSetting | undefined): OrderInvo
   };
 }
 
-/** Extract ``/media/...`` path from a URL or relative string. */
+/** URL वा सापेक्ष string बाट ``/media/...`` path निकाल्नुहोस्। */
 export function mediaPathFromUrl(url: string): string | null {
   const t = url.trim();
   if (t.startsWith('/media/')) return t;
@@ -43,7 +43,7 @@ export function absoluteAssetUrl(url: string | undefined | null): string | null 
   if (t.startsWith('http://') || t.startsWith('https://') || t.startsWith('data:')) return t;
   if (t.startsWith('/')) {
     if (typeof window !== 'undefined') {
-      // Uploaded files live on the API; bundled SPA assets (e.g. /logo.png) on the storefront host.
+      // upload फाइल API मा; bundle SPA asset (जस्तै /logo.png) storefront host मा।
       if (t.startsWith('/media/') || t.startsWith('/api/')) {
         return apiUrl(t);
       }
@@ -66,7 +66,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/** Candidate URLs to fetch (same-origin /media first when the SPA can proxy it). */
+/** fetch गर्ने उम्मेदवार URL (SPA ले proxy गर्न सक्दा same-origin /media पहिले)। */
 export function invoiceImageFetchCandidates(url: string): string[] {
   const out: string[] = [];
   const add = (u: string) => {
@@ -100,13 +100,13 @@ export function invoiceImageFetchCandidates(url: string): string[] {
       add(`https://${parsed.host}${parsed.pathname}${parsed.search}`);
     }
   } catch {
-    /* ignore */
+    /* बेवास्ता */
   }
 
   return out;
 }
 
-/** Staff API proxy — avoids missing CORS on raw ``/media/`` static files. */
+/** स्टाफ API proxy — कच्चा ``/media/`` static मा CORS नभएको अवस्था टाल्छ। */
 async function fetchMediaViaAdminProxy(
   mediaPath: string,
   authToken: string,
@@ -166,7 +166,7 @@ function decodeImageToDataUrl(src: string): Promise<string | null> {
   });
 }
 
-/** Load remote image as data URL for PDF embedding. */
+/** PDF embed का लागि टाढाको छवि data URL को रूपमा लोड गर्नुहोस्। */
 export async function loadImageAsDataUrl(
   url: string | undefined | null,
   options?: { authToken?: string | null },
@@ -223,7 +223,7 @@ export async function preloadOrderInvoiceImages(
   return { logo, items: itemMap };
 }
 
-/** Force every ``<img>`` in the invoice to use an inline data URL before capture. */
+/** capture अघि invoice का सबै ``<img>`` लाई inline data URL प्रयोग गर्न बाध्य पार्नुहोस्। */
 export async function embedInvoiceImagesInElement(
   root: HTMLElement,
   options?: { authToken?: string | null },
@@ -252,7 +252,7 @@ export function invoicePdfFilename(orderNumber: string): string {
   return `invoice-${safe}.pdf`;
 }
 
-/** Capture a rendered invoice DOM node and download as A4 PDF. */
+/** render भएको invoice DOM node capture गरी A4 PDF डाउनलोड गर्नुहोस्। */
 export async function downloadInvoiceElementAsPdf(
   element: HTMLElement,
   filename: string,
@@ -304,7 +304,7 @@ export async function downloadInvoiceElementAsPdf(
   pdf.save(filename);
 }
 
-/** Wait for all images inside a node to finish loading (or fail). */
+/** node भित्रका सबै छवि लोड (वा असफल) सम्म पर्खनुहोस्। */
 export function waitForImagesInElement(root: HTMLElement, timeoutMs = 15000): Promise<void> {
   const imgs = Array.from(root.querySelectorAll('img'));
   if (imgs.length === 0) return Promise.resolve();

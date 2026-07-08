@@ -1,7 +1,7 @@
 import { getEffectivePrice, getOptionEffectivePrice, unitLabelFromUnit } from '@/lib/formatting';
 import type { Product, ProductPurchaseOption, ProductVariant } from '@/types';
 
-/** Build selectable purchase options from API fields (list + detail). */
+/** API फिल्डबाट छान्न सकिने खरिद विकल्प बनाउनुहोस् (सूची + विवरण)। */
 export function getProductPurchaseOptions(product: Product): ProductPurchaseOption[] {
   const fromVariants = (): ProductPurchaseOption[] => {
     const variants = product.variants?.filter(v => v.is_available !== false) ?? [];
@@ -21,7 +21,7 @@ export function getProductPurchaseOptions(product: Product): ProductPurchaseOpti
   return fromVariants();
 }
 
-/** Human-readable label for a variant row or product unit fallback. */
+/** variant पङ्क्ति वा उत्पादन एकाइ fallback का लागि मानव-पठनीय लेबल। */
 export function variantDisplayLabel(
   variant: ProductVariant | null | undefined,
   product?: Pick<Product, 'unit'>,

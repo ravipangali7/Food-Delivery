@@ -1,4 +1,4 @@
-"""Staff-only template admin panel (CRUD + sidebar)."""
+"""staff-only template admin panel (CRUD + sidebar)।"""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ User = get_user_model()
 
 
 class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """All panel routes require an authenticated staff user."""
+    """सबै panel route का लागि प्रमाणीकरण भएको staff प्रयोगकर्ता आवश्यक।"""
 
     login_url = reverse_lazy("panel_login")
 
@@ -79,7 +79,7 @@ class PanelHomeRedirectView(StaffRequiredMixin, RedirectView):
     pattern_name = "panel_product_list"
 
 
-# —— Products ——
+# —— उत्पादन ——
 
 
 class ProductListView(StaffRequiredMixin, ListView):
@@ -166,7 +166,7 @@ class ProductDeleteView(StaffRequiredMixin, DeleteView):
         return ctx
 
 
-# —— Categories ——
+# —— श्रेणी ——
 
 
 class ParentCategoryCreateView(StaffRequiredMixin, CreateView):
@@ -281,7 +281,7 @@ class CategoryDeleteView(StaffRequiredMixin, DeleteView):
         return ctx
 
 
-# —— Orders ——
+# —— अर्डर ——
 
 
 class OrderListView(StaffRequiredMixin, ListView):
@@ -356,7 +356,7 @@ class OrderStatusUpdateView(StaffRequiredMixin, UpdateView):
         return redirect(nxt)
 
 
-# —— Delivery boys ——
+# —— delivery कर्मी ——
 
 
 class DeliveryBoyListView(StaffRequiredMixin, ListView):
@@ -446,7 +446,7 @@ class DeliveryBoyDeleteView(StaffRequiredMixin, DeleteView):
         return ctx
 
 
-# —— Notifications ——
+# —— सूचना ——
 
 
 class NotificationListView(StaffRequiredMixin, ListView):
@@ -520,7 +520,7 @@ class NotificationDeleteView(StaffRequiredMixin, DeleteView):
         return ctx
 
 
-# —— Store settings (singleton) ——
+# —— store सेटिङ (singleton) ——
 
 
 class StoreSettingsView(StaffRequiredMixin, TemplateView):

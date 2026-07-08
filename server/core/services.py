@@ -1,5 +1,5 @@
 """
-Domain logic for FoodDelivery (aligned with models_logic.md).
+व्यापारिक तर्क — अर्डर, कार्ट, सूचना, र डेलिभरी (models_logic.md संग मिल्दो)।
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-# Mirrors web/src/lib/colors.ts validStatusTransitions
+# अर्डर स्थिति परिवर्तन — अनुमतित स्थिति मात्र अर्कोमा जान सक्छ (web colors.ts संग मिल्दो)।
 VALID_STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     "pending": frozenset({"confirmed", "cancelled"}),
     "confirmed": frozenset({"preparing", "cancelled"}),
@@ -56,7 +56,7 @@ EARTH_RADIUS_KM = 6371.0
 def haversine_km(
     lat1: Decimal | float, lon1: Decimal | float, lat2: Decimal | float, lon2: Decimal | float
 ) -> float:
-    """Great-circle distance in kilometers."""
+    """किलोमिटरमा great-circle दूरी।"""
     p1, p2 = float(lat1), float(lon1)
     q1, q2 = float(lat2), float(lon2)
     r = math.radians
@@ -72,7 +72,7 @@ def get_store_settings() -> SuperSetting | None:
 
 
 def _send_order_status_sms(order: Order, title: str, body: str) -> None:
-    """Notify customer and store contact phone when Infelo SMS is configured (or DEBUG no-op)."""
+    """Infelo SMS कन्फिगर भएमा (वा DEBUG मा no-op) ग्राहक र store सम्पर्क फोनलाई सूचित गर्नुहोस्।"""
     if not infelo_sms_configured() and not settings.DEBUG:
         return
     if order.user_id:
@@ -95,7 +95,7 @@ def delivery_distance_km(
     delivery_lat: Decimal | None,
     delivery_lon: Decimal | None,
 ) -> Decimal:
-    """Great-circle distance from store to delivery pin (km), or 0 when coords missing."""
+    """store देखि delivery pin सम्म great-circle दूरी (km); coordinate नभए 0।"""
     store = get_store_settings()
     if (
         store is None
@@ -116,9 +116,9 @@ def compute_delivery_fee(
     delivery_lon: Decimal | None,
 ) -> tuple[Decimal, Decimal]:
     """
-    Returns (delivery_fee, distance_km).
-    Fee = distance_km × delivery_charge_per_km (NPR).
-    If store or delivery coordinates missing, distance and fee are 0.
+    (delivery_fee, distance_km) फर्काउँछ।
+    Fee = distance_km × delivery_charge_per_km (NPR)।
+    store वा delivery coordinate नभए distance र fee 0।
     """
     km = delivery_distance_km(delivery_lat=delivery_lat, delivery_lon=delivery_lon)
     if km <= 0:
@@ -134,7 +134,7 @@ def validate_delivery_radius(
     delivery_lat: Decimal | None,
     delivery_lon: Decimal | None,
 ) -> None:
-    """Reject checkout when delivery pin is beyond the store short delivery radius."""
+    """delivery pin store को छोटो delivery radius भन्दा बाहिर भए checkout अस्वीकार गर्नुहोस्।"""
     store = get_store_settings()
     max_km = (store.delivery_under_km if store else None) or Decimal("0.00")
     if max_km <= 0:
@@ -153,7 +153,7 @@ def validate_delivery_radius(
 
 
 def recalculate_cart_totals(cart: Cart) -> None:
-    """Recompute Cart.subtotal and Cart.total from lines (models_logic §6)."""
+    """line बाट Cart.subtotal र Cart.total पुन: गणना गर्नुहोस् (models_logic §6)।"""
     agg = cart.items.aggregate(s=Sum("total_price"))
     sub = agg["s"] or Decimal("0.00")
     cart.subtotal = sub
@@ -217,8 +217,8 @@ def upsert_cart_line(
     variant: ProductVariant | None = None,
 ) -> CartItem:
     """
-    Merge line per UniqueConstraint (cart, product, variant, is_preorder);
-    prices from the selected variant or product default.
+    UniqueConstraint (cart, product, variant, is_preorder) अनुसार line मर्ज;
+    मूल्य चयनित variant वा product default बाट।
     """
     if quantity < 1:
         raise ValueError("quantity must be at least 1")
@@ -375,7 +375,7 @@ def apply_order_status_change(
     actor: User | None = None,
 ) -> Order:
     """
-    Enforce transition rules; set delivered_at / cancelled_at; optional notifications.
+    transition नियम लागू; delivered_at / cancelled_at सेट; वैकल्पिक notification।
     """
     if order.status == new_status:
         return order
@@ -407,7 +407,7 @@ def apply_order_status_change(
 
         ensure_route_for_order(order)
 
-    # Notifications for meaningful transitions
+    # अर्थपूर्ण transition का लागि notification
     customer_id = order.user_id
     targets = [customer_id]
     if new_status == Order.Status.CONFIRMED and old != new_status:
@@ -456,8 +456,8 @@ def apply_order_status_change(
 
 def submit_order_cancellation_request(*, order: Order, user: User, reason: str) -> OrderCancellationRequest:
     """
-    Customer asks to cancel; order is unchanged until a superuser approves.
-    Only the owning customer may submit, while the order is still pending.
+    ग्राहकले रद्द गर्न अनुरोध; superuser ले स्वीकृत नगरेसम्म order अपरिवर्तित।
+    मालिक ग्राहक मात्र, order अझै pending हुँदा।
     """
     text = (reason or "").strip()
     if len(text) < 3:
@@ -485,7 +485,7 @@ def review_order_cancellation_request(
     reviewer: User,
     approve: bool,
 ) -> OrderCancellationRequest:
-    """Superuser only (caller must enforce). Approving cancels the order and stores the customer's reason."""
+    """superuser मात्र (caller ले enforce गर्नुपर्छ)। स्वीकृत गर्दा order रद्द र ग्राहकको कारण सुरक्षित।"""
     if not reviewer.is_superuser:
         raise ValueError("Only a super admin can review cancellation requests.")
     if req.status != OrderCancellationRequest.Status.PENDING:
@@ -588,7 +588,7 @@ def place_order_from_lines(
     guest_name: str | None = None,
     guest_phone: str | None = None,
 ) -> Order:
-    """Create Order + OrderItems from validated line snapshots."""
+    """प्रमाणित line snapshot बाट Order + OrderItems सिर्जना।"""
     if not line_snapshots:
         raise ValueError("Cart is empty")
 
@@ -668,7 +668,7 @@ def place_order_from_cart(
     pre_order_date_time: datetime | None = None,
 ) -> Order:
     """
-    Create Order + OrderItems from user's cart; clear cart; notification.
+    प्रयोगकर्ताको cart बाट Order + OrderItems; cart खाली; notification।
     """
     cart = Cart.objects.select_for_update().filter(user=user).first()
     if cart is None or not cart.items.exists():
@@ -702,7 +702,7 @@ def place_guest_order(
     guest_name: str | None = None,
     guest_phone: str | None = None,
 ) -> Order:
-    """Place an order without a logged-in customer account."""
+    """लगइन गरेको ग्राहक खाता बिना order राख्नुहोस्।"""
     if not guest_lines:
         raise ValueError("Cart is empty")
     _subtotal, line_snapshots = _line_snapshots_from_guest_lines(guest_lines)

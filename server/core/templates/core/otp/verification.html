@@ -38,7 +38,7 @@
     {% endif %}
 
     {% if step == "send" %}
-      <p class="help">We’ll send a one-time code by SMS (see server logs in development).</p>
+      <p class="help">We’ll send a one-time code by SMS.</p>
       <form method="post" action="">
         {% csrf_token %}
         <input type="hidden" name="action" value="send">

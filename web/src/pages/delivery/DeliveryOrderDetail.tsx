@@ -62,7 +62,7 @@ export default function DeliveryOrderDetail() {
           },
           token,
         ).catch(() => {
-          /* offline / permission */
+          /* अफलाइन / अनुमति */
         });
       },
       () => {},

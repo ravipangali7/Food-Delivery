@@ -1,4 +1,4 @@
-"""Staff-only order actions (assign delivery, media proxy for invoices)."""
+"""staff-only order कार्य (delivery तोक्ने, invoice का लागि media proxy)।"""
 
 import mimetypes
 from pathlib import Path
@@ -17,7 +17,7 @@ from ..helpers import IsStaffUser
 
 
 def _resolve_media_file(relative: str) -> Path:
-    """Map ``/media/foo/bar.jpg`` to a file under ``MEDIA_ROOT``."""
+    """``/media/foo/bar.jpg`` लाई ``MEDIA_ROOT`` अन्तर्गत फाइलसँग म्याप।"""
     rel = (relative or "").strip()
     if not rel.startswith("/media/"):
         raise ValueError("invalid media path")
@@ -35,10 +35,9 @@ def _resolve_media_file(relative: str) -> Path:
 @permission_classes([IsStaffUser])
 def admin_media_file(request):
     """
-    Staff-only media proxy for invoice PDF generation.
+    invoice PDF का लागि staff-only media proxy।
 
-    Static ``/media/`` responses often omit CORS headers; this endpoint is served
-    through Django with the same CORS policy as other API routes.
+    static ``/media/`` response मा प्रायः CORS header छैन; यो endpoint API सँगै CORS नीति।
     """
     raw = (request.GET.get("path") or request.GET.get("url") or "").strip()
     if not raw:

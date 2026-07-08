@@ -1,4 +1,4 @@
-"""Custom staff panel (template CRUD) under /admin/."""
+"""कस्टम staff panel (template CRUD) `/admin/` अन्तर्गत।"""
 
 from django.urls import path
 
@@ -8,12 +8,12 @@ urlpatterns = [
     path("login/", panel.PanelLoginView.as_view(), name="panel_login"),
     path("logout/", panel.PanelLogoutView.as_view(), name="panel_logout"),
     path("", panel.PanelHomeRedirectView.as_view(), name="panel_home"),
-    # Products
+    # उत्पादन
     path("products/", panel.ProductListView.as_view(), name="panel_product_list"),
     path("products/create/", panel.ProductCreateView.as_view(), name="panel_product_create"),
     path("products/<int:pk>/edit/", panel.ProductUpdateView.as_view(), name="panel_product_edit"),
     path("products/<int:pk>/delete/", panel.ProductDeleteView.as_view(), name="panel_product_delete"),
-    # Categories
+    # श्रेणी
     path("categories/", panel.CategoryListView.as_view(), name="panel_category_list"),
     path(
         "parent-categories/create/",
@@ -28,7 +28,7 @@ urlpatterns = [
     path("categories/create/", panel.CategoryCreateView.as_view(), name="panel_category_create"),
     path("categories/<int:pk>/edit/", panel.CategoryUpdateView.as_view(), name="panel_category_edit"),
     path("categories/<int:pk>/delete/", panel.CategoryDeleteView.as_view(), name="panel_category_delete"),
-    # Orders
+    # अर्डर
     path("orders/", panel.OrderListView.as_view(), name="panel_order_list"),
     path("orders/<int:pk>/", panel.OrderDetailView.as_view(), name="panel_order_detail"),
     path(
@@ -36,7 +36,7 @@ urlpatterns = [
         panel.OrderStatusUpdateView.as_view(),
         name="panel_order_status",
     ),
-    # Delivery boys
+    # delivery कर्मी
     path("delivery-boys/", panel.DeliveryBoyListView.as_view(), name="panel_delivery_boy_list"),
     path(
         "delivery-boys/create/",
@@ -53,7 +53,7 @@ urlpatterns = [
         panel.DeliveryBoyDeleteView.as_view(),
         name="panel_delivery_boy_delete",
     ),
-    # Notifications
+    # सूचना
     path("notifications/", panel.NotificationListView.as_view(), name="panel_notification_list"),
     path(
         "notifications/create/",
@@ -70,6 +70,6 @@ urlpatterns = [
         panel.NotificationDeleteView.as_view(),
         name="panel_notification_delete",
     ),
-    # Store settings (singleton)
+    # store सेटिङ (singleton)
     path("store-settings/", panel.StoreSettingsView.as_view(), name="panel_store_settings"),
 ]

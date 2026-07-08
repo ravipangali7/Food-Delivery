@@ -53,7 +53,7 @@ export default function AdminInfeloPortalPage({ title }: Props) {
       try {
         el.removeChild(script);
       } catch {
-        /* already removed */
+        /* पहिले नै हटाइसकिएको */
       }
     };
   }, [data?.embed?.portal_origin, data?.embed?.infelo_api_key, data?.embed?.sms_api_key, data?.embed?.api_base, data?.embed?.script_path]);
@@ -122,7 +122,7 @@ export default function AdminInfeloPortalPage({ title }: Props) {
         ) : (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             {data?.credits_error || 'Could not load credits.'} Set <code className="text-xs">INFELO_API_KEY</code> in
-            Django <code className="text-xs">settings.py</code> and ensure the key is valid.
+            server configuration and ensure the key is valid.
           </p>
         )}
         <button
@@ -139,13 +139,13 @@ export default function AdminInfeloPortalPage({ title }: Props) {
         <h2 className="text-sm font-medium text-stone-800">Infelo portal (embed)</h2>
         {!data?.embed?.portal_origin ? (
           <p className="text-sm text-stone-600">
-            Set <code className="text-xs bg-stone-100 px-1 rounded">INFELO_PORTAL_ORIGIN</code> on the Django server
+            Set <code className="text-xs bg-stone-100 px-1 rounded">INFELO_PORTAL_ORIGIN</code> on the API server
             to the origin that serves <code className="text-xs bg-stone-100 px-1 rounded">infelo-api-embed.js</code> (
             <code className="text-xs">YOUR_PORTAL_ORIGIN</code> in Infelo docs).
           </p>
         ) : !data.embed.infelo_api_key && !data.embed.sms_api_key ? (
           <p className="text-sm text-stone-600">
-            Set <code className="text-xs bg-stone-100 px-1 rounded">INFELO_API_KEY</code> in Django settings to load
+            Set <code className="text-xs bg-stone-100 px-1 rounded">INFELO_API_KEY</code> in server configuration to load
             the embed script.
           </p>
         ) : (

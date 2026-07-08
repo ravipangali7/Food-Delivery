@@ -1,9 +1,9 @@
 """
-WSGI config for fooddelivery project.
+fooddelivery परियोजनाको WSGI कन्फिग।
 
-It exposes the WSGI callable as a module-level variable named ``application``.
+``application`` नामको module-level WSGI callable प्रदान गर्छ।
 
-For more information on this file, see
+थप जानकारी:
 https://docs.djangoproject.com/en/6.0/howto/deployment/wsgi/
 """
 

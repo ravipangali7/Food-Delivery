@@ -25,7 +25,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 const MIN_QUERY_LEN = 2;
 const REVERSE_GEOCODE_DEBOUNCE_MS = 450;
 
-/** min lon, min lat, max lon, max lat — prefer Nepal for suggestions */
+/** min lon, min lat, max lon, max lat — सुझावका लागि नेपाल प्राथमिकता */
 const NEPAL_VIEWBOX = { west: 80, south: 26.2, east: 88.4, north: 30.5 };
 
 type MapClickHandlerProps = { onMapClick: (lat: number, lng: number) => void };

@@ -9,7 +9,7 @@ type Options = {
   orderId: number | undefined;
   token: string | null;
   guestToken?: string | null;
-  /** Poll when true; WebSocket also updates state when available. */
+  /** true भए poll; WebSocket उपलब्ध भए state पनि अद्यावधिक गर्छ। */
   enabled?: boolean;
 };
 
@@ -46,7 +46,7 @@ export function useLiveOrderTracking({ orderId, token, guestToken, enabled = tru
   }, [orderId, token, guestToken, queryClient]);
 
   useEffect(() => {
-    if (!enabled || !orderId || !token) return; // live WS requires auth token
+    if (!enabled || !orderId || !token) return; // live WS लाई auth token चाहिन्छ
 
     const url = getTrackingWebSocketUrl(orderId, token);
     let ws: WebSocket;
@@ -66,7 +66,7 @@ export function useLiveOrderTracking({ orderId, token, guestToken, enabled = tru
           mergePayload(msg.data);
         }
       } catch {
-        /* ignore */
+        /* बेवास्ता */
       }
     };
 

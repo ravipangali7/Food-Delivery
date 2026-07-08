@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
 /**
- * Renders store "About us" plain text with minimal formatting:
- * - `**topic**` → bold (use on its own line for headings).
- * - Paragraph breaks: blank line between blocks.
- * - Single newlines → line break within a paragraph.
+ * पसल "About us" सादा पाठ न्यूनतम फर्म्याटिङसहित render:
+ * - `**topic**` → बोल्ड (शीर्षकका लागि छुट्टै लाइनमा प्रयोग)।
+ * - अनुच्छेद विराम: ब्लक बीच खाली लाइन।
+ * - एकल newline → अनुच्छेद भित्र लाइन ब्रेक।
  */
 export function renderAboutPlainText(text: string): ReactNode {
   const paragraphs = text.trim() === '' ? [] : text.split(/\n\n+/);

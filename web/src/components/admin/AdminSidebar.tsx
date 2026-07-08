@@ -28,7 +28,7 @@ import {
 
 type Summary = { orders_pending: number };
 
-/** One nav item is active at a time: dashboard matches only `/admin/dashboard`, not deeper routes. */
+/** एकै समयमा एउटा nav item सक्रिय: dashboard ले `/admin/dashboard` मात्र मिलाउँछ, गहिरो route होइन। */
 function isNavActive(basePath: string, pathname: string): boolean {
   const base = basePath.replace(/\/$/, '') || '/';
   const path = pathname.replace(/\/$/, '') || '/';
@@ -45,7 +45,7 @@ type NavItem = {
   badge?: number;
 };
 
-/** Which “Categories” sub-item should show as active (lists, forms, detail). */
+/** कुन “Categories” उप-वस्तु सक्रिय देखाउने (सूची, फर्म, विवरण)। */
 function isCategoriesAllActive(pathname: string): boolean {
   if (pathname === '/admin/categories/all') return true;
   if (pathname.startsWith('/admin/sub-categories')) return true;

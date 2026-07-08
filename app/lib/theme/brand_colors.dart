@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Shyam's brand palette — red #E31E24, yellow #FFC72C.
+/// Shyam को brand palette — red #E31E24, yellow #FFC72C।
 abstract final class BrandColors {
   static const Color red = Color(0xFFE31E24);
   static const Color yellow = Color(0xFFFFC72C);

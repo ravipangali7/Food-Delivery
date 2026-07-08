@@ -1,4 +1,4 @@
-"""Browser OTP pages (not under /api/)."""
+"""ब्राउजर OTP पेज (`/api/` बाहिर)।"""
 
 from django.urls import path
 

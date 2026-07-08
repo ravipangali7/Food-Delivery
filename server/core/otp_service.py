@@ -1,5 +1,5 @@
 """
-OTP issuance and verification backed by :class:`~core.models.OTPVerification`.
+OTP जारी र प्रमाणीकरण — :class:`~core.models.OTPVerification` मा भण्डारण।
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ OTP_VALID_MINUTES = 5
 @dataclass(frozen=True)
 class SendOtpResult:
     otp_record: OTPVerification
-    otp_code: str  # for mock delivery / logging only
+    otp_code: str  # mock delivery / logging मात्र
 
 
 def _invalidate_pending_for_phone_purpose(phone: str, purpose: str) -> None:
@@ -66,7 +66,7 @@ class VerifySuccess:
 
 
 class VerifyOtpError(Exception):
-    """Invalid, expired, reused, or business-rule failure."""
+    """अमान्य, म्याद सकिएको, पुन: प्रयोग, वा व्यापार नियम उल्लङ्घन।"""
 
 
 def verify_otp_code(
@@ -115,7 +115,7 @@ def complete_auth_after_otp_verified(
     register_name: str | None = None,
 ) -> User:
     """
-    After OTP is verified, perform login (existing user) or registration (new user).
+    OTP प्रमाणित पछि login (पुरानो प्रयोगकर्ता) वा दर्ता (नयाँ प्रयोगकर्ता)।
     """
     phone = otp_obj.phone_number
     if purpose == "login":
@@ -123,7 +123,7 @@ def complete_auth_after_otp_verified(
         try:
             user = User.objects.select_for_update().get(phone=phone, deleted_at__isnull=True)
         except User.DoesNotExist:
-            # Phone may have been updated in admin after OTP was sent; OTP still ties to the account.
+            # OTP पठाएपछि admin मा फोन अपडेट भए पनि OTP खातासँग जोडिन्छ।
             if otp_obj.user_id is not None:
                 try:
                     user = User.objects.select_for_update().get(

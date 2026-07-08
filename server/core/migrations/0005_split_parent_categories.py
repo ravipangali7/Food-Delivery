@@ -1,4 +1,4 @@
-# Generated manually: split self-referential Category into ParentCategory + subcategory Category.
+# म्यानुअल सिर्जना: self-referential Category लाई ParentCategory + उप-श्रेणी Category मा विभाजन।
 
 import django.db.models.deletion
 from django.db import migrations, models

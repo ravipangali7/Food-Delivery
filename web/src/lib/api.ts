@@ -1,8 +1,6 @@
-/**
- * API client for Django REST (`/api/`). Set `VITE_API_BASE` to the server origin (e.g. http://api.shyam-sweets.com).
- */
+/** HTTP client — `/api/` मार्फत ब्याकएन्डसँग कुराकानी। production मा `VITE_API_BASE` ले API origin तोक्छ। */
 
-/** Thrown for non-2xx HTTP responses so callers can distinguish 401 from network errors. */
+/** non-2xx HTTP प्रतिक्रियामा throw — caller ले 401 र network त्रुटि छुट्याउन सक्छ। */
 export class ApiHttpError extends Error {
   readonly status: number;
   readonly data: unknown;
@@ -15,7 +13,7 @@ export class ApiHttpError extends Error {
   }
 }
 
-/** API origin without trailing slash. Empty in dev → relative URLs via Vite proxy. */
+/** API origin, अन्त्यमा / बिना। dev मा खाली → Vite proxy मार्फत सापेक्ष URL। */
 export function getApiBase(): string {
   const envBase =
     typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_API_BASE as string | undefined) : undefined;
@@ -38,7 +36,7 @@ export function apiUrl(path: string): string {
   return `${base}${p}`;
 }
 
-/** WebSocket URL for the same origin as `VITE_API_BASE` (http → ws, https → wss). */
+/** `VITE_API_BASE` जस्तै origin को WebSocket URL (http → ws, https → wss)। */
 export function wsUrl(path: string): string {
   const p = path.startsWith('/') ? path : `/${path}`;
   if (!base) {
@@ -65,7 +63,7 @@ export function orderChatWebSocketUrl(
   return wsUrl(`/ws/chat/${orderId}/?${qs.toString()}`);
 }
 
-/** Staff-only: global inbox feed for toast-style new message notifications. */
+/** स्टाफ मात्र: toast-शैली नयाँ सन्देश सूचनाका लागि ग्लोबल इनबक्स feed। */
 export function staffInboxWebSocketUrl(token: string | null): string | null {
   if (!token) return null;
   const qs = new URLSearchParams({ token });
@@ -79,7 +77,7 @@ export type ApiOptions = RequestInit & {
 export async function apiFetch<T = unknown>(path: string, options: ApiOptions = {}): Promise<T> {
   const { token, headers, ...rest } = options;
   const h = new Headers(headers);
-  // Production (OpenResty) returns 415 unless the client asks for JSON; browser fetch defaults to Accept: */*.
+  // Production (OpenResty) ले JSON नमागे 415 फर्काउँछ; browser fetch को Accept: */* पूर्वनिर्धारित।
   if (!h.has('Accept')) {
     h.set('Accept', 'application/json');
   }
@@ -126,7 +124,7 @@ export async function getJson<T>(path: string, token: string | null): Promise<T>
   return apiFetch<T>(path, { method: 'GET', token });
 }
 
-/** GET without auth (e.g. public config endpoints). */
+/** auth बिना GET (जस्तै सार्वजनिक config endpoint)। */
 export async function getPublicJson<T>(path: string): Promise<T> {
   return apiFetch<T>(path, { method: 'GET' });
 }
@@ -159,7 +157,7 @@ export async function patchFormData<T>(path: string, body: FormData, token: stri
   return apiFetch<T>(path, { method: 'PATCH', body, token });
 }
 
-/** PATCH multipart with upload progress (0–100) for large app package uploads. */
+/** ठूला app package upload का लागि upload progress (0–100) सहित multipart PATCH। */
 export function patchFormDataWithProgress<T>(
   path: string,
   body: FormData,

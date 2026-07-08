@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Full-screen offline state with retry.
+/// पुन: प्रयाससहित full-screen offline अवस्था।
 class NoInternetScreen extends StatelessWidget {
   const NoInternetScreen({
     super.key,

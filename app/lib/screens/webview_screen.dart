@@ -14,14 +14,14 @@ import '../services/auth_token_storage.dart';
 import '../theme/brand_colors.dart';
 import '../widgets/brand_splash_overlay.dart';
 
-/// Must match [TOKEN_KEY] in `web/src/contexts/AuthContext.tsx`.
+/// `web/src/contexts/AuthContext.tsx` मा रहेको [TOKEN_KEY] सँग मिल्नुपर्छ।
 const String _kWebAuthLocalStorageKey = 'fd_auth_token';
 const String _kWebPhoneLocalStorageKey = 'fd_auth_phone';
 
 const String _kJsAuthPersistHandler = 'fdAuthTokenPersist';
 const String _kJsPhonePersistHandler = 'fdAuthPhonePersist';
 
-/// Wraps `localStorage.setItem/removeItem` so every SPA login/logout hits Flutter without relying on SPA code.
+/// `localStorage.setItem/removeItem` लाई wrap गर्छ जसले प्रत्येक SPA login/logout लाई SPA कोडमा निर्भर नभई Flutter सम्म पुग्छ।
 final String _kLocalStorageHookScript =
     '''
 (function(){
@@ -54,8 +54,8 @@ final String _kLocalStorageHookScript =
 })();
 ''';
 
-/// Locks pinch/zoom from pages that set `user-scalable=yes` or omit viewport limits.
-/// Runs at document end and again on [InAppWebView.onLoadStop] for full navigations.
+/// `user-scalable=yes` सेट गर्ने वा viewport सीमा नराख्ने पेजहरूबाट pinch/zoom लक गर्छ।
+/// document को अन्त्यमा चल्छ र पूर्ण navigation मा [InAppWebView.onLoadStop] मा फेरि चल्छ।
 const String _kLockViewportScript = r'''
 (function() {
   function lock() {
@@ -145,10 +145,10 @@ bool get _useNativePullRefresh =>
     (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS);
 
-/// Loads the customer site with full JS, no zoom, and system-back history.
+/// पूर्ण JS, zoom बिना, र system-back history सहित ग्राहक साइट लोड गर्छ।
 ///
-/// Back navigation is driven by [WebViewScreenState.handleSystemBack] from the parent
-/// ([PopScope] in connectivity shell) so offline overlay always gets exit, not history.
+/// पछाडि नेभिगेसन अभिभावक ([connectivity shell] मा [PopScope]) बाट
+/// [WebViewScreenState.handleSystemBack] ले चलाउँछ ताकि offline overlay ले history होइन exit पाओस्।
 class WebViewScreen extends StatefulWidget {
   const WebViewScreen({super.key});
 
@@ -275,7 +275,7 @@ class WebViewScreenState extends State<WebViewScreen>
     }
   }
 
-  /// Re-reads Flutter-persisted session after cold start or resume, then pushes it into the WebView.
+  /// cold start वा resume पछि Flutter मा सुरक्षित session पुन: पढ्छ र WebView मा हाल्छ।
   Future<void> _refreshSessionFromNativeStorageAndInject() async {
     if (!_prefsReady) return;
     final t = await AuthTokenStorage.readMirroredToken();
@@ -318,8 +318,8 @@ class WebViewScreenState extends State<WebViewScreen>
     _dbg(
       '_persistAuthMirrorFromWeb raw=$raw parsed=${_lenTag(next)} settled=$_authBootstrapSettled current=${_lenTag(_mirroredAuthToken)}',
     );
-    // During first startup restore, ignore premature clear signals from the page
-    // until we've confirmed bootstrap auth synchronization.
+    // पहिलो startup restore को समयमा, bootstrap auth synchronization पुष्टि नभएसम्म
+    // पेजबाट आएका समयभन्दा अगाडिका clear सिग्नलहरू बेवास्ता गर्नुहोस्।
     if (!_authBootstrapSettled &&
         (next == null || next.isEmpty) &&
         _mirroredAuthToken != null &&
@@ -363,7 +363,7 @@ class WebViewScreenState extends State<WebViewScreen>
     await _pullWebPhoneIntoNativeMirror(c);
   }
 
-  /// Copies `fd_auth_token` from the WebView into Flutter storage (SPA often never reloads after login).
+  /// `fd_auth_token` लाई WebView बाट Flutter storage मा प्रतिलिपि गर्छ (login पछि SPA प्रायः reload हुँदैन)।
   Future<void> _pullWebAuthTokenIntoNativeMirror(
     InAppWebViewController c,
   ) async {
@@ -490,7 +490,7 @@ class WebViewScreenState extends State<WebViewScreen>
     });
   }
 
-  /// Re-applies stored token a few times after first paint (SPA may read `localStorage` very early).
+  /// पहिलो paint पछि केही पटक सुरक्षित token पुन: लागू गर्छ (SPA ले `localStorage` धेरै चाँडो पढ्न सक्छ)।
   Future<void> _burstReinjectNativeAuthToken(InAppWebViewController c) async {
     for (var i = 0; i < 10; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -499,8 +499,8 @@ class WebViewScreenState extends State<WebViewScreen>
     }
   }
 
-  /// Forces one reload after first page bootstrap when a mirrored token exists.
-  /// This guarantees the SPA initializes with `fd_auth_token` already present.
+  /// mirrored token भएमा पहिलो पेज bootstrap पछि एक reload गर्दैछ।
+  /// यसले SPA ले `fd_auth_token` पहिले नै उपस्थित भएको अवस्थामा सुरु हुन्छ भन्ने सुनिश्चित गर्छ।
   Future<void> _ensureBootstrapReloadWithMirroredAuth(
     InAppWebViewController c,
   ) async {
@@ -521,8 +521,8 @@ class WebViewScreenState extends State<WebViewScreen>
     await _performWebReload(c);
   }
 
-  /// Re-applies the native mirror into `localStorage` on every navigation so sessions survive
-  /// app restarts even if document-start user scripts are skipped or run late on some WebViews.
+  /// प्रत्येक navigation मा native mirror लाई `localStorage` मा पुन: लागू गर्छ ताकि session बचिरहोस्
+  /// केही WebView हरूमा document-start user scripts छुटे वा ढिलो चले पनि app restart पछि।
   Future<void> _injectMirroredAuthIntoPage(InAppWebViewController c) async {
     try {
       var t = _mirroredAuthToken;
@@ -599,7 +599,7 @@ class WebViewScreenState extends State<WebViewScreen>
     }
   }
 
-  /// Web history [C→B→A], then exit confirmation on the last page (same as system back).
+  /// Web history [C→B→A], अन्तिम पेजमा exit पुष्टि (system back जस्तै)।
   Future<void> handleSystemBack() async {
     final c = _controller;
     if (c == null) return;

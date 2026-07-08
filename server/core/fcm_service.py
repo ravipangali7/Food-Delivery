@@ -1,10 +1,10 @@
 """
-Firebase Cloud Messaging (FCM) for admin broadcast and transactional pushes.
+FCM — admin broadcast र transactional push का लागि।
 
-Uses the legacy HTTP API (Authorization: key=...) when ``FCM_SERVER_KEY`` is set.
-When unset, logs and reports success without sending.
+``FCM_SERVER_KEY`` सेट भए legacy HTTP API (Authorization: key=...) प्रयोग।
+नसेट भए log गर्छ र पठाएको जस्तो success रिपोर्ट।
 
-See: https://firebase.google.com/docs/cloud-messaging/http-server-ref
+हेर्नुहोस्: https://firebase.google.com/docs/cloud-messaging/http-server-ref
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def send_push_to_token(
     data: dict[str, str] | None = None,
 ) -> tuple[bool, str | None]:
     """
-    Send a data+notification payload to one device. Returns (ok, error_detail).
+    एउटा device मा data+notification payload पठाउनुहोस्। (ok, error_detail) फर्काउँछ।
     """
     if not token or not token.strip():
         return False, "Missing FCM token"
@@ -73,8 +73,8 @@ def send_push_multicast(
     data: dict[str, str] | None = None,
 ) -> list[tuple[str, bool, str | None]]:
     """
-    Send the same notification to many registration tokens (chunked).
-    Returns a list of (token, success, error_message) aligned with ``tokens``.
+    धेरै registration token मा एउटै notification (chunk गरेर)।
+    ``tokens`` सँग मिल्ने (token, success, error_message) सूची फर्काउँछ।
     """
     cleaned = [t.strip() for t in tokens if t and t.strip()]
     if not cleaned:
@@ -89,7 +89,7 @@ def send_push_multicast(
         )
         return [(t, True, None) for t in cleaned]
 
-    # Real API: batch with registration_ids (legacy supports up to 1000)
+    # वास्तविक API: registration_ids सँग batch (legacy ले १००० सम्म समर्थन)
     chunk_size = 500
     results: list[tuple[str, bool, str | None]] = []
     flat_data = {k: str(v) for k, v in (data or {}).items()}

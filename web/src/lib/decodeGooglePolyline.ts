@@ -1,4 +1,4 @@
-/** Decodes a Google-encoded polyline string to lat/lng points (no Maps JS API required). */
+/** Google-encoded polyline string लाई lat/lng बिन्दुमा decode (Maps JS API आवश्यक छैन)। */
 export function decodeGooglePolyline(encoded: string): { lat: number; lng: number }[] {
   const path: { lat: number; lng: number }[] = [];
   let index = 0;

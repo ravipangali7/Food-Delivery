@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 
-/** Maps legacy `/admin/users/...` URLs to slug routes (`customers`, `delivery-boys`). */
+/** legacy `/admin/users/...` URL लाई slug route (`customers`, `delivery-boys`) मा म्याप गर्छ। */
 export function LegacyAdminUsersRedirect() {
   const location = useLocation();
   const tail = location.pathname.slice('/admin/users'.length) || '/';

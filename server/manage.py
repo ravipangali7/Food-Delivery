@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
+"""Django प्रशासनिक कार्यका लागि command-line उपकरण।"""
 import os
 import sys
 
 
 def main():
-    """Run administrative tasks."""
+    """प्रशासनिक कार्यहरू चलाउनुहोस्।"""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fooddelivery.settings')
     try:
         from django.core.management import execute_from_command_line

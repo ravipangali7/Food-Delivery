@@ -1,6 +1,6 @@
 import type { OrderPaymentStatus, Product, ProductPurchaseOption } from '@/types';
 
-/** Display label for order payment collection status (COD). */
+/** अर्डर भुक्तानी सङ्कलन स्थितिको प्रदर्शन लेबल (COD)। */
 export function orderPaymentStatusLabel(status: OrderPaymentStatus): string {
   return status === 'paid' ? 'Paid' : 'Pending';
 }
@@ -11,7 +11,7 @@ export function num(v: number | string | undefined | null): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Display label for a product unit (nested object from API). */
+/** उत्पादन एकाइको प्रदर्शन लेबल (API बाट nested object)। */
 export function unitLabel(product: Pick<Product, 'unit'>): string {
   const u = product.unit;
   return u?.name ?? '';
@@ -21,7 +21,7 @@ export function unitLabelFromUnit(unit: Product['unit'] | undefined): string {
   return unit?.name ?? '';
 }
 
-/** Effective price for a purchase option or variant row. */
+/** खरिद विकल्प वा variant पङ्क्तिको प्रभावकारी मूल्य। */
 export function getOptionEffectivePrice(
   option: Pick<ProductPurchaseOption, 'effective_price' | 'price'>,
 ): number {
@@ -31,7 +31,7 @@ export function getOptionEffectivePrice(
   return num(option.price);
 }
 
-/** Parse API `effective_price` (may be string) and compute display price in NPR. */
+/** API `effective_price` parse (string हुन सक्छ) र NPR मा प्रदर्शन मूल्य गणना। */
 export function getEffectivePrice(product: Product): number {
   if (product.effective_price != null && product.effective_price !== '') {
     const n = num(product.effective_price);
@@ -48,7 +48,7 @@ export function getEffectivePrice(product: Product): number {
   return Math.max(0, price - disc);
 }
 
-/** Live preview for admin product form (matches server rules). */
+/** admin उत्पादन फर्मको live preview (सर्भर नियमसँग मिल्छ)। */
 export function computeEffectivePreview(
   price: number,
   discountType: 'flat' | 'percentage',
@@ -81,7 +81,7 @@ export function formatDateTime(dateStr: string): string {
   });
 }
 
-/** Whole calendar days from the UTC date of `isoA` to the UTC date of `isoB` (can be negative). */
+/** `isoA` र `isoB` को UTC मितिबीच पूरा क्यालेन्डर दिन (ऋणात्मक हुन सक्छ)। */
 export function calendarDaysBetween(isoA: string, isoB: string): number {
   const a = new Date(isoA);
   const b = new Date(isoB);
@@ -90,7 +90,7 @@ export function calendarDaysBetween(isoA: string, isoB: string): number {
   return Math.round((end - start) / 86400000);
 }
 
-/** Whole calendar days from today's UTC date to the UTC date of `iso` (negative if `iso` is in the past). */
+/** आजको UTC मितिदेखि `iso` को UTC मितिसम्म पूरा क्यालेन्डर दिन (`iso` विगतमा भए ऋणात्मक)। */
 export function calendarDaysFromToday(iso: string): number {
   const b = new Date(iso);
   const t = new Date();

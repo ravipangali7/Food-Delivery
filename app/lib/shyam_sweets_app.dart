@@ -8,7 +8,7 @@ import 'screens/no_internet_screen.dart';
 import 'screens/webview_screen.dart';
 import 'theme/brand_colors.dart';
 
-/// Root app widget: theme and connectivity-aware shell (WebView vs offline).
+/// मूल app widget: theme र connectivity-aware shell (WebView vs offline)।
 class ShyamSweetsApp extends StatelessWidget {
   const ShyamSweetsApp({super.key});
 

@@ -26,7 +26,7 @@ export default function DeliveryMap() {
     [orders],
   );
 
-  /** List is scoped to the rider; first active order drives the overview map. */
+  /** सूची राइडरमा scoped; पहिलो सक्रिय अर्डरले overview map चलाउँछ। */
   const mapOrder = activeOrders[0];
   const mapTrackingEnabled =
     !!mapOrder && !!token && online && mapOrder.delivery_boy_id === user?.id;

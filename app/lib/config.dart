@@ -1,8 +1,8 @@
-/// Backend origin for `/api/...` (must match the deployed FoodDelivery API).
-/// Keep the customer site on the same host when possible so cookies and origins align.
+/// `/api/...` को backend origin (deploy गरिएको FoodDelivery API सँग मिल्नुपर्छ)।
+/// सकेसम्म ग्राहक साइट उही host मा राख्नुहोस् ताकि cookies र origin मिलून्।
 const String kApiBase = 'https://shyam-sweets.com';
 
 String get _apiBaseNormalized => kApiBase.replaceAll(RegExp(r'/+$'), '');
 
-/// Initial URL for the in-app browser (trailing slash).
+/// in-app browser को प्रारम्भिक URL (अन्त्यमा slash)।
 String get kWebViewStartUrl => '$_apiBaseNormalized/';

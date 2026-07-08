@@ -47,7 +47,7 @@ export async function openGoogleMapsNavigation(order: Pick<Order, 'delivery_lati
 
   let url = buildGoogleMapsNavigationUrl(order) ?? '';
   if (inFlutterWebView) {
-    // Prefer direct app intent in Flutter WebView for immediate turn-by-turn.
+    // Flutter WebView मा तुरुन्त turn-by-turn का लागि direct app intent प्राथमिकता।
     url = buildGoogleNavigationSchemeUrl(order) ?? url;
   }
   if (navigator.geolocation) {
@@ -58,7 +58,7 @@ export async function openGoogleMapsNavigation(order: Pick<Order, 'delivery_lati
         url += `&origin=${encodeURIComponent(origin)}`;
       }
     } catch (_) {
-      // Keep destination-only navigation if location permission is denied/unavailable.
+      // location अनुमति अस्वीकार/अनुपलब्ध भए गन्तव्य-मात्र नेभिगेसन राख्छ।
     }
   }
   if (!url) return;

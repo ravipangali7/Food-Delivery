@@ -5,11 +5,23 @@
 # returns 404 without Django. After Django is running, django-cors-headers handles CORS on API responses.
 
 <IfModule mod_headers.c>
+  # Hide server / framework fingerprints
+  Header always unset X-Powered-By
+  Header always unset Server
+  Header always unset X-AspNet-Version
+  Header always unset X-AspNetMvc-Version
+
+  # Baseline security headers
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "DENY"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
   SetEnvIf Origin "^https://([\w-]+\.)?shyam-sweets\.com$" CORS_ORIGIN=$0
   SetEnvIf Origin "^http://(localhost|127\.0\.0\.1):(5173|8080)$" CORS_ORIGIN=$0
   Header always set Access-Control-Allow-Origin "%{CORS_ORIGIN}e" env=CORS_ORIGIN
   Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" env=CORS_ORIGIN
-  Header always set Access-Control-Allow-Headers "Authorization, Content-Type, Accept, X-CSRFToken, X-Requested-With" env=CORS_ORIGIN
+  Header always set Access-Control-Allow-Headers "Authorization, Content-Type, Accept, X-SS-XSRF, X-Requested-With" env=CORS_ORIGIN
   Header always set Access-Control-Max-Age "86400" env=CORS_ORIGIN
 </IfModule>
 

@@ -1,4 +1,4 @@
-# Generated manually for guest checkout contact details
+# म्यानुअल सिर्जना: अतिथि checkout सम्पर्क विवरणका लागि
 
 from django.db import migrations, models
 

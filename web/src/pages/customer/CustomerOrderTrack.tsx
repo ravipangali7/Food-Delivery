@@ -10,8 +10,8 @@ import { useLiveOrderTracking } from '@/hooks/useLiveOrderTracking';
 import type { Order } from '@/types';
 
 /**
- * Full-viewport live map when the customer taps “Track order”.
- * Matches satellite / hybrid map + route overlay from the product reference.
+ * ग्राहकले “Track order” ट्याप गर्दा full-viewport live नक्शा।
+ * reference उत्पादनको satellite / hybrid नक्शा + route overlay सँग मिल्छ।
  */
 export default function CustomerOrderTrack() {
   const { id } = useParams();

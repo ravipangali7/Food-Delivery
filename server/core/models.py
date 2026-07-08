@@ -35,7 +35,7 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
-    """Custom user: OTP/phone login; `phone` is the unique login identifier."""
+    """कस्टम प्रयोगकर्ता: OTP/फोन लगइन; `phone` अद्वितीय लगइन पहिचान।"""
 
     username = None
     name = models.CharField(_("full name"), max_length=100)
@@ -82,7 +82,7 @@ class User(AbstractUser):
 
 
 class OTPVerification(models.Model):
-    """One-time password for phone login/registration; single-use after verification."""
+    """फोन लगइन/दर्ताका लागि one-time password; प्रमाणीकरण पछि एक पटक मात्र।"""
 
     class Purpose(models.TextChoices):
         LOGIN = "login", _("Login")
@@ -119,7 +119,7 @@ class OTPVerification(models.Model):
 
 
 class SuperSetting(models.Model):
-    """Singleton store configuration (convention: single row, typically id=1)."""
+    """एकल store कन्फिग (परम्परा: एक row, सामान्यतया id=1)।"""
 
     name = models.CharField(_("store name"), max_length=100)
     logo = models.URLField(_("logo URL"), max_length=500, blank=True, null=True)
@@ -188,7 +188,7 @@ class SuperSetting(models.Model):
 
 
 class Banner(models.Model):
-    """Promotional image strip on customer home, explore, and sweets."""
+    """ग्राहक home, explore, र sweets मा प्रचारात्मक image strip।"""
 
     image = models.ImageField(_("image"), upload_to="banners/")
     url = models.URLField(_("link URL"), max_length=500, blank=True)
@@ -207,7 +207,7 @@ class Banner(models.Model):
 
 
 class ParentCategory(models.Model):
-    """Top-level category (e.g. Mithai, Snacks). Subcategories are stored as `Category` rows."""
+    """शीर्ष-स्तर category (उदाहरण: Mithai, Snacks)। उप-श्रेणी `Category` row मा।"""
 
     name = models.CharField(_("name"), max_length=100)
     slug = models.SlugField(_("slug"), max_length=120, unique=True)
@@ -232,7 +232,7 @@ class ParentCategory(models.Model):
 
 
 class Category(models.Model):
-    """Subcategory under a parent. Products are always assigned to a subcategory."""
+    """parent अन्तर्गत उप-श्रेणी। product सधैं उप-श्रेणीमा तोकिन्छ।"""
 
     parent = models.ForeignKey(
         ParentCategory,
@@ -263,7 +263,7 @@ class Category(models.Model):
 
 
 class Unit(models.Model):
-    """Sellable unit label (kg, piece, plate, …) managed from admin."""
+    """बिक्री योग्य unit लेबल (kg, piece, plate, …) admin बाट व्यवस्थित।"""
 
     name = models.CharField(_("name"), max_length=50, unique=True)
     sort_order = models.PositiveSmallIntegerField(_("sort order"), default=0)
@@ -388,7 +388,7 @@ class ProductImage(models.Model):
 
 
 class ProductVariant(models.Model):
-    """Alternate unit/price option for a product (e.g. 250g vs 1kg)."""
+    """product का वैकल्पिक unit/मूल्य (उदाहरण: २५०g बनाम १kg)।"""
 
     product = models.ForeignKey(
         Product,
@@ -656,7 +656,7 @@ class Order(models.Model):
 
 
 class OrderCancellationRequest(models.Model):
-    """Customer-initiated cancellation: order stays active until a superuser approves."""
+    """ग्राहक-initiated रद्द: superuser स्वीकृत नगरेसम्म order सक्रिय।"""
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")
@@ -843,7 +843,7 @@ class NotificationUser(models.Model):
 
 
 class CustomerAddress(models.Model):
-    """Multiple delivery addresses saved by a customer (checkout selection)."""
+    """ग्राहकले सुरक्षित गरेका धेरै delivery ठेगाना (checkout छनोट)।"""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -873,7 +873,7 @@ class CustomerAddress(models.Model):
 
 
 class OrderChatMessage(models.Model):
-    """In-app chat: support (customer ↔ staff), customer delivery coordination, or rider ↔ staff ops."""
+    """in-app chat: support (ग्राहक ↔ staff), delivery coordination, वा rider ↔ staff ops।"""
 
     class AggregateStatus(models.TextChoices):
         SENT = "sent", _("Sent")
@@ -935,7 +935,7 @@ class OrderChatMessage(models.Model):
 
 
 class OrderChatReceipt(models.Model):
-    """Per-recipient delivery/read state for an order chat message (WhatsApp-style ticks)."""
+    """order chat सन्देशको प्रति-प्राप्तकर्ता delivery/read अवस्था (WhatsApp-style tick)।"""
 
     message = models.ForeignKey(
         OrderChatMessage,
@@ -968,7 +968,7 @@ class OrderChatReceipt(models.Model):
 
 
 class OrderChatStaffReadState(models.Model):
-    """Staff read cursor for support inbox unread badges."""
+    """support inbox unread badge का लागि staff read cursor।"""
 
     order = models.ForeignKey(
         Order,

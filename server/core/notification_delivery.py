@@ -1,5 +1,5 @@
 """
-Dispatch admin broadcast notifications over SMS or FCM and persist per-recipient status.
+admin broadcast notification SMS वा FCM बाट पठाउँछ र प्रति-प्राप्तकर्ता status भण्डारण।
 """
 
 from __future__ import annotations
@@ -16,10 +16,10 @@ from .sms_service import send_notification_sms
 
 def deliver_broadcast(notification: Notification, user_ids: Sequence[int]) -> dict[str, int]:
     """
-    For each ``NotificationUser`` row for this notification, send via the chosen medium
-    and update ``delivery_status`` / ``error_message`` / ``delivered_at``.
+    यो notification का प्रत्येक ``NotificationUser`` row का लागि medium अनुसार पठाउँछ
+    र ``delivery_status`` / ``error_message`` / ``delivered_at`` अपडेट।
 
-    Returns counts: sent, failed, skipped.
+    sent, failed, skipped गणना फर्काउँछ।
     """
     ids = list(user_ids)
     if not ids:

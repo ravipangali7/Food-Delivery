@@ -63,7 +63,7 @@ export default function DeliveryOrderNavigate() {
           },
           token,
         ).catch(() => {
-          /* offline / permission */
+          /* अफलाइन / अनुमति */
         });
       },
       () => {},

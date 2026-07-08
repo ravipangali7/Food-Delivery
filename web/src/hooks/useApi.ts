@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 
-/** Current auth token for React Query queryFns (null if logged out). */
+/** React Query queryFns का लागि हालको auth token (logout भए null)। */
 export function useToken() {
   return useAuth().token;
 }

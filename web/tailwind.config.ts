@@ -68,7 +68,7 @@ export default {
           "red-light": "hsl(var(--brand-red-light))",
           "yellow-light": "hsl(var(--brand-yellow-light))",
         },
-        /* Legacy alias: maps old amber-* usages to brand yellow tints */
+        /* Legacy alias: पुरानो amber-* प्रयोगलाई brand yellow tint मा म्याप */
         amber: {
           50: "hsl(var(--brand-yellow-light))",
           100: "hsl(43 90% 92%)",

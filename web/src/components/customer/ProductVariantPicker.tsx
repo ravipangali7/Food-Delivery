@@ -6,7 +6,7 @@ function formatVariantName(label: string): string {
   return label.trim().toLowerCase();
 }
 
-/** Compact price on product cards (matches reference UI). */
+/** उत्पादन कार्डमा संक्षिप्त मूल्य (reference UI सँग मिल्छ)। */
 export function formatCardPrice(amount: number): string {
   const n = Number.isFinite(amount) ? amount : 0;
   const rounded = Number.isInteger(n) ? n : Math.round(n * 100) / 100;
@@ -20,7 +20,7 @@ type ProductVariantPickerProps = {
   className?: string;
 };
 
-/** Stacked variant rows: name left, price right; selected row has red border + tint. */
+/** थपिएका variant पङ्क्ति: बायाँ नाम, दायाँ मूल्य; छानिएको पङ्क्तिमा रातो border + tint। */
 export default function ProductVariantPicker({
   options,
   selectedVariantId,

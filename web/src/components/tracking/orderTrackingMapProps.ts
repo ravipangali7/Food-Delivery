@@ -3,6 +3,6 @@ import type { OrderTrackingPayload } from '@/types';
 export type OrderTrackingMapProps = {
   data: OrderTrackingPayload | null;
   className?: string;
-  /** Full-bleed styling for live track screen (e.g. zoom chrome, corner radius) */
+  /** live track screen का लागि full-bleed स्टाइल (जस्तै zoom chrome, कुनाको radius) */
   variant?: 'default' | 'live';
 };

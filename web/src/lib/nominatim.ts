@@ -1,4 +1,4 @@
-/** Nominatim: identify the app (required by https://operations.osmfoundation.org/policies/nominatim/ ). */
+/** Nominatim: app पहिचान गर्नुहोस् (https://operations.osmfoundation.org/policies/nominatim/ ले आवश्यक)। */
 const NOMINATIM_HEADERS: HeadersInit = {
   'User-Agent': 'FoodDeliveryWeb/1.0',
   'Accept-Language': 'en',
@@ -35,7 +35,7 @@ export async function nominatimSearch(
   if (opts?.countryCodes) u.searchParams.set('countrycodes', opts.countryCodes);
   if (opts?.viewbox) {
     const b = opts.viewbox;
-    /* min lon, min lat, max lon, max lat (Nepal-ish bias when bounded) */
+    /* min lon, min lat, max lon, max lat (bounded भए नेपाल-जस्तो bias) */
     u.searchParams.set('viewbox', `${b.west},${b.south},${b.east},${b.north}`);
     u.searchParams.set('bounded', '1');
   }

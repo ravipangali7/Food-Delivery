@@ -5,9 +5,9 @@ import { toast } from 'sonner';
 import { staffInboxWebSocketUrl } from '@/lib/api';
 
 /**
- * Super Admin / staff: Messenger-style toast when any order chat message arrives.
- * Connects once while the admin portal is open.
- * @param currentUserId When set, suppresses toast for messages sent by this user (own replies).
+ * Super Admin / स्टाफ: कुनै अर्डर च्याट सन्देश आउँदा Messenger-शैली toast।
+ * admin portal खुला रहँदा एक पटक जडान गर्छ।
+ * @param currentUserId सेट भए यो प्रयोगकर्ताका सन्देशका लागि toast दबाउँछ (आफ्नै जवाफ)।
  */
 export function useStaffInboxWebSocket(
   token: string | null,
@@ -93,7 +93,7 @@ export function useStaffInboxWebSocket(
             duration: 6000,
           });
         } catch {
-          /* ignore */
+          /* बेवास्ता */
         }
       };
 
@@ -108,7 +108,7 @@ export function useStaffInboxWebSocket(
         try {
           ws?.close();
         } catch {
-          /* ignore */
+          /* बेवास्ता */
         }
       };
     };
@@ -121,7 +121,7 @@ export function useStaffInboxWebSocket(
       try {
         ws?.close();
       } catch {
-        /* ignore */
+        /* बेवास्ता */
       }
     };
   }, [token, enabled, location.pathname, queryClient, currentUserId]);

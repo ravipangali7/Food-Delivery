@@ -60,9 +60,9 @@ export function useOrderChat({
   queryKey,
   currentUserId,
   enabled,
-  /** When true, POST delivered ack for incoming messages from others. */
+  /** true भए अरूका incoming सन्देशका लागि delivered ack POST गर्छ। */
   ackDelivered = true,
-  /** Used with staff `wsThread="all"` so each panel only merges its lane. */
+  /** स्टाफ `wsThread="all"` सँग प्रयोग — प्रत्येक panel ले आफ्नो lane मात्र merge गर्छ। */
   wsIngestFilter,
   onPeerMessage,
 }: {
@@ -94,7 +94,7 @@ export function useOrderChat({
           token,
         );
       } catch {
-        /* offline / transient */
+        /* अफलाइन / अस्थायी */
       }
     },
     [orderId, token],
@@ -110,7 +110,7 @@ export function useOrderChat({
           token,
         );
       } catch {
-        /* ignore */
+        /* बेवास्ता */
       }
     },
     [orderId, token],
@@ -202,7 +202,7 @@ export function useOrderChat({
           const parsed = JSON.parse(ev.data) as WsIncoming;
           applyIncoming(parsed);
         } catch {
-          /* ignore */
+          /* बेवास्ता */
         }
       };
 
@@ -219,7 +219,7 @@ export function useOrderChat({
         try {
           ws.close();
         } catch {
-          /* ignore */
+          /* बेवास्ता */
         }
       };
     };
@@ -234,7 +234,7 @@ export function useOrderChat({
       try {
         wsRef.current?.close();
       } catch {
-        /* ignore */
+        /* बेवास्ता */
       }
       wsRef.current = null;
     };

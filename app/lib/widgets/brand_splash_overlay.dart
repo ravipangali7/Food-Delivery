@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/brand_colors.dart';
 
-/// Full-screen branded loading overlay (WebView boot, etc.).
+/// full-screen branded लोडिङ overlay (WebView boot, आदि)।
 class BrandSplashOverlay extends StatelessWidget {
   const BrandSplashOverlay({
     super.key,

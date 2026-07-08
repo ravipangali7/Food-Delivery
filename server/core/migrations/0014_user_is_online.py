@@ -1,4 +1,4 @@
-# Generated manually for delivery partner online/offline availability
+# म्यानुअल सिर्जना: डेलिभरी साझेदारको online/offline उपलब्धताका लागि
 
 from django.db import migrations, models
 

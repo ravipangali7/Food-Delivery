@@ -313,7 +313,7 @@ export default function AdminCategoriesList() {
         </div>
       )}
 
-      {/* Grid view: hierarchical tree (folder rows). List view: data table below. */}
+      {/* Grid view: पदानुक्रमित tree (folder पङ्क्ति)। List view: तल data table। */}
       {!isLoading && rows.length > 0 && viewMode === 'grid' && (
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           <ul className="divide-y divide-border" role="list">

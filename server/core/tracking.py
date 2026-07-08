@@ -1,4 +1,4 @@
-"""Order live tracking: Google Directions polyline, ETA, and WebSocket broadcast."""
+"""अर्डर live tracking: Google Directions polyline, ETA, र WebSocket broadcast।"""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from django.utils import timezone
 from .models import Order
 from .services import get_store_settings, haversine_km
 
-# Urban averages when only straight-line distance is known (fallback route)
+# सिधा दूरी मात्र थाहा भए शहरी औसत (fallback route)
 DEFAULT_ETA_SPEED_KMH = 30.0
 BIKE_ETA_SPEED_KMH = 18.0
 WALK_ETA_SPEED_KMH = 5.0
@@ -39,7 +39,7 @@ def _fallback_speed_kmh_for_order(order: Order) -> float:
 
 
 def _eta_speed_kmh_for_order(order: Order) -> float:
-    """Speed for remaining-distance ETA along the last leg."""
+    """अन्तिम leg मा बाँकी दूरी ETA का लागि गति।"""
     return _fallback_speed_kmh_for_order(order)
 
 
@@ -57,7 +57,7 @@ def _encode_signed(num: int) -> str:
 
 
 def encode_polyline(latlng_pairs: list[tuple[float, float]]) -> str:
-    """Google Encoded Polyline Algorithm Format."""
+    """Google Encoded Polyline Algorithm Format।"""
     if not latlng_pairs:
         return ""
     result: list[str] = []
@@ -123,8 +123,8 @@ def _directions_via_google(
 
 def ensure_route_for_order(order: Order) -> None:
     """
-    Compute and store driving route (Google Directions) or straight-line fallback.
-    Call when order moves to out_for_delivery or when tracking is first requested.
+    driving route (Google Directions) वा सिधा रेखा fallback गणना र भण्डारण।
+    order out_for_delivery भए वा tracking पहिलो पटक माग्दा कल गर्नुहोस्।
     """
     store = get_store_settings()
     if store is None or store.latitude is None or store.longitude is None:
@@ -152,7 +152,7 @@ def ensure_route_for_order(order: Order) -> None:
         order.route_distance_meters = int(round(straight_km * 1000))
         order.route_duration_seconds = int(round((straight_km / speed_kmh) * 3600))
 
-    # Driver starts at restaurant when route is first set for active delivery
+    # active delivery का लागि route पहिलो पटक सेट हुँदा driver रेस्टुरेन्टबाट सुरु
     if order.status == Order.Status.OUT_FOR_DELIVERY:
         if order.driver_latitude is None or order.driver_longitude is None:
             order.driver_latitude = store.latitude
@@ -215,7 +215,7 @@ def build_tracking_payload(order: Order) -> dict[str, Any]:
     speed_kmh = _eta_speed_kmh_for_order(order)
     if dest_lat is not None and dest_lng is not None and drv_lat is not None and drv_lng is not None:
         distance_remaining_m = haversine_meters(drv_lat, drv_lng, dest_lat, dest_lng)
-        # Road factor ~1.15 over crow-flies for urban last leg
+        # शहरी अन्तिम leg मा सिधा दूरीभन्दा ~१.१५ गुणा सडक कारक
         distance_remaining_m *= 1.15
         speed_ms = (speed_kmh * 1000.0) / 3600.0
         eta_seconds = max(60, int(distance_remaining_m / speed_ms)) if speed_ms > 0 else None
@@ -307,7 +307,7 @@ def broadcast_order_chat_message(
     else:
         group = f"order_chat_customer_{order_id}"
     async_to_sync(layer.group_send)(group, event)
-    # Unified stream for staff dashboards (both threads in one socket).
+    # staff dashboard का लागि एकीकृत stream (दुवै thread एउटै socket मा)।
     async_to_sync(layer.group_send)(f"order_staff_observer_{order_id}", event)
     preview = (message_payload.get("body") or "")[:140]
     inbox_payload: dict[str, Any] = {
@@ -326,7 +326,7 @@ def broadcast_order_chat_message(
 
 
 def broadcast_chat_message_update(order_id: int, message_payload: dict[str, Any]) -> None:
-    """Broadcast receipt / status changes to all order chat channel groups."""
+    """receipt / status परिवर्तन सबै order chat channel group मा broadcast।"""
     layer = get_channel_layer()
     if not layer:
         return
@@ -342,7 +342,7 @@ def broadcast_chat_message_update(order_id: int, message_payload: dict[str, Any]
 
 
 def broadcast_staff_inbox_event(payload: dict[str, Any]) -> None:
-    """Broadcast support-inbox state updates (new message, read markers, etc.)."""
+    """support-inbox state अपडेट (नयाँ सन्देश, read marker, आदि) broadcast।"""
     layer = get_channel_layer()
     if not layer:
         return

@@ -2,7 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { canBrowseWithoutLogin, requiresLoginGate } from '@/lib/appAccess';
 
-/** On mobile / Flutter, guest browsing requires tapping Skip Login first. */
+/** मोबाइल / Flutter मा अतिथि browse का लागि पहिले Skip Login ट्याप गर्नुपर्छ। */
 export default function CustomerAppGate({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth();
   const location = useLocation();

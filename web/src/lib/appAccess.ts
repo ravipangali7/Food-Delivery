@@ -16,7 +16,7 @@ export function isMobileViewport(): boolean {
   return window.innerWidth < 768;
 }
 
-/** Mobile web or Flutter app — login gate applies before guest browsing. */
+/** मोबाइल web वा Flutter app — अतिथि browse अघि login gate लागू। */
 export function requiresLoginGate(): boolean {
   return isLikelyFlutterWebView() || isMobileViewport();
 }
@@ -33,7 +33,7 @@ export function enableGuestAccess(): void {
   try {
     localStorage.setItem(GUEST_ACCESS_KEY, '1');
   } catch {
-    /* ignore */
+    /* बेवास्ता */
   }
 }
 

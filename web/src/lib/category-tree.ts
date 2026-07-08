@@ -26,7 +26,7 @@ export function collectDescendantCategoryIds(
   return new Set([rootId]);
 }
 
-/** Flatten all subcategories from the parent tree (for lookups). */
+/** अभिभावक tree बाट सबै उपश्रेणी समतल (lookup का लागि)। */
 export function flattenSubcategories(parents: ParentCategory[]): Category[] {
   const out: Category[] = [];
   for (const p of parents) {

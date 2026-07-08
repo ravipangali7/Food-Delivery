@@ -1,4 +1,4 @@
-"""Client-facing API: catalog, cart, checkout, orders, notifications, auth."""
+"""ग्राहक-facing API: catalog, cart, checkout, order, notification, auth।"""
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -158,7 +158,7 @@ def settings_list(request):
     if not s:
         s = SuperSetting.objects.create(name="My store")
     resp = Response(SuperSettingSerializer(s).data)
-    # About / Terms / Privacy read these fields; avoid stale CDN or browser HTTP caches.
+    # About / Terms / Privacy ले यी field पढ्छ; stale CDN वा ब्राउजर HTTP cache बेवास्ता।
     resp["Cache-Control"] = "no-store"
     return resp
 
@@ -333,7 +333,7 @@ def order_transition(request, pk):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def order_cancellation_request(request, pk):
-    """Customer submits a reason; order is not cancelled until a superuser approves."""
+    """ग्राहकले कारण पेश गर्छ; superuser स्वीकृत नगरेसम्म order रद्द हुँदैन।"""
     qs = order_queryset_for_user(request.user)
     order = get_object_or_404(qs, pk=pk)
     if not can_submit_order_cancellation_request(request.user, order):
@@ -501,7 +501,7 @@ def saved_address_detail(request, pk):
 
 
 def _non_staff_order_chat_queryset(request, order: Order):
-    """Resolve queryset for GET messages (customers and delivery partners only)."""
+    """GET सन्देशका लागि queryset (ग्राहक र delivery partner मात्र)।"""
     thread = (request.query_params.get("thread") or "").strip().lower()
     if thread == "support":
         if not can_use_support_chat_thread(request.user, order):
@@ -715,7 +715,7 @@ def order_chat_messages(request, pk):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def order_chat_receipts(request, pk):
-    """Mark message(s) delivered or read (WhatsApp-style ticks)."""
+    """सन्देश(हरू) delivered वा read चिन्ह लगाउनुहोस् (WhatsApp-style tick)।"""
     qs = order_queryset_for_user(request.user)
     order = get_object_or_404(qs, pk=pk)
     if not can_access_order_chat_order(request.user, order):
@@ -801,7 +801,7 @@ def order_chat_receipts(request, pk):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def order_chat_participants_presence(request, pk):
-    """Online / last-seen for users involved in this order chat (best-effort)."""
+    """यो order chat मा सहभागी प्रयोगकर्ताको online / last-seen (best-effort)।"""
     qs = order_queryset_for_user(request.user)
     order = get_object_or_404(qs, pk=pk)
     if not can_access_order_chat_order(request.user, order):
@@ -842,8 +842,8 @@ def order_chat_participants_presence(request, pk):
 @permission_classes([AllowAny])
 def google_maps_js_key(request):
     """
-    Browser-safe Google Maps API key from Infelo (``GET /api/v1/google-goods/maps-js-api-key/``).
-    Infelo account Bearer key is not exposed to the client.
+    Infelo बाट ब्राउजर-सुरक्षित Google Maps API key (``GET /api/v1/google-goods/maps-js-api-key/``)।
+    Infelo account Bearer key client लाई expose हुँदैन।
     """
     from ...infelo_maps import get_infelo_google_maps_api_key
 

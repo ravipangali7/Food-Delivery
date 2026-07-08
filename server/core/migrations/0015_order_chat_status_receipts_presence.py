@@ -1,4 +1,4 @@
-# Generated manually for chat receipts and presence.
+# म्यानुअल सिर्जना: च्याट receipt र उपस्थितिका लागि।
 
 from django.conf import settings
 from django.db import migrations, models

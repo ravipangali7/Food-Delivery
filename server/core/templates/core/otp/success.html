@@ -18,12 +18,12 @@
   <div class="card">
     <h1>You’re signed in</h1>
     <p>Hello, <strong>{{ user.name }}</strong> ({{ user.phone }}).</p>
-    <p class="muted">This browser session is authenticated. You can open the <a href="/">admin</a> if your account has access.</p>
+    <p class="muted">This browser session is authenticated. Staff can use the control panel if your account has access.</p>
     {% if debug %}
-      <p class="muted">Development only — API token for mobile / SPA (send as <code>Authorization: Token …</code>):</p>
+      <p class="muted">Development only — API token for mobile / client apps (send as <code>Authorization: Token …</code>):</p>
       <p><code>{{ api_token }}</code></p>
     {% else %}
-      <p class="muted">Use the REST API with a token obtained from your client app after login.</p>
+      <p class="muted">Use the API with a token obtained from your client app after login.</p>
     {% endif %}
     <p class="muted"><a href="{% url 'otp_verification' %}">Back to OTP page</a></p>
   </div>

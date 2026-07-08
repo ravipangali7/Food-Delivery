@@ -1,9 +1,9 @@
 """
-Infelo Group (https://api.infelogroup.com) — account Bearer key.
+Infelo Group (https://api.infelogroup.com) — account Bearer key।
 
-- ``POST …/v1/sms/send/`` — single SMS ([infelo-api-sms](infelo-api-sms.md) reference)
-- ``GET …/v1/embed/summary/`` — public embed summary (primary; General API)
-- ``GET …/v1/sms/embed/summary/`` — legacy alias for the same
+- ``POST …/v1/sms/send/`` — एकल SMS ([infelo-api-sms](infelo-api-sms.md) सन्दर्भ)
+- ``GET …/v1/embed/summary/`` — सार्वजनिक embed summary (प्राथमिक; General API)
+- ``GET …/v1/sms/embed/summary/`` — उहीका लागि legacy alias
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from django.conf import settings
 from .utils.phone import normalize_phone
 
 _MAX_SMS_LEN = 160
-# Appended to every outbound SMS (after truncation so the signature is never cut off).
+# प्रत्येक बाहिर जाने SMS मा थपिन्छ (छोट्याउँदा signature काटिन नदिओस् भनेर)।
 _SMS_SIGNATURE = " Used by Shyam Sweets"
 
 
@@ -43,7 +43,7 @@ def _apply_sms_signature(message: str) -> str:
 
 def format_infelo_destination(phone_raw: str) -> str:
     """
-    Build ``to`` for Infelo (E.164). Store/user phones are digit-only (see ``normalize_phone``).
+    Infelo का लागि ``to`` बनाउनुहोस् (E.164)। store/user फोन digit-only (``normalize_phone`` हेर्नुहोस्)।
     """
     digits = normalize_phone(phone_raw)
     if not digits:
@@ -80,7 +80,7 @@ def _urllib_json_request(
     if body_dict is not None:
         data = json.dumps(body_dict, separators=(",", ":")).encode("utf-8")
     req = urllib.request.Request(url, data=data, method=method)
-    req.add_header("User-Agent", "FoodDelivery/1.0")
+    req.add_header("User-Agent", "ShyamSweets/1.0")
     req.add_header("Accept", "application/json")
     if data is not None:
         req.add_header("Content-Type", "application/json")
@@ -105,7 +105,7 @@ def _infelo_account_key() -> str:
 
 
 def infelo_admin_ui_config() -> dict[str, Any]:
-    """Staff-only: API base, portal origin for embed script, and account API key."""
+    """staff-only: API base, embed script का लागि portal origin, र account API key।"""
     key = _infelo_account_key()
     portal = (getattr(settings, "INFELO_PORTAL_ORIGIN", None) or "").strip().rstrip("/")
     return {
@@ -118,7 +118,7 @@ def infelo_admin_ui_config() -> dict[str, Any]:
 
 def fetch_infelo_embed_summary() -> tuple[bool, str, dict[str, Any]]:
     """
-    ``GET /api/v1/embed/summary/`` with Bearer account key (``GET /api/v1/sms/embed/summary/`` as fallback).
+    Bearer account key सँग ``GET /api/v1/embed/summary/`` (``GET /api/v1/sms/embed/summary/`` fallback)।
     """
     api_key = _infelo_account_key()
     if not api_key:
@@ -152,7 +152,7 @@ def send_infelo_sms(*, phone: str, message: str) -> tuple[bool, str]:
 
 def send_infelo_sms_detailed(*, phone: str, message: str) -> tuple[bool, str, dict]:
     """
-    Send one SMS via Infelo ``POST /api/v1/sms/send/`` with Bearer account key in settings.
+    settings मा Bearer account key सँग Infelo ``POST /api/v1/sms/send/`` बाट एक SMS पठाउनुहोस्।
     """
     api_key = _infelo_account_key()
     if not api_key:

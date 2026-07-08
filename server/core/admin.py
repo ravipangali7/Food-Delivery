@@ -25,7 +25,7 @@ from .models import (
 )
 
 
-# --- shared admin helpers -------------------------------------------------
+# --- साझा admin helper -------------------------------------------------
 
 ORDER_STATUS_COLORS = {
     "pending": "#6c757d",
@@ -73,7 +73,7 @@ def npr(amount) -> str:
     )
 
 
-# --- inlines (StackedInline per project conventions) ----------------------
+# --- inline (परियोजना परम्परा अनुसार StackedInline) ----------------------
 
 
 class ProductImageInline(admin.StackedInline):
@@ -147,7 +147,7 @@ class NotificationUserInline(admin.StackedInline):
     readonly_fields = ("delivered_at",)
 
 
-# --- model admins ---------------------------------------------------------
+# --- model admin ---------------------------------------------------------
 
 
 @admin.register(User)
@@ -281,7 +281,7 @@ class UserAdmin(DjangoUserAdmin):
 
 @admin.register(OTPVerification)
 class OTPVerificationAdmin(admin.ModelAdmin):
-    """SMS OTP rows created by the API; view, search, and clean up here."""
+    """API ले सिर्जना गरेका SMS OTP row; यहाँ हेर्नुहोस्, खोज्नुहोस्, सफा गर्नुहोस्।"""
 
     list_display = (
         "id",
@@ -785,7 +785,7 @@ class NotificationAdmin(admin.ModelAdmin):
     )
     list_filter = ("type", "medium", "target_audience", "created_at")
     search_fields = ("title", "body")
-    filter_horizontal = ()  # using inline for recipients
+    filter_horizontal = ()  # प्राप्तकर्ताका लागि inline प्रयोग
     inlines = (NotificationUserInline,)
     readonly_fields = ("created_at",)
     fieldsets = (
@@ -811,7 +811,7 @@ class NotificationAdmin(admin.ModelAdmin):
         return naturaltime(obj.created_at) if obj.created_at else "—"
 
 
-# ProductImage registered only via inline — optional direct admin for bulk work
+# ProductImage inline मार्फत मात्र दर्ता — bulk का लागि वैकल्पिक direct admin
 @admin.register(ProductImage)
 class ProductImageAdmin(admin.ModelAdmin):
     list_display = ("id", "list_thumb", "product", "sort_order", "created_at")

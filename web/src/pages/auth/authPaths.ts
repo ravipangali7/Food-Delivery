@@ -1,12 +1,12 @@
 import type { User } from '@/types';
 
-/** Admin portal (Django staff/superuser or API role). */
+/** Admin portal — staff/superuser वा admin role भएका प्रयोगकर्ता। */
 export function isAdminUser(u: User): boolean {
   if (u.role === 'super_admin' || u.role === 'admin') return true;
   return !!(u.is_staff || u.is_superuser);
 }
 
-/** Delivery app (not staff/superuser; delivery role only). */
+/** डेलिभरी app (staff/superuser होइन; delivery role मात्र)। */
 export function isDeliveryPortalUser(u: User): boolean {
   if (u.role === 'delivery_boy') return true;
   if (isAdminUser(u)) return false;

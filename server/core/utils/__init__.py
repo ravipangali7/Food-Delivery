@@ -1,1 +1,1 @@
-"""Small utilities (OTP generation, phone normalization)."""
+"""साना उपयोगिता (OTP generation, phone normalization)।"""

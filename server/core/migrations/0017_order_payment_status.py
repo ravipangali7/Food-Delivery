@@ -1,4 +1,4 @@
-# Generated manually for COD payment lifecycle
+# म्यानुअल सिर्जना: COD भुक्तानी जीवनचक्रका लागि
 
 from django.db import migrations, models
 

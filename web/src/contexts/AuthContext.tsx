@@ -10,8 +10,11 @@ import {
 import { ApiHttpError, apiFetch } from '@/lib/api';
 import type { User } from '@/types';
 
-const TOKEN_KEY = 'fd_auth_token';
-const PHONE_KEY = 'fd_auth_phone';
+// प्रमाणीकरण टोकन र फोन — localStorage मा भण्डारण (Flutter WebView सँग sync)।
+const TOKEN_KEY = 'ss_auth_token';
+const PHONE_KEY = 'ss_auth_phone';
+const LEGACY_TOKEN_KEY = 'fd_auth_token';
+const LEGACY_PHONE_KEY = 'fd_auth_phone';
 
 const FLUTTER_AUTH_HANDLER = 'fdAuthTokenPersist';
 
@@ -29,7 +32,7 @@ function getFlutterInAppBridge(): {
   }
 }
 
-/** Must match [AuthTokenStorage] / WebView `fdAuthTokenPersist` handler. */
+/** [AuthTokenStorage] / WebView `fdAuthTokenPersist` handler सँग मिल्नुपर्छ। */
 function callFlutterAuthPersist(payload: string): boolean {
   const bridge = getFlutterInAppBridge();
   if (!bridge) return false;
@@ -42,7 +45,7 @@ function callFlutterAuthPersist(payload: string): boolean {
 }
 
 let mirrorRetryId: ReturnType<typeof setInterval> | null = null;
-/** Latest payload for `fdAuthTokenPersist` retries; `undefined` until first mirror call. */
+/** `fdAuthTokenPersist` पुन:प्रयासका लागि नवीनतम payload; पहिलो mirror कल सम्म `undefined`। */
 let mirrorLatestPayload: string | undefined;
 
 function stopMirrorRetry(): void {
@@ -72,9 +75,9 @@ function installFlutterAuthBridgeHooks(): void {
   if (typeof window === 'undefined' || flutterBridgeHooksInstalled) return;
   flutterBridgeHooksInstalled = true;
 
-  // Official contract: callHandler is only safe after this event (flutter_inappwebview docs).
+  // आधिकारिक सम्झौता: callHandler यो event पछि मात्र सुरक्षित (flutter_inappwebview docs)।
   window.addEventListener('flutterInAppWebViewPlatformReady', () => {
-    // Never push '' from localStorage alone — it may be empty before native inject runs.
+    // localStorage बाट मात्र '' नपठाउनुहोस् — native inject अघि खाली हुन सक्छ।
     const fromLs = readStoredToken();
     if (fromLs) {
       void callFlutterAuthPersist(fromLs);
@@ -87,8 +90,8 @@ function installFlutterAuthBridgeHooks(): void {
 }
 
 /**
- * Mirrors `fd_auth_token` into Flutter storage. Retries until the InAppWebView JS bridge exists
- * (cold start often runs React restore before `flutter_inappwebview` is callable).
+ * `fd_auth_token` लाई Flutter storage मा mirror गर्छ। InAppWebView JS bridge आउँदासम्म पुन:प्रयास
+ * (cold start मा React restore `flutter_inappwebview` callable हुनुअघि चल्न सक्छ)।
  */
 function mirrorAuthTokenToFlutterHost(token: string | null): void {
   installFlutterAuthBridgeHooks();
@@ -127,12 +130,12 @@ type AuthContextValue = {
   token: string | null;
   user: User | null;
   isLoading: boolean;
-  /** True when a stored token exists but /api/auth/me/ could not be reached (e.g. flaky WebView/network). */
+  /** भण्डारण गरिएको token छ तर /api/auth/me/ पुग्न सकेन (जस्तै अस्थिर WebView/network)। */
   sessionRestoreFailed: boolean;
   setSession: (token: string, user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<User | null>;
-  /** Re-validates a stored token after a failed initial restore (does not throw). */
+  /** असफल प्रारम्भिक restore पछि भण्डारण token पुन:प्रमाणित गर्छ (throw गर्दैन)। */
   retrySessionRestore: () => Promise<void>;
 };
 
@@ -140,7 +143,15 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 function readStoredToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    const current = localStorage.getItem(TOKEN_KEY);
+    if (current) return current;
+    const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
+    if (legacy) {
+      localStorage.setItem(TOKEN_KEY, legacy);
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+      return legacy;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -182,7 +193,7 @@ function writeStoredPhone(phone: string | null): void {
     }
     localStorage.setItem(PHONE_KEY, phone.trim());
   } catch {
-    /* ignore */
+    /* बेवास्ता */
   }
 }
 
@@ -198,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(PHONE_KEY);
       mirrorAuthTokenToFlutterHost(null);
     } catch {
-      /* ignore */
+      /* बेवास्ता */
     }
     setToken(null);
     setUser(null);
@@ -233,8 +244,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const retrySessionRestore = useCallback(async () => {
     const t = readStoredToken();
     if (!t) {
-      // Do not call logout() here: it clears the native mirror in SharedPreferences and can strand
-      // a valid session when localStorage is briefly unreadable in the WebView.
+      // यहाँ logout() नबोलाउनुहोस्: SharedPreferences को native mirror मेट्छ र WebView मा
+      // localStorage छोटो समय अपठनीय हुँदा वैध session अड्किन सक्छ।
       setToken(null);
       setUser(null);
       setSessionRestoreFailed(false);
@@ -275,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(me);
           setSessionRestoreFailed(false);
           writeStoredPhone(me.phone ?? null);
-          // Keep the Flutter mirror in sync even if setSession() never ran (e.g. cold restore only).
+          // setSession() नचले पनि Flutter mirror sync राख्नुहोस् (जस्तै cold restore मात्र)।
           mirrorAuthTokenToFlutterHost(t);
         }
       } catch (e) {
@@ -303,7 +314,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       writeStoredPhone(u.phone ?? null);
       mirrorAuthTokenToFlutterHost(newToken);
     } catch {
-      /* ignore */
+      /* बेवास्ता */
     }
     setToken(newToken);
     setUser(u);

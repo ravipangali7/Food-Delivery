@@ -1,4 +1,4 @@
-"""Server-rendered OTP send / verify flow (CSRF-safe same-origin forms)."""
+"""server-rendered OTP पठाउने/प्रमाणित गर्ने flow (CSRF-safe same-origin form)।"""
 
 from __future__ import annotations
 
@@ -33,8 +33,8 @@ def _session_clear(request) -> None:
 @require_http_methods(["GET", "POST"])
 def otp_verification_page(request):
     """
-    Step 1: enter phone and purpose → SMS OTP.
-    Step 2: enter code → session login (and optional API token on success page).
+    चरण १: फोन र purpose → SMS OTP।
+    चरण २: कोड → session login (सफलतामा वैकल्पिक API token)।
     """
     sent = request.session.get(SESSION_SENT)
     context: dict = {"step": "verify" if sent else "send", "debug": settings.DEBUG}
@@ -56,10 +56,10 @@ def otp_verification_page(request):
         if action == "verify" or (not action and sent):
             return _handle_verify(request, context)
 
-        # default: send
+        # पूर्वनिर्धारित: पठाउनुहोस्
         return _handle_send(request, context)
 
-    # GET
+    # GET अनुरोध
     if sent:
         context["verify_form"] = OtpVerifyForm()
         context["masked_phone"] = _mask_phone(request.session.get(SESSION_PHONE, ""))
@@ -214,5 +214,5 @@ def _handle_verify(request, context) -> redirect | render:
 
 
 def otp_help(request):
-    """Short explanation of CSRF + SPA vs this page."""
+    """CSRF + SPA बनाम यो पेजको छोटो व्याख्या।"""
     return render(request, "core/otp/csrf_help.html")

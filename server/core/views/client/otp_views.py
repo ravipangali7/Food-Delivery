@@ -1,4 +1,4 @@
-"""OTP send/verify API (phone login and registration)."""
+"""OTP पठाउने र प्रमाणित गर्ने API — फोन लगइन र दर्ता।"""
 
 from __future__ import annotations
 
@@ -120,7 +120,7 @@ def _user_is_admin_portal(user: User) -> bool:
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def customer_password_login(request):
-    """Customer SPA login: phone + password."""
+    """ग्राहक SPA लगइन: फोन + पासवर्ड।"""
     ser = CustomerPasswordLoginSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
     phone = ser.validated_data["phone"]
@@ -143,7 +143,7 @@ def customer_password_login(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def customer_register(request):
-    """Customer SPA registration: name, phone, and password."""
+    """ग्राहक SPA दर्ता: नाम, फोन, र पासवर्ड।"""
     ser = CustomerRegisterSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
     phone = ser.validated_data["phone"]
@@ -170,7 +170,7 @@ def customer_register(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def admin_password_login(request):
-    """Staff admin SPA login: phone + password (requires is_staff)."""
+    """staff admin SPA लगइन: फोन + पासवर्ड (is_staff आवश्यक)।"""
     ser = AdminPasswordLoginSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
     phone = ser.validated_data["phone"]
@@ -199,7 +199,7 @@ def admin_password_login(request):
 def flutter_phone_login(request):
     """
     Flutter WebView bootstrap login:
-    accepts only phone and returns a DRF token for that active user.
+    फोन मात्र स्वीकार गरी सक्रिय प्रयोगकर्ताका लागि DRF token फर्काउँछ।
     """
     try:
         ser = FlutterPhoneAutoLoginSerializer(data=request.data)

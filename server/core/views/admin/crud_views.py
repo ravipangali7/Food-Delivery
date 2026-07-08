@@ -1,4 +1,4 @@
-"""Staff CRUD and dashboard APIs."""
+"""staff CRUD र dashboard API।"""
 
 import logging
 from datetime import date, datetime, timedelta
@@ -148,7 +148,7 @@ def dashboard_summary(request):
 @api_view(["GET"])
 @permission_classes([IsStaffUser])
 def dashboard_today(request):
-    """Today's operational snapshot: orders placed today, delivery partners, etc."""
+    """आजको सञ्चालन snapshot: आजका order, delivery partner, आदि।"""
     today = timezone.localdate()
 
     placed_today = Order.objects.filter(created_at__date=today)
@@ -217,7 +217,7 @@ def _normalize_chart_day(val):
 @api_view(["GET"])
 @permission_classes([IsStaffUser])
 def dashboard_revenue_series(request):
-    """Daily delivered revenue for charting (7 / 30 / 90 calendar days ending today)."""
+    """chart का लागि दैनिक delivered revenue (आज समाप्त ७ / ३० / ९० क्यालेन्डर दिन)।"""
     try:
         days = int(request.GET.get("days", "7"))
     except (TypeError, ValueError):
@@ -337,7 +337,7 @@ def admin_parent_category_list_create(request):
 
 @transaction.atomic
 def _hard_delete_product(product: Product) -> None:
-    """Remove product and cart lines; order line items keep history with product=NULL."""
+    """product र cart line हटाउनुहोस्; order line item ले product=NULL सँग इतिहास राख्छ।"""
     CartItem.objects.filter(product_id=product.pk).delete()
     OrderItem.objects.filter(product_id=product.pk).update(product=None)
     product.delete()
@@ -345,7 +345,7 @@ def _hard_delete_product(product: Product) -> None:
 
 @transaction.atomic
 def _hard_delete_user(user: User) -> None:
-    """Permanently remove a customer or delivery partner account."""
+    """ग्राहक वा delivery partner खाता स्थायी रूपमा हटाउनुहोस्।"""
     if user.is_staff or user.is_superuser:
         raise ValueError("Staff and superuser accounts cannot be deleted from the admin portal.")
     user.delete()
@@ -611,7 +611,7 @@ def admin_unit_detail(request, pk):
     if request.method == "GET":
         return Response(UnitAdminSerializer(obj).data)
     if request.method == "DELETE":
-        # Product.unit is PROTECT; active catalog products block deletion.
+        # Product.unit PROTECT छ; सक्रिय catalog product ले मेटाउन रोक्छ।
         if obj.products.filter(deleted_at__isnull=True).exists():
             return Response(
                 {"detail": "Cannot delete a unit that is assigned to products."},
@@ -664,7 +664,7 @@ def admin_banner_detail(request, pk):
 @api_view(["GET"])
 @permission_classes([IsStaffUser])
 def support_inbox(request):
-    """Orders with active pipeline status or any chat activity — for staff support console."""
+    """सक्रिय pipeline status वा कुनै chat गतिविधि भएका order — staff support console का लागि।"""
     active_statuses = [
         Order.Status.PENDING,
         Order.Status.CONFIRMED,
@@ -773,7 +773,7 @@ def admin_order_cancellation_request_review(request, pk):
 @api_view(["GET"])
 @permission_classes([IsStaffUser])
 def admin_sms_overview(request):
-    """Infelo credits (embed summary) + config for the portal embed script (staff-only)."""
+    """Infelo credits (embed summary) + portal embed script का config (staff-only)।"""
     from ...infelo_sms import fetch_infelo_embed_summary, infelo_admin_ui_config
 
     cfg = infelo_admin_ui_config()
@@ -796,7 +796,7 @@ def admin_sms_overview(request):
 @api_view(["POST"])
 @permission_classes([IsStaffUser])
 def admin_sms_test_send(request):
-    """Send a single test SMS via Infelo (Bearer ``POST /api/v1/sms/send/``)."""
+    """Infelo बाट एक परीक्षण SMS (Bearer ``POST /api/v1/sms/send/``)।"""
     from ...infelo_sms import send_infelo_sms_detailed
 
     to_raw = (request.data.get("to") or request.data.get("phone") or "").strip()

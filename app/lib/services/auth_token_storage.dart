@@ -4,10 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_token_mirror_file_stub.dart'
     if (dart.library.io) 'auth_token_mirror_file_io.dart' as mirror_file;
 
-/// Persists the SPA session token (`fd_auth_token`) so the WebView can be re-seeded after a process restart.
+/// SPA session token (`fd_auth_token`) सुरक्षित गर्छ ताकि process restart पछि WebView लाई फेरि seed गर्न सकियोस्।
 ///
-/// Uses [SharedPreferences] plus an app-private **disk file** on mobile/desktop (`dart:io`) so a token
-/// survives even when prefs or the JS bridge misbehaves. Web uses prefs only.
+/// [SharedPreferences] र mobile/desktop (`dart:io`) मा app-private **disk file** प्रयोग गर्छ ताकि prefs वा JS bridge
+/// बिग्रिए पनि token बचिरहोस्। Web मा prefs मात्र प्रयोग गर्छ।
 class AuthTokenStorage {
   AuthTokenStorage._();
 

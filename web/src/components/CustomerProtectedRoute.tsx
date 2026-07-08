@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
-/** Customer-only routes that require sign-in (profile, order history, notifications). */
+/** लगइन आवश्यक ग्राहक-only route (profile, order history, notifications)। */
 export default function CustomerProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, isLoading, sessionRestoreFailed, retrySessionRestore } = useAuth();
   const location = useLocation();

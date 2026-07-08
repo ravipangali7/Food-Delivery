@@ -9,7 +9,7 @@
     --font-primary: 'Inter', 'Poppins', system-ui, sans-serif;
     --font-display: 'Libre Baskerville', 'Poppins', 'Inter', serif;
 
-    /* Shyam's brand — red #E31E24, yellow #FFC72C */
+    /* Shyam's ब्रान्ड — red #E31E24, yellow #FFC72C */
     --brand-red: 358 76% 50%;
     --brand-yellow: 43 100% 59%;
     --brand-red-dark: 358 76% 22%;
@@ -46,7 +46,7 @@
 
     --radius: 0.625rem;
 
-    /* Status colors */
+    /* स्थिति रङहरू */
     --success: 142 71% 37%;
     --success-bg: 138 76% 97%;
     --warning: var(--brand-yellow);
@@ -54,7 +54,7 @@
     --info: 221 83% 53%;
     --info-bg: 214 100% 97%;
 
-    /* Sidebar — dark brand red with yellow accents */
+    /* Sidebar — गाढा brand red, पहेँलो accent */
     --sidebar-background: var(--brand-red-dark);
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: var(--brand-yellow);
@@ -64,7 +64,7 @@
     --sidebar-border: 358 50% 28%;
     --sidebar-ring: var(--brand-yellow);
 
-    /* Mobile nav */
+    /* मोबाइल nav */
     --mobile-nav-height: 64px;
     --mobile-header-height: 56px;
   }
@@ -85,7 +85,7 @@
   }
 }
 
-/* Custom scrollbar */
+/* कस्टम scrollbar */
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
@@ -98,7 +98,7 @@
     @apply bg-muted rounded-full;
   }
 
-  /* Hide scrollbar but keep overflow scroll (horizontal carousels) */
+  /* scrollbar लुकाउँछ तर overflow scroll राख्छ (तेर्सो carousel) */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;

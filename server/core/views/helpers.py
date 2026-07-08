@@ -1,4 +1,4 @@
-"""Shared helpers and permission classes for API views."""
+"""API view का साझा helper र permission class।"""
 
 from types import SimpleNamespace
 
@@ -18,7 +18,7 @@ def get_or_create_cart(user) -> Cart:
 
 
 def is_delivery_boy_offline(user) -> bool:
-    """True when the user is a delivery partner and has marked themselves offline."""
+    """प्रयोगकर्ता delivery partner हो र offline चिन्ह लगाएको छ भने True।"""
     if not getattr(user, "is_delivery_boy", False):
         return False
     online = User.objects.filter(pk=user.pk).values_list("is_online", flat=True).first()
@@ -34,7 +34,7 @@ def can_manage_order_status(user, order) -> bool:
 
 
 def can_submit_order_cancellation_request(user, order) -> bool:
-    """Customer-owned order still pending; actual cancel goes through superuser approval."""
+    """ग्राहकको order अझै pending; वास्तविक रद्द superuser स्वीकृतिबाट।"""
     if order.user_id is None:
         return False
     return user.id == order.user_id and order.status == Order.Status.PENDING
@@ -47,7 +47,7 @@ def guest_token_matches_order(order: Order, token: str | None) -> bool:
 
 
 def resolve_order_for_request(request, pk: int) -> Order | None:
-    """Return order if the request may read it (auth user, staff, or guest token)."""
+    """request ले पढ्न मिल्छ भने order फर्काउनुहोस् (auth user, staff, वा guest token)।"""
     from django.shortcuts import get_object_or_404
 
     order = get_object_or_404(
@@ -83,7 +83,7 @@ class IsStaffUser(IsAuthenticated):
 
 
 def can_view_order_tracking(user, order, *, guest_token: str | None = None) -> bool:
-    """Customer, assigned delivery partner, staff, or guest token holder may view tracking."""
+    """ग्राहक, तोकिएको delivery partner, staff, वा guest token धारक tracking हेर्न सक्छ।"""
     if guest_token_matches_order(order, guest_token):
         return True
     if not user or not getattr(user, "is_authenticated", False):
@@ -98,7 +98,7 @@ def can_view_order_tracking(user, order, *, guest_token: str | None = None) -> b
 
 
 def can_access_order_chat_order(user, order) -> bool:
-    """User may call order chat HTTP/WS for this order (any thread)."""
+    """प्रयोगकर्ताले यो order का लागि order chat HTTP/WS कल गर्न सक्छ (कुनै पनि thread)।"""
     if user.is_staff:
         return True
     if order.user_id == user.id:
@@ -109,12 +109,12 @@ def can_access_order_chat_order(user, order) -> bool:
 
 
 def can_chat_on_order(user, order) -> bool:
-    """Legacy: delivery-thread access (customer or rider once assigned). Kept for WS imports."""
+    """Legacy: delivery-thread पहुँच (ग्राहक वा rider तोकिएपछि)। WS import का लागि राखिएको।"""
     return can_use_delivery_chat_thread(user, order)
 
 
 def can_use_support_chat_thread(user, order) -> bool:
-    """Support messages: customer who owns the order, or staff. Not delivery partners."""
+    """support सन्देश: order मालिक ग्राहक वा staff। delivery partner होइन।"""
     if user.is_staff:
         return True
     if order.user_id == user.id:
@@ -123,7 +123,7 @@ def can_use_support_chat_thread(user, order) -> bool:
 
 
 def can_use_customer_delivery_chat_thread(user, order) -> bool:
-    """Customer ↔ staff coordination on the non-support thread (no delivery partner)."""
+    """ग्राहक ↔ staff coordination non-support thread मा (delivery partner बिना)।"""
     if user.is_staff:
         return True
     if order.delivery_boy_id is None:
@@ -134,7 +134,7 @@ def can_use_customer_delivery_chat_thread(user, order) -> bool:
 
 
 def can_use_rider_staff_chat_thread(user, order) -> bool:
-    """Rider ↔ restaurant/admin only; assigned rider or staff."""
+    """rider ↔ restaurant/admin मात्र; तोकिएको rider वा staff।"""
     if user.is_staff:
         return True
     if order.delivery_boy_id is None:
@@ -145,7 +145,7 @@ def can_use_rider_staff_chat_thread(user, order) -> bool:
 
 
 def can_use_customer_rider_chat_thread(user, order) -> bool:
-    """Private customer ↔ assigned delivery partner (+ staff). Requires an assigned rider."""
+    """निजी ग्राहक ↔ तोकिएको delivery partner (+ staff)। तोकिएको rider आवश्यक।"""
     if order.delivery_boy_id is None:
         return False
     if user.is_staff:
@@ -158,7 +158,7 @@ def can_use_customer_rider_chat_thread(user, order) -> bool:
 
 
 def can_use_delivery_chat_thread(user, order) -> bool:
-    """Either customer-delivery or rider-ops thread (used for legacy WS imports)."""
+    """customer-delivery वा rider-ops thread (legacy WS import का लागि)।"""
     return can_use_customer_delivery_chat_thread(user, order) or can_use_rider_staff_chat_thread(
         user, order
     )
@@ -185,7 +185,7 @@ def persist_order_chat_message(
     customer_rider: bool = False,
     serializer_context: dict | None = None,
 ) -> dict:
-    """Create a chat row and return serialized payload for HTTP + WebSocket broadcast."""
+    """chat row सिर्जना गरी HTTP + WebSocket broadcast का लागि serialized payload फर्काउनुहोस्।"""
     from ..serializers import OrderChatMessageSerializer
 
     text = (body or "").strip()[:2000]

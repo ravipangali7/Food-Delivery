@@ -1,4 +1,4 @@
-"""Optional SMS mirror when staff reply in order chat (Infelo)."""
+"""staff ले order chat मा जवाफ दिँदा वैकल्पिक SMS mirror (Infelo)।"""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 def maybe_send_staff_chat_reply_sms(order: Order, msg: OrderChatMessage, sender: User) -> None:
     """
-    When store staff reply in chat, optionally send the same text via SMS so the recipient
-    sees it even without the app. Controlled by ``CHAT_REPLY_SMS`` (uses Infelo when ``INFELO_SMS_API_KEY`` is set).
+    store staff ले chat मा जवाफ दिँदा, वैकल्पिक रूपमा SMS पनि पठाउँछ ताकि app बिना पनि देखियोस्।
+    ``CHAT_REPLY_SMS`` ले नियन्त्रण (``INFELO_SMS_API_KEY`` सेट भए Infelo प्रयोग)।
     """
     if not getattr(sender, "is_staff", False) or not sender.is_active:
         return
@@ -36,7 +36,7 @@ def maybe_send_staff_chat_reply_sms(order: Order, msg: OrderChatMessage, sender:
                         logger.warning("Staff chat SMS to rider failed: %s", err)
         return
 
-    # Support or customer-visible delivery coordination → notify customer
+    # support वा ग्राहकले देख्ने delivery coordination → ग्राहकलाई सूचित
     phone = ""
     if order.user_id and order.user:
         phone = (order.user.phone or "").strip()

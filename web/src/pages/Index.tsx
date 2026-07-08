@@ -1,9 +1,9 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+// यो पृष्ठ अद्यावधिक गर्नुहोस् (अद्यावधिक नगरेमा यो fallback मात्र हो)
 
-// IMPORTANT: Fully REPLACE this with your own code
+// महत्वपूर्ण: यो पूरै आफ्नो कोडले REPLACE गर्नुहोस्
 const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+  // PLACEHOLDER: यो पूरै return statement प्रयोगकर्ताको app ले बदल्नुपर्छ।
+  // inline background color जानाजानी design system को भाग होइन।
   return (
     <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
       <img src="/logo.png" alt="Shyam's Sweets" className="h-24 w-auto brand-logo mx-auto" />

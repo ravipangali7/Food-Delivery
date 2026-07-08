@@ -90,7 +90,7 @@ export default function AdminCustomerSupport() {
       try {
         sessionStorage.removeItem(SELECTED_ORDER_KEY);
       } catch {
-        /* ignore */
+        /* बेवास्ता */
       }
       return;
     }
@@ -105,7 +105,7 @@ export default function AdminCustomerSupport() {
       try {
         sessionStorage.setItem(SELECTED_ORDER_KEY, String(selectedId));
       } catch {
-        /* ignore */
+        /* बेवास्ता */
       }
     }
   }, [selectedId]);

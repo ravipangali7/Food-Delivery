@@ -1,4 +1,4 @@
-# Generated manually for COD-only checkout and delivery mode tracking
+# म्यानुअल सिर्जना: COD-only checkout र delivery mode ट्र्याकिङका लागि
 
 from django.db import migrations, models
 

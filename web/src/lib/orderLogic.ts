@@ -2,7 +2,7 @@ import { validStatusTransitions } from '@/lib/colors';
 import type { OrderStatus } from '@/types';
 
 /**
- * Whether `next` is an allowed transition from `current` (aligned with backend `core.services.VALID_STATUS_TRANSITIONS`).
+ * `next` ले `current` बाट अनुमतित संक्रमण हो कि होइन (backend `core.services.VALID_STATUS_TRANSITIONS` सँग मिल्छ)।
  */
 export function canTransitionOrderStatus(current: OrderStatus, next: OrderStatus): boolean {
   const allowed = validStatusTransitions[current] ?? [];

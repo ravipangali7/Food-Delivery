@@ -1,4 +1,4 @@
-"""Authenticated delivery-role endpoints."""
+"""प्रमाणीकरण भएका delivery-role endpoint।"""
 
 from datetime import timedelta
 
@@ -22,7 +22,7 @@ class IsDeliveryBoyUser(IsAuthenticated):
 @api_view(["GET"])
 @permission_classes([IsDeliveryBoyUser])
 def delivery_earnings(request):
-    """Aggregated delivered-order totals for the logged-in delivery user."""
+    """लगइन delivery प्रयोगकर्ताका delivered-order कुल योग।"""
     days = int(request.GET.get("days", "7"))
     days = max(1, min(days, 90))
     start = timezone.now() - timedelta(days=days)

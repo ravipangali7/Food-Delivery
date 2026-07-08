@@ -12,7 +12,7 @@ function formatCoord(value: number): string {
   return String(rounded);
 }
 
-/** Only allow in-app relative paths under /customer/ */
+/** in-app सापेक्ष path `/customer/` अन्तर्गत मात्र अनुमति। */
 function safeCustomerReturnPath(raw: string | null): string | null {
   if (!raw || !raw.startsWith('/')) return null;
   if (!raw.startsWith('/customer/')) return null;

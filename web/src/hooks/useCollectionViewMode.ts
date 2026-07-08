@@ -7,14 +7,14 @@ function readStoredMode(key: string): CollectionViewMode | null {
     const raw = localStorage.getItem(key);
     if (raw === 'grid' || raw === 'list') return raw;
   } catch {
-    /* ignore */
+    /* बेवास्ता */
   }
   return null;
 }
 
 /**
- * Persists grid/list choice in localStorage for a stable admin UX across visits.
- * Reuse the same `storageKey` on other pages (e.g. products) only if you want one global preference.
+ * localStorage मा grid/list छनोट स्थायी गर्छ — admin UX भ्रमणहरूमा स्थिर।
+ * अन्य पृष्ठमा (जस्तै products) एउटै `storageKey` पुन:प्रयोग गर्नुहोस् यदि एउटै ग्लोबल प्राथमिकता चाहनुहुन्छ भने।
  */
 export function useCollectionViewMode(
   storageKey: string,
@@ -30,7 +30,7 @@ export function useCollectionViewMode(
       try {
         localStorage.setItem(storageKey, next);
       } catch {
-        /* ignore */
+        /* बेवास्ता */
       }
     },
     [storageKey],

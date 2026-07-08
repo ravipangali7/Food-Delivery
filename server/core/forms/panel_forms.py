@@ -1,4 +1,4 @@
-"""Forms for the custom staff admin panel (template views)."""
+"""कस्टम staff panel का form (template view)।"""
 
 from __future__ import annotations
 

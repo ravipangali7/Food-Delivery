@@ -1,4 +1,4 @@
-"""Public and authenticated client API routes."""
+"""सार्वजनिक र प्रमाणीकरण भएका client API route।"""
 
 from django.urls import path
 
@@ -34,8 +34,7 @@ urlpatterns = [
     path("notifications/", home_views.notification_list),
     path("send-otp/", otp_views.send_otp),
     path("verify-otp/", otp_views.verify_otp),
-    # SPA uses these paths; unknown /api/... routes would otherwise fall through to
-    # admin's catch-all and POSTs would fail CSRF (see fooddelivery.urls order).
+    # SPA ले यी path प्रयोग; अज्ञात /api/... admin catch-all मा जान्छ र POST CSRF असफल (fooddelivery.urls क्रम)।
     path("auth/otp/send/", otp_views.send_otp),
     path("auth/otp/verify/", otp_views.verify_otp),
     path("auth/flutter/phone-login/", otp_views.flutter_phone_login),

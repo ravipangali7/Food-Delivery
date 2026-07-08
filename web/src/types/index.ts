@@ -1,8 +1,8 @@
 // ============================================
-// Shyam Sweets — TypeScript Types
+// Shyam Sweets — TypeScript प्रकारहरू
 // ============================================
 
-/** Portal role from API; aligns with `is_superuser`, `is_staff`, `is_delivery_boy`. */
+/** API बाट पोर्टल भूमिका; `is_superuser`, `is_staff`, `is_delivery_boy` सँग मिल्छ। */
 export type UserRole = 'super_admin' | 'admin' | 'delivery_boy' | 'customer';
 
 export interface CustomerAddress {
@@ -23,11 +23,11 @@ export interface OrderChatMessage {
   sender: number;
   sender_name: string;
   body: string;
-  /** True when message is on the customer ↔ store support thread (not visible to delivery). */
+  /** सन्देश ग्राहक ↔ पसल सहायता थ्रेडमा छ (डेलिभरीलाई देखिन्न)। */
   support?: boolean;
-  /** True when message is rider ↔ store only (not visible to the customer). */
+  /** सन्देश राइडर ↔ पसल मात्र (ग्राहकलाई देखिन्न)। */
   rider_staff?: boolean;
-  /** True when message is private between the customer and the assigned delivery partner (+ staff). */
+  /** सन्देश ग्राहक र तोकिएको डेलिभरी साझेदार (+ स्टाफ) बीच निजी छ। */
   customer_rider?: boolean;
   aggregate_status?: OrderChatAggregateStatus;
   created_at: string;
@@ -35,7 +35,7 @@ export interface OrderChatMessage {
   my_read_at?: string | null;
 }
 
-/** Participant presence for order chat (from GET .../chat/presence/). */
+/** अर्डर च्याटका सहभागीको उपस्थिति (GET .../chat/presence/ बाट)। */
 export interface ChatParticipantPresence {
   user_id: number;
   name: string;
@@ -48,17 +48,17 @@ export interface User {
   name: string;
   phone: string;
   email?: string;
-  /** Present when loaded from API (`/api/auth/me/`). */
+  /** API बाट लोड गर्दा उपस्थित (`/api/auth/me/`)। */
   is_staff?: boolean;
   is_superuser?: boolean;
-  /** Computed on the server for routing and UI. */
+  /** राउटिङ र UI का लागि सर्भरले गणना गर्छ। */
   role?: UserRole;
   profile_photo?: string;
   is_active: boolean;
   is_delivery_boy: boolean;
-  /** Staff: when true, OTP SMS accrues to owner due; when false, to restaurant due (super admin only). */
+  /** स्टाफ: true भए OTP SMS मालिकको बाँकीमा; false भए रेस्टुरेन्टको बाँकीमा (super admin मात्र)। */
   is_store_owner?: boolean;
-  /** Delivery partners: when false, no orders are listed or assigned. */
+  /** डेलिभरी साझेदार: false भए कुनै अर्डर सूचीबद्ध वा तोकिँदैन। */
   is_online?: boolean;
   latitude?: number;
   longitude?: number;
@@ -80,14 +80,14 @@ export interface SuperSetting {
   meta_title?: string;
   meta_description?: string;
   meta_keywords?: string;
-  /** Plain text; shown only on `/customer/about`. Use `**heading**` for bold. */
+  /** सादा पाठ; `/customer/about` मा मात्र देखिन्छ। बोल्डका लागि `**heading**` प्रयोग गर्नुहोस्। */
   about_us?: string | null;
-  /** Plain text; shown on customer Terms when set. */
+  /** सादा पाठ; सेट भए ग्राहक Terms मा देखिन्छ। */
   terms_and_conditions?: string | null;
-  /** Plain text; shown on customer Privacy when set. */
+  /** सादा पाठ; सेट भए ग्राहक Privacy मा देखिन्छ। */
   privacy_policy?: string | null;
   delivery_charge_per_km: number;
-  /** Max delivery distance (km) from store; 0 = no limit. Fee is distance × per-km rate. */
+  /** पसलबाट अधिकतम डेलिभरी दूरी (km); 0 = सीमा छैन। शुल्क = दूरी × प्रति km दर। */
   delivery_under_km: number;
   is_open: boolean;
   android_file?: string | null;
@@ -96,9 +96,9 @@ export interface SuperSetting {
   applestore_link?: string | null;
   android_version?: string | null;
   ios_version?: string | null;
-  /** Super admin only on GET /api/settings/ when authenticated as superuser. */
+  /** superuser को रूपमा प्रमाणीकरण भए GET /api/settings/ मा super admin लाई मात्र। */
   sms_cost_per_message?: number;
-  /** Global per-order platform fee (NPR); always applied when non-zero. */
+  /** प्रति अर्डर ग्लोबल प्लेटफर्म शुल्क (NPR); शून्य नभए सधैं लागू। */
   per_transaction_fee?: number;
   owner_sms_due?: number;
   restaurant_sms_due?: number;
@@ -107,7 +107,7 @@ export interface SuperSetting {
   updated_at: string;
 }
 
-/** Promotional strip on customer home / explore / sweets (`GET /api/banners/`). */
+/** ग्राहक home / explore / sweets मा प्रचार पट्टी (`GET /api/banners/`)। */
 export interface Banner {
   id: number;
   image: string | null;
@@ -115,7 +115,7 @@ export interface Banner {
   is_active: boolean;
 }
 
-/** Staff carousel management (`GET/PATCH/POST /api/admin/banners/`). */
+/** स्टाफ क्यारोसेल व्यवस्थापन (`GET/PATCH/POST /api/admin/banners/`)। */
 export interface AdminBanner {
   id: number;
   image_url: string | null;
@@ -125,7 +125,7 @@ export interface AdminBanner {
   updated_at: string;
 }
 
-/** Top-level category (has image; groups subcategories). */
+/** शीर्ष-स्तर श्रेणी (छवि छ; उपश्रेणीहरू समूहबद्ध गर्छ)। */
 export interface ParentCategory {
   id: number;
   kind?: 'parent';
@@ -142,7 +142,7 @@ export interface ParentCategory {
   subcategories_count?: number;
 }
 
-/** Sellable unit (kg, piece, plate, …) — managed under Admin → Units. */
+/** बिक्री योग्य एकाइ (kg, piece, plate, …) — Admin → Units अन्तर्गत व्यवस्थापन। */
 export interface Unit {
   id: number;
   name: string;
@@ -151,7 +151,7 @@ export interface Unit {
   updated_at?: string;
 }
 
-/** Subcategory — products are always assigned here; must belong to a parent. */
+/** उपश्रेणी — उत्पादन सधैं यहाँ तोकिन्छ; अभिभावक श्रेणीमा हुनुपर्छ। */
 export interface Category {
   id: number;
   kind?: 'sub';
@@ -182,7 +182,7 @@ export interface ProductVariant {
   sort_order?: number;
 }
 
-/** Customer-facing selectable unit/price option on a product detail page. */
+/** उत्पादन विवरण पृष्ठमा ग्राहकले छान्न सक्ने एकाइ/मूल्य विकल्प। */
 export interface ProductPurchaseOption {
   variant_id: number | null;
   label: string;
@@ -202,16 +202,16 @@ export interface Product {
   price: number;
   discount_type: DiscountType;
   discount_value?: number;
-  /** Server-computed: base price minus discount; API may return string decimals. */
+  /** सर्भरले गणना: आधार मूल्य घटाएर छुट; API ले string दशमलव फर्काउन सक्छ। */
   effective_price?: number | string;
   unit: Unit;
-  /** Admin write field; present on admin API responses alongside nested `unit`. */
+  /** Admin लेख्ने फिल्ड; nested `unit` सँग admin API प्रतिक्रियामा उपस्थित। */
   unit_id?: number;
   stock_quantity: number;
   is_available: boolean;
   is_featured: boolean;
   is_veg: boolean;
-  /** When true, product appears on the customer Sweets tab. */
+  /** true भए उत्पादन ग्राहक Sweets ट्याबमा देखिन्छ। */
   is_sweet?: boolean;
   thumbnail_url?: string;
   sort_order: number;
@@ -219,7 +219,7 @@ export interface Product {
   updated_at: string;
   deleted_at?: string;
   category?: Category;
-  /** Admin list API denormalized label */
+  /** Admin सूची API को denormalized लेबल */
   category_name?: string;
   images?: ProductImage[];
   variants?: ProductVariant[];
@@ -255,7 +255,7 @@ export interface CartItem {
   unit_price: number;
   total_price: number;
   notes?: string;
-  /** Sweet items only: line was added as a pre-order (date/time at checkout). */
+  /** मिठाई मात्र: लाइन चेकआउटमा pre-order को रूपमा थपियो (मिति/समय)। */
   is_preorder?: boolean;
   created_at: string;
   updated_at: string;
@@ -265,20 +265,20 @@ export interface CartItem {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready_for_delivery' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'failed';
 
-/** Staff support inbox row from `GET /api/admin/support/inbox/`. */
+/** स्टाफ सहायता इनबक्स पङ्क्ति `GET /api/admin/support/inbox/` बाट। */
 export interface SupportInboxRow {
   id: number;
   order_number: string;
   status: OrderStatus;
-  /** Ordering customer's user id — for deep links into their chat. */
+  /** अर्डर गर्ने ग्राहकको user id — च्याटमा deep link का लागि। */
   customer_user_id?: number | null;
   customer_name: string;
   customer_phone: string;
-  /** Absolute or relative profile image URL for the ordering customer. */
+  /** अर्डर गर्ने ग्राहकको पूर्ण वा सापेक्ष प्रोफाइल छवि URL। */
   customer_profile_photo?: string;
   delivery_boy_name: string | null;
   delivery_boy_id: number | null;
-  /** Profile image URL for the assigned delivery partner, when present. */
+  /** तोकिएको डेलिभरी साझेदारको प्रोफाइल छवि URL, उपस्थित भए। */
   delivery_boy_profile_photo?: string;
   last_message_at: string | null;
   unread_count?: number;
@@ -287,12 +287,12 @@ export interface SupportInboxRow {
 
 export type OrderPaymentMethod = 'cash_on_delivery';
 
-/** Cash collected at delivery; pending until order is marked delivered. */
+/** डेलिभरीमा नगद सङ्कलन; अर्डर delivered चिन्ह नलाग्दासम्म pending। */
 export type OrderPaymentStatus = 'pending' | 'paid';
 
 export type OrderDeliveryType = 'bike' | 'walking';
 
-/** Pending customer cancellation; present on `GET /api/orders/:id/` while awaiting super admin review. */
+/** ग्राहक रद्द अनुरोध pending; super admin समीक्षा पर्खँदा `GET /api/orders/:id/` मा उपस्थित। */
 export interface PendingCancellationRequest {
   id: number;
   reason: string;
@@ -304,13 +304,13 @@ export interface Order {
   id: number;
   order_number: string;
   user_id?: number | null;
-  /** Present for guest orders; required to view order details without login. */
+  /** अतिथि अर्डरका लागि; लगइन बिना विवरण हेर्न आवश्यक। */
   guest_access_token?: string | null;
   delivery_boy_id?: number;
   status: OrderStatus;
   subtotal: number;
   delivery_fee: number;
-  /** Per-order platform fee recorded at checkout (NPR). */
+  /** चेकआउटमा रेकर्ड भएको प्रति-अर्डर प्लेटफर्म शुल्क (NPR)। */
   platform_fee_amount?: number;
   total_amount: number;
   address: string;
@@ -321,13 +321,13 @@ export interface Order {
   delivered_at?: string;
   cancelled_at?: string;
   cancellation_reason?: string;
-  /** Only cash on delivery is supported. */
+  /** cash on delivery मात्र समर्थित। */
   payment_method: OrderPaymentMethod;
   payment_status: OrderPaymentStatus;
   delivery_type: OrderDeliveryType;
-  /** True when the order includes at least one pre-order sweet line. */
+  /** अर्डरमा कम्तीमा एउटा pre-order मिठाई लाइन छ। */
   is_preorder?: boolean;
-  /** When the customer asked to have pre-order items ready (ISO datetime from API). */
+  /** ग्राहकले pre-order वस्तु कहिले तयार चाहे (API बाट ISO datetime)। */
   pre_order_date_time?: string | null;
   created_at: string;
   updated_at: string;
@@ -339,7 +339,7 @@ export interface Order {
 
 export type OrderTrackingPhase = 'preparing' | 'on_the_way' | 'delivered';
 
-/** Live map snapshot from `GET /api/orders/:id/tracking/` and WebSocket pushes. */
+/** `GET /api/orders/:id/tracking/` र WebSocket push बाट लाइभ नक्शा स्न्यापसट। */
 export interface OrderTrackingPayload {
   order_id: number;
   order_number: string | null;
@@ -397,13 +397,13 @@ export interface Notification {
   medium: NotificationMedium;
   data?: any;
   created_at: string;
-  /** Set when this user has opened the notification inbox (per-recipient). */
+  /** यो प्रयोगकर्ताले सूचना इनबक्स खोलेपछि सेट (प्रति प्राप्तकर्ता)। */
   read_at?: string | null;
   recipients?: User[];
   recipients_count?: number;
 }
 
-/** Staff API: broadcast history and detail */
+/** स्टाफ API: प्रसारण इतिहास र विवरण */
 export interface AdminNotificationRecipient {
   user_id: number;
   user_name: string;
@@ -414,7 +414,7 @@ export interface AdminNotificationRecipient {
 }
 
 export interface AdminNotification extends Notification {
-  /** Present for broadcasts; order notifications may use `direct`. */
+  /** प्रसारणका लागि उपस्थित; अर्डर सूचनाले `direct` प्रयोग गर्न सक्छ। */
   target_audience?: NotificationTargetAudience;
   delivery_sent_count?: number;
   delivery_failed_count?: number;

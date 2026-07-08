@@ -1,7 +1,7 @@
 """
-Infelo — Google Maps JavaScript API key via account Bearer (see infelo-api-map.md).
+Infelo — account Bearer बाट Google Maps JavaScript API key (infelo-api-map.md हेर्नुहोस्)।
 
-``GET /api/v1/google-goods/maps-js-api-key/`` returns ``maps_api_key`` for browser use.
+``GET /api/v1/google-goods/maps-js-api-key/`` ब्राउजर प्रयोगका लागि ``maps_api_key`` फर्काउँछ।
 """
 
 from __future__ import annotations
@@ -22,19 +22,19 @@ _CACHE: dict[str, Any] = {
     "last_status": 503,  # int
 }
 
-# Seconds to cache a successful key (5–15 min; plan: ~10)
+# सफल key cache गर्ने सेकेन्ड (५–१५ मिनेट; योजना: ~१०)
 _INFELO_MAPS_CACHE_TTL = 600.0
 
-# If Infelo returns 401/403/503, avoid hammering: short negative cache
+# Infelo ले 401/403/503 फर्काएमा बारम्बार नहान्ने: छोटो negative cache
 _INFELO_MAPS_ERROR_TTL = 60.0
 
 
 def get_infelo_google_maps_api_key() -> tuple[str | None, str | None, int | None]:
     """
-    Return (google_maps_key, error_message, suggested_http_status).
+    (google_maps_key, error_message, suggested_http_status) फर्काउँछ।
 
-    On success: (key, None, 200). On failure: (None, message, 401/403/503/502/500).
-    Uses a short in-process cache.
+    सफल: (key, None, 200)। असफल: (None, message, 401/403/503/502/500)।
+    छोटो in-process cache प्रयोग गर्छ।
     """
     now = time.monotonic()
     if _CACHE["key"] and now < _CACHE["expires"]:
