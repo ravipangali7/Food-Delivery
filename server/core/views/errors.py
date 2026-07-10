@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
 
 
@@ -14,10 +14,10 @@ def _wants_json(request) -> bool:
 
 @require_GET
 def api_root_view(request):
-    """न्यूनतम root response — stack वा version metadata छैन।"""
+    """API subdomain root — JSON for clients; browsers go to the storefront."""
     if _wants_json(request):
-        return JsonResponse({"status": "ok"})
-    return HttpResponse(status=204)
+        return JsonResponse({"status": "ok", "api": "/api/settings/", "storefront": "https://shyam-sweets.com/"})
+    return redirect("https://shyam-sweets.com/", permanent=False)
 
 
 def error_404(request, exception=None):

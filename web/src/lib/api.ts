@@ -23,7 +23,7 @@ export function getApiBase(): string {
   if (import.meta.env?.DEV) {
     return '';
   }
-  return 'http://api.shyam-sweets.com';
+  return 'https://api.shyam-sweets.com';
 }
 
 const base = getApiBase();
