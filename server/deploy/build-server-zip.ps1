@@ -9,6 +9,7 @@ $include = @(
     "fooddelivery",
     "manage.py",
     "passenger_wsgi.py",
+    "repair_schema.py",
     "requirements.txt",
     "static"
 )

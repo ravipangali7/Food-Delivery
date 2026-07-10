@@ -674,6 +674,7 @@ class OrderAdmin(admin.ModelAdmin):
         "delivered_at",
         "cancelled_at",
         "map_links",
+        "order_type_display",
     )
     inlines = (OrderItemInline,)
     date_hierarchy = "created_at"
@@ -718,7 +719,7 @@ class OrderAdmin(admin.ModelAdmin):
         ),
         (
             _("Pre-order"),
-            {"fields": ("is_preorder", "pre_order_date_time")},
+            {"fields": ("order_type_display", "is_preorder", "pre_order_date_time", "pre_order_time_slot")},
         ),
         (_("Timestamps"), {"fields": ("created_at", "updated_at")}),
     )
@@ -734,6 +735,10 @@ class OrderAdmin(admin.ModelAdmin):
     def status_badge(self, obj: Order):
         color = ORDER_STATUS_COLORS.get(obj.status, "#495057")
         return badge(obj.get_status_display(), color=color)
+
+    @admin.display(description=_("Order type"))
+    def order_type_display(self, obj: Order):
+        return _("Pre-order") if obj.is_preorder else _("Normal")
 
     @admin.display(description=_("Subtotal"))
     def subtotal_display(self, obj: Order):

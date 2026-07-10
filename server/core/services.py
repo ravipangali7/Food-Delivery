@@ -14,6 +14,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
+from .preorder_policy import product_allows_preorder
 from .fcm_service import send_push_multicast
 from .sms_service import infelo_sms_configured, send_notification_sms
 from .models import (
@@ -226,8 +227,8 @@ def upsert_cart_line(
         raise ValueError("Product is not available")
     if not product.is_available:
         raise ValueError("Product is not available for purchase")
-    if is_preorder and not product.is_sweet:
-        raise ValueError("Only sweet items can be pre-ordered")
+    if is_preorder and not product_allows_preorder(product):
+        raise ValueError("Only sweets and cakes can be pre-ordered")
     if product.has_variants and variant is None:
         raise ValueError("Please select a variant")
     if variant is not None and variant.product_id != product.pk:
@@ -541,7 +542,7 @@ def _line_snapshots_from_cart_items(
         variant = getattr(ci, "variant", None)
         if p.deleted_at is not None or not p.is_available:
             raise ValueError(f"Product '{p.name}' is not available")
-        if ci.is_preorder and not p.is_sweet:
+        if ci.is_preorder and not product_allows_preorder(p):
             raise ValueError(f"Product '{p.name}' cannot be on a pre-order line")
         if not ci.is_preorder and line_stock_quantity(p, variant) < ci.quantity:
             raise ValueError(f"Insufficient stock for '{p.name}'")
@@ -558,13 +559,13 @@ def _line_snapshots_from_guest_lines(
     subtotal = Decimal("0.00")
     line_snapshots: list[tuple[Product, ProductVariant | None, int, Decimal, str, bool]] = []
     for row in guest_lines:
-        p = Product.objects.filter(pk=row["product_id"]).first()
+        p = Product.objects.select_related("category__parent").filter(pk=row["product_id"]).first()
         if p is None or p.deleted_at is not None or not p.is_available:
             raise ValueError("One or more products are not available")
         variant = resolve_product_variant(p, row.get("variant_id"))
         qty = row["quantity"]
         is_preorder = bool(row.get("is_preorder"))
-        if is_preorder and not p.is_sweet:
+        if is_preorder and not product_allows_preorder(p):
             raise ValueError(f"Product '{p.name}' cannot be on a pre-order line")
         if not is_preorder and line_stock_quantity(p, variant) < qty:
             raise ValueError(f"Insufficient stock for '{p.name}'")
@@ -585,10 +586,14 @@ def place_order_from_lines(
     delivery_longitude: Decimal | None = None,
     special_instructions: str | None = None,
     pre_order_date_time: datetime | None = None,
+    pre_order_time_slot: str | None = None,
     guest_name: str | None = None,
     guest_phone: str | None = None,
 ) -> Order:
     """प्रमाणित line snapshot बाट Order + OrderItems सिर्जना।"""
+    from .startup import repair_known_schema_gaps, table_has_column
+
+    repair_known_schema_gaps()
     if not line_snapshots:
         raise ValueError("Cart is empty")
 
@@ -611,7 +616,7 @@ def place_order_from_lines(
     platform_fee_amount = Decimal("0.00")
     total_amount = (subtotal + delivery_fee + platform_fee_amount).quantize(Decimal("0.01"))
 
-    order = Order(
+    order_fields = dict(
         user=user,
         guest_access_token=_new_guest_access_token() if user is None else None,
         guest_name=(guest_name or "").strip() if user is None else "",
@@ -630,6 +635,11 @@ def place_order_from_lines(
         is_preorder=has_preorder,
         pre_order_date_time=pre_order_date_time,
     )
+    if table_has_column(Order._meta.db_table, "pre_order_time_slot"):
+        order_fields["pre_order_time_slot"] = (
+            (pre_order_time_slot or "").strip() if has_preorder else ""
+        )
+    order = Order(**order_fields)
     order.save()
 
     for p, variant, qty, unit, notes, line_is_preorder in line_snapshots:
@@ -666,6 +676,7 @@ def place_order_from_cart(
     delivery_longitude: Decimal | None = None,
     special_instructions: str | None = None,
     pre_order_date_time: datetime | None = None,
+    pre_order_time_slot: str | None = None,
 ) -> Order:
     """
     प्रयोगकर्ताको cart बाट Order + OrderItems; cart खाली; notification।
@@ -674,7 +685,9 @@ def place_order_from_cart(
     if cart is None or not cart.items.exists():
         raise ValueError("Cart is empty")
 
-    items = list(cart.items.select_related("product", "variant").select_for_update())
+    items = list(
+        cart.items.select_related("product__category__parent", "variant").select_for_update()
+    )
     _subtotal, line_snapshots = _line_snapshots_from_cart_items(items)
     order = place_order_from_lines(
         user=user,
@@ -684,6 +697,7 @@ def place_order_from_cart(
         delivery_longitude=delivery_longitude,
         special_instructions=special_instructions,
         pre_order_date_time=pre_order_date_time,
+        pre_order_time_slot=pre_order_time_slot,
     )
     cart.items.all().delete()
     recalculate_cart_totals(cart)
@@ -699,6 +713,7 @@ def place_guest_order(
     delivery_longitude: Decimal | None = None,
     special_instructions: str | None = None,
     pre_order_date_time: datetime | None = None,
+    pre_order_time_slot: str | None = None,
     guest_name: str | None = None,
     guest_phone: str | None = None,
 ) -> Order:
@@ -714,6 +729,7 @@ def place_guest_order(
         delivery_longitude=delivery_longitude,
         special_instructions=special_instructions,
         pre_order_date_time=pre_order_date_time,
+        pre_order_time_slot=pre_order_time_slot,
         guest_name=guest_name,
         guest_phone=guest_phone,
     )

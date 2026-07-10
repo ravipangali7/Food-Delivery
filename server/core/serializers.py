@@ -393,6 +393,8 @@ class ProductSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerialize
     normalize_media_fields = ("thumbnail_url",)
 
     category_id = serializers.PrimaryKeyRelatedField(source="category", queryset=Category.objects.all())
+    category = CategorySerializer(read_only=True)
+    allows_preorder = serializers.SerializerMethodField()
     effective_price = serializers.SerializerMethodField()
     unit = UnitMiniSerializer(read_only=True)
     variants = ProductVariantSerializer(many=True, read_only=True)
@@ -418,6 +420,8 @@ class ProductSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerialize
             "is_featured",
             "is_veg",
             "is_sweet",
+            "allows_preorder",
+            "category",
             "thumbnail_url",
             "sort_order",
             "created_at",
@@ -428,9 +432,14 @@ class ProductSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerialize
             "has_variants",
             "purchase_options",
         )
-        read_only_fields = ("created_at", "updated_at", "images", "effective_price", "variants", "has_variants", "purchase_options")
+        read_only_fields = ("created_at", "updated_at", "images", "effective_price", "variants", "has_variants", "purchase_options", "category", "allows_preorder")
 
     images = ProductImageSerializer(many=True, read_only=True)
+
+    def get_allows_preorder(self, obj: Product) -> bool:
+        from .preorder_policy import product_allows_preorder
+
+        return product_allows_preorder(obj)
 
     def get_effective_price(self, obj: Product) -> str:
         return str(obj.effective_price)
@@ -458,6 +467,10 @@ class ProductSerializer(NormalizeStoredMediaUrlMixin, serializers.ModelSerialize
         return options if len(options) > 1 else []
 
     def _prefetched_variants(self, obj: Product) -> list[ProductVariant]:
+        from core.startup import table_exists
+
+        if not table_exists(ProductVariant._meta.db_table):
+            return []
         cache = getattr(obj, "_prefetched_objects_cache", None)
         if cache and "variants" in cache:
             return list(cache["variants"])
@@ -527,7 +540,7 @@ class CartItemWriteSerializer(serializers.Serializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
-    variant = ProductVariantSerializer(read_only=True)
+    variant = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
@@ -546,12 +559,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
+    def get_variant(self, obj: OrderItem):
+        if "variant" in obj.get_deferred_fields() or "variant_id" in obj.get_deferred_fields():
+            return None
+        if not obj.variant_id:
+            return None
+        return ProductVariantSerializer(obj.variant).data
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if "variant_id" in instance.get_deferred_fields():
+            data["variant_id"] = None
+        return data
+
 
 class OrderSerializer(serializers.ModelSerializer):
     customer = serializers.SerializerMethodField()
     delivery_boy = UserPublicSerializer(read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
     pending_cancellation_request = serializers.SerializerMethodField()
+    order_type = serializers.SerializerMethodField()
+    pre_order_time_slot = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -578,8 +606,10 @@ class OrderSerializer(serializers.ModelSerializer):
             "payment_method",
             "payment_status",
             "delivery_type",
+            "order_type",
             "is_preorder",
             "pre_order_date_time",
+            "pre_order_time_slot",
             "created_at",
             "updated_at",
             "items",
@@ -605,10 +635,19 @@ class OrderSerializer(serializers.ModelSerializer):
             "payment_method",
             "payment_status",
             "delivery_type",
+            "order_type",
             "is_preorder",
             "pre_order_date_time",
             "pending_cancellation_request",
         )
+
+    def get_order_type(self, obj: Order) -> str:
+        return "preorder" if obj.is_preorder else "normal"
+
+    def get_pre_order_time_slot(self, obj: Order) -> str:
+        if "pre_order_time_slot" in obj.get_deferred_fields():
+            return ""
+        return getattr(obj, "pre_order_time_slot", "") or ""
 
     def get_customer(self, obj: Order):
         if obj.user_id:
@@ -749,6 +788,7 @@ class CheckoutSerializer(serializers.Serializer):
     )
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     pre_order_date_time = serializers.DateTimeField(required=False, allow_null=True)
+    pre_order_time_slot = serializers.CharField(required=False, allow_blank=True, max_length=64)
     items = CheckoutGuestLineSerializer(many=True, required=False)
     guest_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
     guest_phone = serializers.CharField(max_length=15, required=False, allow_blank=True)

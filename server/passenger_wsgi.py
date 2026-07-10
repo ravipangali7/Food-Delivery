@@ -11,17 +11,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fooddelivery.settings")
 
 
-def _apply_pending_migrations() -> None:
-    """Passenger ले app load गर्दा pending migration एक पटक लागू गर्नुहोस्।"""
-    import django
+from core.startup import prepare_database
 
-    django.setup()
-    from django.core.management import call_command
-
-    call_command("migrate", "--noinput", verbosity=1)
-
-
-_apply_pending_migrations()
+prepare_database()
 
 from django.core.wsgi import get_wsgi_application
 

@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from ... import services
+from ...startup import serialize_with_schema_repair
 from ...tracking import (
     broadcast_chat_message_update,
     broadcast_order_chat_message,
@@ -75,13 +76,13 @@ from ..helpers import (
 def _product_queryset(request):
     variant_qs = ProductVariant.objects.select_related("unit").order_by("sort_order", "id")
     if request.user.is_authenticated and request.user.is_staff:
-        return Product.objects.select_related("category", "unit").prefetch_related(
+        return Product.objects.select_related("category__parent", "unit").prefetch_related(
             "images",
             Prefetch("variants", queryset=variant_qs),
         )
     return (
         Product.objects.filter(deleted_at__isnull=True, is_available=True)
-        .select_related("category", "unit")
+        .select_related("category__parent", "unit")
         .prefetch_related(
             "images",
             Prefetch("variants", queryset=variant_qs.filter(is_available=True)),
@@ -153,6 +154,24 @@ def category_detail(request, pk):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+def health_check(request):
+    """Lightweight readiness probe — verifies DB and order reads."""
+    from ...startup import order_queryset_compat, repair_known_schema_gaps
+
+    try:
+        SuperSetting.objects.order_by("pk").values_list("id", flat=True).first()
+        repair_known_schema_gaps()
+        order_queryset_compat(Order.objects.all()).values("id").first()
+    except Exception as exc:
+        return Response(
+            {"status": "error", "detail": str(exc)},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return Response({"status": "ok"})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
 def settings_list(request):
     s = SuperSetting.objects.order_by("pk").first()
     if not s:
@@ -184,7 +203,10 @@ def cart_add_item(request):
     ser = CartItemWriteSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
     cart = get_or_create_cart(request.user)
-    product = get_object_or_404(Product, pk=ser.validated_data["product_id"])
+    product = get_object_or_404(
+        Product.objects.select_related("category__parent"),
+        pk=ser.validated_data["product_id"],
+    )
     try:
         variant = services.resolve_product_variant(product, ser.validated_data.get("variant_id"))
         services.upsert_cart_line(
@@ -226,6 +248,7 @@ def checkout(request):
                 delivery_longitude=data.get("delivery_longitude"),
                 special_instructions=data.get("special_instructions"),
                 pre_order_date_time=data.get("pre_order_date_time"),
+                pre_order_time_slot=data.get("pre_order_time_slot"),
             )
         else:
             guest_lines = data.get("items") or []
@@ -241,13 +264,14 @@ def checkout(request):
                 delivery_longitude=data.get("delivery_longitude"),
                 special_instructions=data.get("special_instructions"),
                 pre_order_date_time=data.get("pre_order_date_time"),
+                pre_order_time_slot=data.get("pre_order_time_slot"),
                 guest_name=data.get("guest_name"),
                 guest_phone=data.get("guest_phone"),
             )
     except ValueError as e:
         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(
-        {"order": OrderSerializer(order).data},
+        {"order": serialize_with_schema_repair(OrderSerializer, order)},
         status=status.HTTP_201_CREATED,
     )
 
@@ -259,7 +283,7 @@ def order_list(request):
     if is_delivery_boy_offline(user):
         return Response([])
     qs = order_queryset_for_user(user)
-    return Response(OrderSerializer(qs, many=True).data)
+    return Response(serialize_with_schema_repair(OrderSerializer, qs, many=True))
 
 
 @api_view(["GET", "DELETE"])
@@ -281,12 +305,12 @@ def order_detail(request, pk):
             )
         qs = order_queryset_for_user(user)
         order = get_object_or_404(qs, pk=pk)
-        return Response(OrderSerializer(order).data)
+        return Response(serialize_with_schema_repair(OrderSerializer, order))
 
     order = resolve_order_for_request(request, pk)
     if order is None:
         return Response(status=status.HTTP_404_NOT_FOUND)
-    return Response(OrderSerializer(order).data)
+    return Response(serialize_with_schema_repair(OrderSerializer, order))
 
 
 @api_view(["POST"])
@@ -327,7 +351,7 @@ def order_transition(request, pk):
     except ValueError as e:
         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     order.refresh_from_db()
-    return Response(OrderSerializer(order).data)
+    return Response(serialize_with_schema_repair(OrderSerializer, order))
 
 
 @api_view(["POST"])
@@ -347,7 +371,10 @@ def order_cancellation_request(request, pk):
         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     order.refresh_from_db()
     order = get_object_or_404(order_queryset_for_user(request.user), pk=pk)
-    return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+    return Response(
+        serialize_with_schema_repair(OrderSerializer, order),
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @api_view(["GET"])

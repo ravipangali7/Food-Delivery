@@ -12,6 +12,7 @@ urlpatterns = [
     path("parent-categories/<int:pk>/", home_views.parent_category_detail),
     path("categories/<int:pk>/", home_views.category_detail),
     path("settings/", home_views.settings_list),
+    path("health/", home_views.health_check),
     path("settings/<int:pk>/", home_views.settings_detail),
     path("google-maps-js-key/", home_views.google_maps_js_key),
     path("cart/", home_views.cart_detail),

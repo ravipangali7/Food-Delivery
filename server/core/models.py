@@ -631,6 +631,13 @@ class Order(models.Model):
         null=True,
         help_text=_("When the customer wants this pre-order prepared or ready."),
     )
+    pre_order_time_slot = models.CharField(
+        _("pre-order time slot"),
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=_("Customer-selected delivery time slot label (e.g. 9:00 AM – 11:00 AM)."),
+    )
     created_at = models.DateTimeField(_("created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("updated at"), auto_now=True)
 

@@ -222,6 +222,8 @@ def persist_order_chat_message(
 def order_queryset_for_user(user):
     from django.db.models import Prefetch
 
+    from ..startup import order_items_prefetch_queryset, order_queryset_compat
+
     pending_cancel = OrderCancellationRequest.objects.filter(
         status=OrderCancellationRequest.Status.PENDING
     )
@@ -229,7 +231,7 @@ def order_queryset_for_user(user):
         Order.objects.all()
         .select_related("user", "delivery_boy")
         .prefetch_related(
-            "items__product__images",
+            Prefetch("items", queryset=order_items_prefetch_queryset()),
             Prefetch(
                 "cancellation_requests",
                 queryset=pending_cancel,
@@ -239,7 +241,7 @@ def order_queryset_for_user(user):
         .order_by("-created_at")
     )
     if user.is_staff:
-        return qs
+        return order_queryset_compat(qs)
     if getattr(user, "is_delivery_boy", False):
-        return qs.filter(delivery_boy_id=user.id)
-    return qs.filter(user=user)
+        return order_queryset_compat(qs.filter(delivery_boy_id=user.id))
+    return order_queryset_compat(qs.filter(user=user))
