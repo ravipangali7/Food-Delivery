@@ -5,6 +5,7 @@ import { ArrowLeft, Camera } from 'lucide-react';
 import { patchFormData, patchJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import LocationMiniMap from '@/components/maps/LocationMiniMap';
+import { getDefaultDeliveryCoordinates } from '@/lib/defaultDeliveryLocation';
 import type { User } from '@/types';
 
 function formatCoord(value: number): string {
@@ -52,8 +53,12 @@ export default function CustomerEditProfile() {
       setLatitude(formatCoord(Number(user.latitude)));
       setLongitude(formatCoord(Number(user.longitude)));
     } else {
-      setLatitude('');
-      setLongitude('');
+      const defaults = getDefaultDeliveryCoordinates();
+      setLatitude(defaults.latitude);
+      setLongitude(defaults.longitude);
+      if (!user.address?.trim()) {
+        setAddress(defaults.label);
+      }
     }
   }, [user]);
 

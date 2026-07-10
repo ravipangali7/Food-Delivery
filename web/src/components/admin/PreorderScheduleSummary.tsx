@@ -8,7 +8,7 @@ function deliveryTypeLabel(t: OrderDeliveryType): string {
 
 type PreorderFields = Pick<
   Order,
-  'is_preorder' | 'pre_order_date_time' | 'created_at' | 'estimated_delivery_at' | 'delivery_type'
+  'is_preorder' | 'pre_order_date_time' | 'pre_order_time_slot' | 'created_at' | 'estimated_delivery_at' | 'delivery_type'
 >;
 
 export function PreorderScheduleSummary({
@@ -50,7 +50,20 @@ export function PreorderScheduleSummary({
         </span>
       ),
     },
-    {
+  ];
+
+  if (order.pre_order_time_slot?.trim()) {
+    lines.push({
+      key: 'slot',
+      node: (
+        <span>
+          <span className="font-semibold">Time slot:</span> {order.pre_order_time_slot.trim()}
+        </span>
+      ),
+    });
+  }
+
+  lines.push({
       key: 'lead',
       node: (
         <span>
@@ -60,8 +73,7 @@ export function PreorderScheduleSummary({
             : `${leadDays} calendar day${leadDays === 1 ? '' : 's'} after the order was placed`}
         </span>
       ),
-    },
-  ];
+    });
 
   if (fromToday > 0) {
     lines.push({

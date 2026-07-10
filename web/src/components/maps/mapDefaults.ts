@@ -1,5 +1,15 @@
-/** निर्देशाङ्क नसेट भएको बेला पूर्वनिर्धारित नक्शा केन्द्र (काठमाडौं क्षेत्र)। */
-export const DEFAULT_MAP_CENTER: [number, number] = [27.7172, 85.3240];
+/** Kohalpur, Banke — पूर्वनिर्धारित डेलिभरी क्षेत्र जब GPS वा सेभ गरिएको स्थान उपलब्ध छैन। */
+export const DEFAULT_MAP_CENTER: [number, number] = [28.2053, 81.6944];
+
+export const DEFAULT_MAP_LABEL = 'Kohalpur';
+
+function formatCoord(value: number): string {
+  const rounded = Math.round(value * 1e8) / 1e8;
+  return String(rounded);
+}
+
+export const DEFAULT_MAP_LAT = formatCoord(DEFAULT_MAP_CENTER[0]);
+export const DEFAULT_MAP_LNG = formatCoord(DEFAULT_MAP_CENTER[1]);
 
 export type LocationMiniMapProps = {
   latitude: string;

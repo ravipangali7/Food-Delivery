@@ -213,6 +213,8 @@ export interface Product {
   is_veg: boolean;
   /** true भए उत्पादन ग्राहक Sweets ट्याबमा देखिन्छ। */
   is_sweet?: boolean;
+  /** Sweets/Cakes श्रेणीका लागि pre-order उपलब्ध। */
+  allows_preorder?: boolean;
   thumbnail_url?: string;
   sort_order: number;
   created_at: string;
@@ -327,8 +329,12 @@ export interface Order {
   delivery_type: OrderDeliveryType;
   /** अर्डरमा कम्तीमा एउटा pre-order मिठाई लाइन छ। */
   is_preorder?: boolean;
+  /** `normal` वा `preorder` — API बाट पढ्न मात्र। */
+  order_type?: 'normal' | 'preorder';
   /** ग्राहकले pre-order वस्तु कहिले तयार चाहे (API बाट ISO datetime)। */
   pre_order_date_time?: string | null;
+  /** ग्राहकले छानेको डेलिभरी समय स्लट। */
+  pre_order_time_slot?: string | null;
   created_at: string;
   updated_at: string;
   customer?: User;

@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DEFAULT_MAP_CENTER, type LocationMiniMapProps } from '@/components/maps/mapDefaults';
+import UseCurrentLocationButton from '@/components/maps/UseCurrentLocationButton';
 import '@/lib/leafletDefaultIcons';
 import { nominatimReverse, nominatimSearch, type NominatimResult } from '@/lib/nominatim';
 import 'leaflet/dist/leaflet.css';
@@ -50,6 +51,14 @@ function MapResizeObserver() {
     map.invalidateSize();
     return () => ro.disconnect();
   }, [map]);
+  return null;
+}
+
+function MapPanTo({ position, zoom }: { position: { lat: number; lng: number }; zoom?: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([position.lat, position.lng], zoom ?? map.getZoom(), { animate: true });
+  }, [map, position.lat, position.lng, zoom]);
   return null;
 }
 
@@ -193,6 +202,8 @@ export default function LocationMiniMapOsm({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [panTarget, setPanTarget] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
   const reverseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reverseRequestIdRef = useRef(0);
 
@@ -263,6 +274,15 @@ export default function LocationMiniMapOsm({
     [applyCoords],
   );
 
+  const onCurrentLocation = useCallback(
+    (lat: number, lng: number) => {
+      setLocationError(null);
+      applyCoords(lat, lng);
+      setPanTarget({ lat, lng, zoom: 16 });
+    },
+    [applyCoords],
+  );
+
   const runAddressTextSearch = useCallback(() => {
     const q = searchQuery.trim();
     if (!q) {
@@ -290,6 +310,15 @@ export default function LocationMiniMapOsm({
 
   return (
     <div className={cn('space-y-3', className)}>
+      <UseCurrentLocationButton
+        onLocation={onCurrentLocation}
+        onError={msg => setLocationError(msg)}
+      />
+      {locationError ? (
+        <p className="text-xs text-destructive" role="status">
+          {locationError}
+        </p>
+      ) : null}
       <OsmTypeahead onPlaceSelected={onPlaceFromSearch} />
       {parsed ? null : (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
@@ -331,12 +360,13 @@ export default function LocationMiniMapOsm({
       >
         <MapContainer
           center={[center.lat, center.lng]}
-          zoom={parsed ? 15 : 12}
+          zoom={parsed ? 15 : 13}
           className="h-full w-full min-h-[160px] z-0"
           scrollWheelZoom
         >
           <MapResizeObserver />
           <MapClickHandler onMapClick={onMapClick} />
+          {panTarget ? <MapPanTo position={panTarget} zoom={panTarget.zoom} /> : null}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

@@ -15,6 +15,14 @@ import {
 } from '@/lib/guestCheckoutDetails';
 import { saveGuestOrderAccess } from '@/lib/guestOrderAccess';
 import LocationMiniMap from '@/components/maps/LocationMiniMap';
+import { getDefaultDeliveryCoordinates, isUnsetCoordinates } from '@/lib/defaultDeliveryLocation';
+import {
+  buildPreorderDateTime,
+  PREORDER_TIME_SLOTS,
+  preorderSlotLabel,
+  todayYmdLocal,
+  type PreorderTimeSlotId,
+} from '@/lib/preorderSlots';
 import type { Order, SuperSetting } from '@/types';
 
 type CheckoutRes = { order: Order };
@@ -43,8 +51,10 @@ export default function CustomerCheckout() {
   const [longitude, setLongitude] = useState('');
   const [showSummary, setShowSummary] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [preOrderLocal, setPreOrderLocal] = useState('');
+  const [preOrderDate, setPreOrderDate] = useState('');
+  const [preOrderSlot, setPreOrderSlot] = useState<PreorderTimeSlotId | ''>('');
   const hydratedCoordsFromProfile = useRef(false);
+  const appliedDefaultLocation = useRef(false);
 
   const onCoordinatesChange = useCallback((lat: string, lng: string) => {
     setLatitude(lat);
@@ -73,8 +83,27 @@ export default function CustomerCheckout() {
     if (user.latitude != null && user.longitude != null) {
       setLatitude(formatCoord(Number(user.latitude)));
       setLongitude(formatCoord(Number(user.longitude)));
+      return;
     }
-  }, [user]);
+    const defaults = getDefaultDeliveryCoordinates();
+    setLatitude(defaults.latitude);
+    setLongitude(defaults.longitude);
+    if (!deliveryAddressLine.trim()) {
+      setDeliveryAddressLine(defaults.label);
+    }
+  }, [user, deliveryAddressLine]);
+
+  useEffect(() => {
+    if (user || appliedDefaultLocation.current) return;
+    if (!isUnsetCoordinates(latitude, longitude)) return;
+    appliedDefaultLocation.current = true;
+    const defaults = getDefaultDeliveryCoordinates();
+    setLatitude(defaults.latitude);
+    setLongitude(defaults.longitude);
+    if (!deliveryAddressLine.trim()) {
+      setDeliveryAddressLine(defaults.label);
+    }
+  }, [user, latitude, longitude, deliveryAddressLine]);
 
   const storePosition = useMemo((): { lat: number; lng: number } | null => {
     if (settings?.latitude != null && settings?.longitude != null) {
@@ -104,6 +133,13 @@ export default function CustomerCheckout() {
     !!deliveryPosition &&
     !!storePosition &&
     isOutOfDeliveryRadius(distanceKm, underKmRadius);
+  const preOrderDateTime = useMemo(() => {
+    if (!preOrderDate || !preOrderSlot) return null;
+    return buildPreorderDateTime(preOrderDate, preOrderSlot);
+  }, [preOrderDate, preOrderSlot]);
+
+  const preOrderReady = hasPreorderItems && preOrderDateTime != null && preOrderDateTime.getTime() > Date.now();
+
   const totalPreview = subtotal + deliveryFee;
 
   const placeOrder = useMutation({
@@ -129,14 +165,14 @@ export default function CustomerCheckout() {
         body.guest_phone = guest.phone;
       }
       if (hasPreorderItems) {
-        if (!preOrderLocal.trim()) {
-          throw new Error('Choose the date and time for your pre-order.');
+        if (!preOrderDate.trim() || !preOrderSlot) {
+          throw new Error('Choose a delivery date and time slot for your pre-order.');
         }
-        const preDt = new Date(preOrderLocal);
-        if (Number.isNaN(preDt.getTime()) || preDt.getTime() <= Date.now()) {
+        if (!preOrderDateTime || preOrderDateTime.getTime() <= Date.now()) {
           throw new Error('Pre-order date and time must be in the future.');
         }
-        body.pre_order_date_time = preDt.toISOString();
+        body.pre_order_date_time = preOrderDateTime.toISOString();
+        body.pre_order_time_slot = preorderSlotLabel(preOrderSlot);
       }
       return postJson<CheckoutRes, Record<string, unknown>>('/api/checkout/', body, token);
     },
@@ -216,26 +252,64 @@ export default function CustomerCheckout() {
         </div>
 
         {hasPreorderItems && (
-          <div className="bg-violet-50/90 border border-violet-200 rounded-xl p-4 space-y-2">
-            <h3 className="font-semibold text-sm text-violet-950">Pre-order date and time</h3>
+          <div className="bg-violet-50/90 border border-violet-200 rounded-xl p-4 space-y-3">
+            <h3 className="font-semibold text-sm text-violet-950">Pre-order delivery schedule</h3>
             <p className="text-xs text-violet-900/90">
-              When should we have your pre-order sweets ready? Pick a future date and time in your local timezone.
+              Choose when you would like your sweets or cake delivered. Pre-orders are available for sweets and cakes
+              only.
             </p>
-            <input
-              type="datetime-local"
-              value={preOrderLocal}
-              onChange={e => setPreOrderLocal(e.target.value)}
-              className="w-full border border-violet-200 rounded-lg px-3 py-2 text-sm bg-white text-foreground"
-            />
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-violet-950" htmlFor="preorder-date">
+                Delivery date
+              </label>
+              <input
+                id="preorder-date"
+                type="date"
+                min={todayYmdLocal()}
+                value={preOrderDate}
+                onChange={e => setPreOrderDate(e.target.value)}
+                className="w-full border border-violet-200 rounded-lg px-3 py-2 text-sm bg-white text-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-violet-950" htmlFor="preorder-slot">
+                Delivery time slot
+              </label>
+              <select
+                id="preorder-slot"
+                value={preOrderSlot}
+                onChange={e => setPreOrderSlot(e.target.value as PreorderTimeSlotId | '')}
+                className="w-full border border-violet-200 rounded-lg px-3 py-2 text-sm bg-white text-foreground"
+              >
+                <option value="">Select a time slot</option>
+                {PREORDER_TIME_SLOTS.map(slot => (
+                  <option key={slot.id} value={slot.id}>
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {preOrderDate && preOrderSlot && preOrderDateTime ? (
+              <p className="text-xs text-violet-900 rounded-lg border border-violet-200 bg-white/80 px-3 py-2">
+                <span className="font-semibold">Scheduled for:</span>{' '}
+                {preOrderDateTime.toLocaleString(undefined, {
+                  weekday: 'short',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </p>
+            ) : null}
           </div>
         )}
 
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <h3 className="font-semibold text-sm">Delivery location</h3>
           <p className="text-xs text-muted-foreground">
-            A map pin is required. Search for any street, area, ward, or place in Nepal, pick a result, then fine-tune by
-            dragging the pin if needed. Your saved profile pin loads here when set. The text we send with your order comes
-            from your search choice or from the pin position (automatic lookup).
+            Kohalpur is selected by default. Search for any street or area, use your current location, or drag the pin to
+            fine-tune. Your saved profile pin loads here when set.
           </p>
           {!deliveryPosition && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -355,7 +429,7 @@ export default function CustomerCheckout() {
             !deliveryPosition ||
             outOfRadius ||
             placeOrder.isPending ||
-            (hasPreorderItems && !preOrderLocal.trim()) ||
+            (hasPreorderItems && !preOrderReady) ||
             !guestDetailsReady
           }
           onClick={() => {

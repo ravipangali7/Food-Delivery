@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, Trash2 } from 'lucide-react';
 import { deleteJson, getJson, postJson } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import LocationMiniMap from '@/components/maps/LocationMiniMap';
+import { getDefaultDeliveryCoordinates } from '@/lib/defaultDeliveryLocation';
 import type { CustomerAddress } from '@/types';
 
 export default function CustomerSavedAddresses() {
@@ -19,6 +20,15 @@ export default function CustomerSavedAddresses() {
   const onCoordinatesChange = useCallback((lat: string, lng: string) => {
     setLatitude(lat);
     setLongitude(lng);
+  }, []);
+
+  const openAddForm = useCallback(() => {
+    const defaults = getDefaultDeliveryCoordinates();
+    setLabel('');
+    setAddress(defaults.label);
+    setLatitude(defaults.latitude);
+    setLongitude(defaults.longitude);
+    setFormOpen(true);
   }, []);
 
   const { data: list, isLoading } = useQuery({
@@ -121,7 +131,7 @@ export default function CustomerSavedAddresses() {
         {!formOpen ? (
           <button
             type="button"
-            onClick={() => setFormOpen(true)}
+            onClick={openAddForm}
             className="w-full py-3 rounded-xl border-2 border-dashed border-amber-300 text-amber-800 font-medium text-sm"
           >
             + Add address

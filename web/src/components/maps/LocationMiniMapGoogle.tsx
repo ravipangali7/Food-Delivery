@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, Marker, useGoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DEFAULT_MAP_CENTER, type LocationMiniMapProps } from '@/components/maps/mapDefaults';
+import UseCurrentLocationButton from '@/components/maps/UseCurrentLocationButton';
 import { useGoogleMapsJavaScriptKey } from '@/hooks/useGoogleMapsJavaScriptKey';
 
 const GOOGLE_MAP_LOADER_ID = 'google-map-tracking';
@@ -260,6 +261,23 @@ function GooglePlacesSearch({
 
 const mapStyle = { width: '100%', height: '100%' };
 
+const GOOGLE_MAP_OPTIONS: google.maps.MapOptions = {
+  streetViewControl: false,
+  mapTypeControl: false,
+  fullscreenControl: true,
+  gestureHandling: 'greedy',
+  clickableIcons: false,
+};
+
+function MapPanTo({ position, zoom }: { position: { lat: number; lng: number }; zoom?: number }) {
+  const map = useGoogleMap();
+  useEffect(() => {
+    map.panTo(position);
+    if (zoom != null) map.setZoom(zoom);
+  }, [map, position.lat, position.lng, zoom]);
+  return null;
+}
+
 export default function LocationMiniMapGoogle(props: LocationMiniMapProps) {
   const { apiKey, isLoadingKey, keyError, keyErrorStatus } = useGoogleMapsJavaScriptKey();
 
@@ -299,6 +317,7 @@ function LocationMiniMapWithKey({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const reverseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reverseRequestIdRef = useRef(0);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -385,6 +404,18 @@ function LocationMiniMapWithKey({
     [applyCoords],
   );
 
+  const onCurrentLocation = useCallback(
+    (lat: number, lng: number) => {
+      setLocationError(null);
+      applyCoords(lat, lng);
+      if (mapRef.current) {
+        mapRef.current.panTo({ lat, lng });
+        mapRef.current.setZoom(16);
+      }
+    },
+    [applyCoords],
+  );
+
   const runAddressTextSearch = useCallback(() => {
     const q = searchQuery.trim();
     if (!q) {
@@ -421,6 +452,15 @@ function LocationMiniMapWithKey({
 
   return (
     <div className={cn('space-y-3', className)}>
+      <UseCurrentLocationButton
+        onLocation={onCurrentLocation}
+        onError={msg => setLocationError(msg)}
+      />
+      {locationError ? (
+        <p className="text-xs text-destructive" role="status">
+          {locationError}
+        </p>
+      ) : null}
       <GooglePlacesSearch
         isScriptLoaded={isLoaded}
         loadError={loadError}
@@ -468,7 +508,7 @@ function LocationMiniMapWithKey({
         <GoogleMap
           mapContainerStyle={mapStyle}
           center={center}
-          zoom={parsed ? 15 : 12}
+          zoom={parsed ? 15 : 13}
           onClick={onMapClick}
           onLoad={m => {
             mapRef.current = m;
@@ -477,8 +517,9 @@ function LocationMiniMapWithKey({
           onUnmount={() => {
             mapRef.current = null;
           }}
-          options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: true }}
+          options={GOOGLE_MAP_OPTIONS}
         >
+          {parsed ? <MapPanTo position={parsed} /> : null}
           {parsed ? (
             <Marker
               position={parsed}

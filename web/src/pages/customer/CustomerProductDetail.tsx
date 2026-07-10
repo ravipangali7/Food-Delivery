@@ -22,6 +22,7 @@ import {
   productHasVariantChoices,
   variantDisplayLabel,
 } from '@/lib/productVariants';
+import { productAllowsPreorder } from '@/lib/preorder';
 
 export default function CustomerProductDetail() {
   const { id } = useParams();
@@ -191,6 +192,7 @@ export default function CustomerProductDetail() {
 
   const savings = Math.max(0, num(selectedOption?.price ?? product.price) - effective) * qty;
   const thumb = product.thumbnail_url || product.images?.[0]?.image_url;
+  const allowsPreorder = product.allows_preorder ?? productAllowsPreorder(product);
 
   return (
     <div className="pb-24">
@@ -298,7 +300,7 @@ export default function CustomerProductDetail() {
         </div>
       </div>
       <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-card border-t border-border p-4">
-        {product.is_sweet ? (
+        {allowsPreorder ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-4 justify-between w-full">
               <span className="font-bold text-lg text-amber-600">{formatCurrency(effective * qty)}</span>
@@ -321,7 +323,7 @@ export default function CustomerProductDetail() {
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground -mt-1">
-              Pre-order skips live stock; choose pickup or delivery time at checkout.
+              Pre-order is available for sweets and cakes. Choose your delivery date and time at checkout.
             </p>
             <div className="flex gap-2 w-full">
               <button
